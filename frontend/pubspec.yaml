@@ -1,0 +1,39 @@
+name: frames_app
+description: "A new Flutter project."
+# publish_to: 'none'
+version: 0.1.0
+
+environment:
+  sdk: '>=3.3.3 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cached_network_image: ^3.3.1
+  country_picker: ^2.0.26
+  flutter_riverpod: ^2.5.1
+  # flutter_unity_widget: ^2022.2.1
+  googleapis: ^13.1.0
+  googleapis_auth: ^1.6.0
+  http: ^1.2.2
+  image_picker: ^1.1.2
+  mailer: ^6.1.2
+  permission_handler: 11.3.1  
+  camera: ^0.10.5+2
+  visibility_detector: ^0.4.0+2
+  uuid: ^3.0.4
+  geolocator: ^10.0.0
+  google_maps_flutter: ^2.6.1
+  url_launcher: ^6.0.9
+
+
+
+
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+
+flutter:
+  uses-material-design: true
