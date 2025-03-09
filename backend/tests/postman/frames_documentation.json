@@ -1,0 +1,570 @@
+{
+	"info": {
+		"name": "Frames API Documentation",
+		"description": "Complete API documentation for Frames application",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "User Management",
+			"item": [
+				{
+					"name": "Create New User",
+					"request": {
+						"method": "POST",
+						"url": "http://localhost:8080/user_basic",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "X-API-Key",
+								"value": "{{api_key}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\"username\":\"testuser1\",\"password\":\"Test@123456\",\"email\":\"testuser1@example.com\",\"firstName\":\"Test\",\"lastName\":\"User\",\"dateOfBirth\":\"1990-01-01\",\"country\":\"United States\",\"phoneNumber\":\"+1234567890\",\"userType\":\"artist\"}"
+						},
+						"description": "Creates a new user account with the provided details"
+					}
+				},
+				{
+					"name": "Login User",
+					"request": {
+						"method": "POST",
+						"url": "http://localhost:8080/login",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "X-API-Key",
+								"value": "{{api_key}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\"username\":\"testuser1\",\"password\":\"Test@123456\"}"
+						},
+						"description": "Authenticates user and returns JWT token"
+					}
+				},
+				{
+					"name": "Check User Exists",
+					"request": {
+						"method": "POST",
+						"url": "http://localhost:8080/user_exists",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "X-API-Key",
+								"value": "{{api_key}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\"username\":\"testuser1\",\"email\":\"testuser1@example.com\"}"
+						},
+						"description": "Checks if username or email already exists"
+					}
+				},
+				{
+					"name": "Get User Info",
+					"request": {
+						"method": "GET",
+						"url": "http://localhost:8080/user_info?username=testuser1",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							},
+							{
+								"key": "X-API-Key",
+								"value": "{{api_key}}"
+							}
+						],
+						"description": "Retrieves user information. JWT token optional."
+					}
+				}
+			]
+		},
+		{
+			"name": "Profile Management",
+			"item": [
+				{
+					"name": "Get Follower Count",
+					"request": {
+						"method": "POST",
+						"url": "http://localhost:8080/getfollowercount",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "X-API-Key",
+								"value": "{{api_key}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\"username\":\"testuser1\"}"
+						},
+						"description": "Gets the total number of followers for a user"
+					}
+				},
+				{
+					"name": "Get Following Count",
+					"request": {
+						"method": "POST",
+						"url": "http://localhost:8080/getfollowingcount",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "X-API-Key",
+								"value": "{{api_key}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\"username\":\"testuser1\"}"
+						},
+						"description": "Gets the total number of users being followed"
+					}
+				},
+				{
+					"name": "Get Piece Count",
+					"request": {
+						"method": "POST",
+						"url": "http://localhost:8080/getPieceCount",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "X-API-Key",
+								"value": "{{api_key}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\"username\":\"testuser1\"}"
+						},
+						"description": "Gets the total number of pieces owned by the user"
+					}
+				},
+				{
+					"name": "Get Pieces By Owner",
+					"request": {
+						"method": "POST",
+						"url": "http://localhost:8080/getpiecesbyowner",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "X-API-Key",
+								"value": "{{api_key}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\"username\":\"testuser1\"}"
+						},
+						"description": "Retrieves all pieces owned by the user"
+					}
+				},
+				{
+					"name": "Get Profile",
+					"request": {
+						"method": "POST",
+						"url": "http://localhost:8080/getProfile",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "X-API-Key",
+								"value": "{{api_key}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\"username\":\"testuser1\"}"
+						},
+						"description": "Gets the user's profile information"
+					}
+				},
+				{
+					"name": "Set Profile",
+					"request": {
+						"method": "POST",
+						"url": "http://localhost:8080/set_profile",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "X-API-Key",
+								"value": "{{api_key}}"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{}"
+						},
+						"description": "Creates or retrieves a user profile (Requires authentication)"
+					}
+				},
+				{
+					"name": "Update Profile",
+					"request": {
+						"method": "POST",
+						"url": "http://localhost:8080/update_profile",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "X-API-Key",
+								"value": "{{api_key}}"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\"username\":\"testuser1\",\"Bio\":\"New bio\",\"imageUrl\":\"http://example.com/image.jpg\"}"
+						},
+						"description": "Updates user profile information (Requires authentication)"
+					}
+				}
+			]
+		},
+		{
+			"name": "Piece Management",
+			"item": [
+				{
+					"name": "Create New Piece",
+					"request": {
+						"method": "POST",
+						"url": "http://localhost:8080/new_piece",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "X-API-Key",
+								"value": "{{api_key}}"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\"Piece_id\":\"unique_id_123\",\"Piece_Object\":\"art_object_data\",\"Piece_owner\":\"testuser1\",\"Piece_title\":\"My Artwork\",\"Frame_name\":\"Classic Frame\",\"live_status\":false,\"Piece_likes\":0,\"Piece_location\":\"Gallery 1\",\"Piece_description\":\"Beautiful artwork\",\"Piece_creation_date\":\"2024-01-20\",\"Piece_display\":true,\"Piece_for_sale\":true,\"Piece_price\":100.00}"
+						},
+						"description": "Creates a new piece for the authenticated user (Requires authentication)"
+					}
+				},
+				{
+					"name": "Update Piece",
+					"request": {
+						"method": "PUT",
+						"url": "http://localhost:8080/update_piece",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "X-API-Key",
+								"value": "{{api_key}}"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\"piece_owner\":\"testuser1\",\"old_piece_title\":\"My Artwork\",\"new_piece_title\":\"Updated Artwork\",\"updated_piece_description\":\"Updated description\",\"piece_for_sale\":true,\"piece_price\":150.00}"
+						},
+						"description": "Updates an existing piece's information (Requires authentication)"
+					}
+				},
+				{
+					"name": "Delete Piece",
+					"request": {
+						"method": "POST",
+						"url": "http://localhost:8080/delete_piece",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "X-API-Key",
+								"value": "{{api_key}}"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\"piece_owner\":\"testuser1\",\"piece_title\":\"My Artwork\"}"
+						},
+						"description": "Deletes a piece and its associated data (Requires authentication). If piece is live, also removes anchor and updates user profile."
+					}
+				},
+				{
+					"name": "Toggle Live Status",
+					"request": {
+						"method": "POST",
+						"url": "http://localhost:8080/toggle_live_status",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "X-API-Key",
+								"value": "{{api_key}}"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\"piece_id\":\"piece123\",\"live_status\":false}"
+						},
+						"description": "Toggles a piece's live status. When set to false, removes associated anchor and updates user's live piece count. (Requires authentication)"
+					}
+				}
+			]
+		},
+		{
+			"name": "Anchor Management",
+			"item": [
+				{
+					"name": "Create Anchor",
+					"request": {
+						"method": "POST",
+						"url": "http://localhost:8080/anchor",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "X-API-Key",
+								"value": "{{api_key}}"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\"anchorId\":\"anchor123\",\"pieceId\":\"piece123\",\"piece_owner\":\"testuser1\",\"frameName\":\"Classic Frame\",\"faceName\":\"Front\",\"imageUrl\":\"http://example.com/image.jpg\",\"latitude\":40.7128,\"longitude\":-74.0060,\"arPosition\":{\"x\":0,\"y\":0,\"z\":0},\"arRotation\":{\"x\":0,\"y\":0,\"z\":0},\"localScale\":{\"x\":1,\"y\":1,\"z\":1},\"heightAboveCamera\":2}"
+						},
+						"description": "Creates a new anchor for a piece (Requires authentication). Updates piece live status and user's live piece count."
+					}
+				},
+				{
+					"name": "Fetch Nearby Anchors",
+					"request": {
+						"method": "POST",
+						"url": "http://localhost:8080/fetchanchors",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "X-API-Key",
+								"value": "{{api_key}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\"latitude\":40.7128,\"longitude\":-74.0060,\"radius\":100}"
+						},
+						"description": "Fetches all anchors within specified radius (in meters) of given coordinates"
+					}
+				},
+				{
+					"name": "Get Anchors By Owner",
+					"request": {
+						"method": "POST",
+						"url": "http://localhost:8080/get_anchors_by_owner",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "X-API-Key",
+								"value": "{{api_key}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\"username\":\"testuser1\"}"
+						},
+						"description": "Retrieves all anchors owned by the specified user"
+					}
+				},
+				{
+					"name": "Get Anchor By Piece ID",
+					"request": {
+						"method": "POST",
+						"url": "http://localhost:8080/get_anchor_by_piece_id",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "X-API-Key",
+								"value": "{{api_key}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\"pieceId\":\"piece123\"}"
+						},
+						"description": "Retrieves the anchor associated with a specific piece"
+					}
+				}
+			]
+		},
+		{
+			"name": "Frame Management",
+			"item": [
+				{
+					"name": "Get All Frames",
+					"request": {
+						"method": "GET",
+						"url": "http://localhost:8080/frames",
+						"header": [
+							{
+								"key": "X-API-Key",
+								"value": "{{api_key}}"
+							}
+						],
+						"description": "Retrieves all available frames"
+					}
+				},
+				{
+					"name": "Create New Frame",
+					"request": {
+						"method": "POST",
+						"url": "http://localhost:8080/new_frame",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "X-API-Key",
+								"value": "{{api_key}}"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\"Frame_object\":\"frame_data\",\"Frame_owner\":\"testuser1\",\"Frame_display\":true,\"Frame_collaborators\":[],\"Frame_title\":\"Modern Frame\",\"Frame_description\":\"A sleek modern frame\",\"Frame_creation_date\":\"2024-01-20\",\"Frame_for_sale\":true,\"Frame_price\":50.00,\"Face_name\":\"Front\"}"
+						},
+						"description": "Creates a new frame (Requires authentication)"
+					}
+				},
+				{
+					"name": "Update Frame",
+					"request": {
+						"method": "PUT",
+						"url": "http://localhost:8080/frames/:frameId",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "X-API-Key",
+								"value": "{{api_key}}"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\"Frame_title\":\"Updated Frame\",\"Frame_description\":\"Updated frame description\",\"Frame_price\":75.00}"
+						},
+						"description": "Updates an existing frame (Requires authentication)"
+					}
+				},
+				{
+					"name": "Delete Frame",
+					"request": {
+						"method": "DELETE",
+						"url": "http://localhost:8080/frames/:frameId",
+						"header": [
+							{
+								"key": "X-API-Key",
+								"value": "{{api_key}}"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"description": "Deletes a frame (Requires authentication)"
+					}
+				}
+			]
+		}
+	],
+	"variable": [
+		{
+			"key": "api_key",
+			"value": "frames_dev_api_key_2024"
+		},
+		{
+			"key": "jwt_token",
+			"value": "YOUR_JWT_TOKEN"
+		}
+	]
+}
