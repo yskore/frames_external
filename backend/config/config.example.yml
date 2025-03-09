@@ -1,0 +1,19 @@
+development:
+  jwt:
+    secretKey: "your_dev_secret_key_here"
+    expiresIn: "24h"
+  mongodb:
+    uri: "your_mongodb_uri_here"
+  api:
+    key: "your_dev_api_key_here"
+    header: "X-API-Key"
+
+production:
+  jwt:
+    secretKey: "your_prod_secret_key_here"
+    expiresIn: "24h"
+  mongodb:
+    uri: "your_mongodb_uri_here"
+  api:
+    key: "your_prod_api_key_here"
+    header: "X-API-Key"
