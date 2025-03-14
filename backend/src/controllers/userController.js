@@ -8,7 +8,7 @@ const { hashPassword, comparePassword } = require('../utils/passwordUtils');
 exports.createUser = async (req, res) => {
     try {
         const { username, email, password } = req.body;
-        
+
         // Check if user exists using the existing function
         const existingUserByUsername = await user_basic.findOne({ username });
         if (existingUserByUsername) {
@@ -22,7 +22,7 @@ exports.createUser = async (req, res) => {
 
         // Hash password
         const hashedPassword = await hashPassword(password);
-        
+
         // If user doesn't exist, proceed with user creation
         const newUser = new user_basic({
             ...req.body,
@@ -51,7 +51,7 @@ exports.createUser = async (req, res) => {
         const userResponse = savedUser.toObject();
         delete userResponse.password;
 
-        res.status(201).json({ success: true, user: userResponse });
+        res.status(201).json({ success: true, message: "", data: userResponse });
     } catch (err) {
         console.error('Error adding new user:', err);
         if (process.env.NODE_ENV === 'development') {
@@ -69,21 +69,41 @@ exports.checkUserExists = async (req, res) => {
 
         const existingUserByUsername = await user_basic.findOne({ username });
         if (existingUserByUsername) {
-            return res.status(400).json({ success: false, message: 'Username already exists', exists: true });
+            return res.status(400).json({
+                success: false, message: 'Username already exists', data: {
+                    exists: true
+                }
+            });
         }
 
         const existingUserByEmail = await user_basic.findOne({ email });
         if (existingUserByEmail) {
-            return res.status(400).json({ success: false, message: 'Email already exists', exists: true });
+            return res.status(400).json({
+                success: false, message: 'Email already exists', data: {
+                    exists: true
+                }
+            });
         }
 
-        res.status(200).json({ success: true, message: 'Username and email are available', exists: false });
+        res.status(200).json({
+            success: true, message: 'Username and email are available', data: {
+                exists: false
+            }
+        });
     } catch (err) {
         console.error('Error checking username and email:', err);
         if (process.env.NODE_ENV === 'development') {
-            res.status(500).json({ success: false, message: err.message, exists: false });
+            res.status(500).json({
+                success: false, message: err.message, data: {
+                    exists: false
+                }
+            });
         } else {
-            res.status(500).json({ success: false, message: 'Internal server error', exists: false });
+            res.status(500).json({
+                success: false, message: 'Internal server error', data: {
+                    exists: false
+                }
+            });
         }
     }
 };
@@ -93,7 +113,7 @@ exports.loginUser = async (req, res) => {
     try {
         const user = await user_basic.findOne({ "username": req.body.username });
         if (!user) return res.status(400).json({ success: false, message: 'Invalid credentials.' });
-        
+
         const validPassword = await comparePassword(req.body.password, user.password);
         if (!validPassword) {
             return res.status(400).json({ success: false, message: 'Invalid credentials.' });
@@ -103,7 +123,9 @@ exports.loginUser = async (req, res) => {
         res.status(200).json({
             success: true,
             message: 'Logged in successfully',
-            accessToken: accessToken
+            data: {
+                accessToken: accessToken,
+            }
         });
     } catch (err) {
         res.status(500).json({ success: false, message: 'Internal server error' });
@@ -116,10 +138,10 @@ exports.getUserInfo = async (req, res) => {
         const { username } = req.query;
 
         console.log(username);
-        
+
         // If no username provided in query, use authenticated user's username
         const queryUsername = username || req.user.username;
-        
+
         const user = await user_basic.findOne({ username: queryUsername });
 
         if (!user) {
@@ -131,10 +153,14 @@ exports.getUserInfo = async (req, res) => {
         delete userResponse.password;
 
 
-        res.status(200).json({ 
-            success: true, 
-            user: userResponse,
-            isOwnProfile: req.user ? (req.user.username === username) : false
+        res.status(200).json({
+            success: true,
+
+            data: {
+
+                user: userResponse,
+                isOwnProfile: req.user ? (req.user.username === username) : false
+            }
         });
     } catch (err) {
         console.error('Error getting user information:', err);

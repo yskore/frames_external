@@ -6,7 +6,8 @@ exports.getAllFrames = async (req, res) => {
         const frames = await Frame.find();
         res.status(200).json({
             success: true,
-            frames
+            message: 'Frames fetched successfully',
+            data: { frames }
         });
     } catch (error) {
         console.error('Error fetching frames:', error);
@@ -15,15 +16,15 @@ exports.getAllFrames = async (req, res) => {
 };
 
 exports.createFrame = async (req, res) => {
-    const { 
-        Frame_object, 
-        Frame_owner, 
-        Frame_display, 
-        Frame_collaborators, 
-        Frame_title, 
-        Frame_description, 
-        Frame_creation_date, 
-        Frame_for_sale, 
+    const {
+        Frame_object,
+        Frame_owner,
+        Frame_display,
+        Frame_collaborators,
+        Frame_title,
+        Frame_description,
+        Frame_creation_date,
+        Frame_for_sale,
         Frame_price,
         Face_name
     } = req.body;
@@ -43,10 +44,10 @@ exports.createFrame = async (req, res) => {
         });
 
         await newFrame.save();
-        res.status(201).json({ 
-            success: true, 
-            message: 'New frame created successfully.', 
-            frame: newFrame 
+        res.status(201).json({
+            success: true,
+            message: 'New frame created successfully',
+            data: { frame: newFrame }
         });
     } catch (err) {
         console.error('Error creating new frame:', err);
@@ -75,7 +76,7 @@ exports.updateFrame = async (req, res) => {
         res.status(200).json({
             success: true,
             message: 'Frame updated successfully',
-            frame
+            data: { frame }
         });
     } catch (error) {
         console.error('Error updating frame:', error);
@@ -90,9 +91,9 @@ exports.updateFrame = async (req, res) => {
 exports.deleteFrame = async (req, res) => {
     try {
         const { frameId } = req.params;
-        
+
         const frame = await Frame.findByIdAndDelete(frameId);
-        
+
         if (!frame) {
             return res.status(404).json({
                 success: false,
@@ -102,7 +103,8 @@ exports.deleteFrame = async (req, res) => {
 
         res.status(200).json({
             success: true,
-            message: 'Frame deleted successfully'
+            message: 'Frame deleted successfully',
+            data: null
         });
     } catch (error) {
         console.error('Error deleting frame:', error);

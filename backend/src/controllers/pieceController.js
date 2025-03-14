@@ -5,16 +5,16 @@ const mongoose = require('mongoose');
 
 // Create new piece
 exports.createPiece = async (req, res) => {
-    const { Piece_id, Piece_Object, Piece_owner, Piece_title, Frame_name, live_status, 
-            Piece_likes, Piece_location, Piece_description, Piece_creation_date, 
-            Piece_display, Piece_for_sale, Piece_price } = req.body;
+    const { Piece_id, Piece_Object, Piece_owner, Piece_title, Frame_name, live_status,
+        Piece_likes, Piece_location, Piece_description, Piece_creation_date,
+        Piece_display, Piece_for_sale, Piece_price } = req.body;
 
     try {
         const existingPiece = await Piece.findOne({ Piece_owner, Piece_title });
         if (existingPiece) {
-            return res.status(400).json({ 
-                success: false, 
-                message: 'Failed to create piece, a user cannot have pieces with the same name' 
+            return res.status(400).json({
+                success: false,
+                message: 'Failed to create piece, a user cannot have pieces with the same name'
             });
         }
 
@@ -25,10 +25,10 @@ exports.createPiece = async (req, res) => {
         });
 
         await newPiece.save();
-        res.status(201).json({ 
-            success: true, 
-            message: 'New piece created successfully.', 
-            piece: newPiece 
+        res.status(201).json({
+            success: true,
+            message: 'New piece created successfully',
+            data: { piece: newPiece }
         });
     } catch (err) {
         console.error('Error creating new piece:', err);
@@ -38,19 +38,19 @@ exports.createPiece = async (req, res) => {
 
 // Update piece
 exports.updatePiece = async (req, res) => {
-    const { piece_owner, old_piece_title, new_piece_title, 
-            updated_piece_description, piece_for_sale, piece_price } = req.body;
+    const { piece_owner, old_piece_title, new_piece_title,
+        updated_piece_description, piece_for_sale, piece_price } = req.body;
 
     try {
         if (old_piece_title !== new_piece_title) {
-            const existingPiece = await Piece.findOne({ 
-                Piece_owner: piece_owner, 
-                Piece_title: new_piece_title 
+            const existingPiece = await Piece.findOne({
+                Piece_owner: piece_owner,
+                Piece_title: new_piece_title
             });
             if (existingPiece) {
-                return res.status(400).json({ 
-                    success: false, 
-                    message: 'Failed to update piece, a user cannot have pieces with the same name' 
+                return res.status(400).json({
+                    success: false,
+                    message: 'Failed to update piece, a user cannot have pieces with the same name'
                 });
             }
         }
@@ -70,7 +70,11 @@ exports.updatePiece = async (req, res) => {
             return res.status(404).json({ success: false, message: 'Piece not found' });
         }
 
-        res.status(200).json({ success: true, message: 'Piece updated successfully', piece });
+        res.status(200).json({
+            success: true,
+            message: 'Piece updated successfully',
+            data: { piece }
+        });
     } catch (err) {
         console.error('Error updating piece:', err);
         res.status(500).json({ success: false, message: 'Failed to update piece' });
@@ -81,16 +85,16 @@ exports.updatePiece = async (req, res) => {
 exports.deletePiece = async (req, res) => {
     const { piece_title, piece_owner } = req.body;
 
-   const username = req.user;
+    const username = req.user;
 
 
     const session = await mongoose.startSession();
     session.startTransaction();
 
     try {
-        const piece = await Piece.findOne({ 
+        const piece = await Piece.findOne({
             Piece_title: piece_title,
-            Piece_owner: piece_owner 
+            Piece_owner: piece_owner
         }).session(session);
 
         if (!piece) {
@@ -129,7 +133,7 @@ exports.deletePiece = async (req, res) => {
         res.status(200).json({
             success: true,
             message: 'Piece and associated data deleted successfully',
-            pieceId: piece.Piece_id
+            data: { pieceId: piece.Piece_id }
         });
     } catch (error) {
         if (session.inTransaction()) {
@@ -154,7 +158,7 @@ exports.toggleLiveStatus = async (req, res) => {
 
     try {
         const piece = await Piece.findOne({ Piece_id: piece_id }).session(session);
-        
+
         if (!piece) {
             throw new Error('Piece not found');
         }
@@ -166,7 +170,7 @@ exports.toggleLiveStatus = async (req, res) => {
                 { pieceId: piece_id },
                 { session }
             );
-            
+
             if (deleteResult.deletedCount) {
                 const updatedUserProfile = await user_profile.findOneAndUpdate(
                     { username: piece_owner },
@@ -189,8 +193,10 @@ exports.toggleLiveStatus = async (req, res) => {
             return res.status(200).json({
                 success: true,
                 message: 'Piece set to inactive, anchor removed, and user profile updated',
-                piece: updatedPiece,
-                userLivePieces: updatedUserProfile.Live_pieces
+                data: {
+                    piece: updatedPiece,
+                    userLivePieces: updatedUserProfile.Live_pieces
+                }
             });
         }
 
@@ -205,7 +211,7 @@ exports.toggleLiveStatus = async (req, res) => {
             return res.status(200).json({
                 success: true,
                 message: 'Piece set to active',
-                piece: updatedPiece
+                data: { piece: updatedPiece }
             });
         }
 

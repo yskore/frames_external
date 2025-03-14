@@ -8,7 +8,7 @@ const { validateToken } = require('../middleware/authMiddleware');
 router.use(validateApiKey);
 
 // Protected profile management routes (require authentication)
-router.post('/set_profile', validateToken, profileController.setProfile);
+router.post('/set_profile', profileController.setProfile);
 router.post('/update_profile', validateToken, profileController.updateProfile);
 
 // Public profile routes

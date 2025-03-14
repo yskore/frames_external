@@ -13,7 +13,11 @@ exports.getFollowerCount = async (req, res) => {
         const followerDocs = await Followers.find({ username });
         let totalFollowers = followerDocs.reduce((total, doc) => total + doc.followers.length, 0);
 
-        res.json({ success: true, username, followerCount: totalFollowers });
+        res.json({
+            success: true,
+            message: 'Follower count retrieved successfully',
+            data: { username, followerCount: totalFollowers }
+        });
     } catch (error) {
         console.error('Error in getFollowerCount:', error);
         res.status(500).json({ success: false, message: 'Internal server error' });
@@ -30,7 +34,11 @@ exports.getFollowingCount = async (req, res) => {
         const followingDocs = await Following.find({ username });
         let totalFollowing = followingDocs.reduce((total, doc) => total + doc.following.length, 0);
 
-        res.json({ success: true, username, followingCount: totalFollowing });
+        res.json({
+            success: true,
+            message: 'Following count retrieved successfully',
+            data: { username, followingCount: totalFollowing }
+        });
     } catch (error) {
         console.error('Error in getFollowingCount:', error);
         res.status(500).json({ success: false, message: 'Internal server error' });
@@ -45,7 +53,11 @@ exports.getPieceCount = async (req, res) => {
         }
 
         const pieceCount = await Piece.countDocuments({ Piece_owner: username });
-        res.json({ success: true, username, pieceCount });
+        res.json({
+            success: true,
+            message: 'Piece count retrieved successfully',
+            data: { username, pieceCount }
+        });
     } catch (error) {
         console.error('Error in getPieceCount:', error);
         res.status(500).json({ success: false, message: 'Internal server error' });
@@ -76,7 +88,11 @@ exports.getPiecesByOwner = async (req, res) => {
             Piece_price: piece.Piece_price
         }));
 
-        res.json({ success: true, username, pieces: piecesData });
+        res.json({
+            success: true,
+            message: 'Pieces retrieved successfully',
+            data: { username, pieces: piecesData }
+        });
     } catch (error) {
         console.error('Error in getPiecesByOwner:', error);
         res.status(500).json({ success: false, message: 'Internal server error' });
@@ -95,7 +111,11 @@ exports.getProfile = async (req, res) => {
             return res.status(404).json({ success: false, message: 'User profile not found' });
         }
 
-        res.json({ success: true, profile: userProfile });
+        res.json({
+            success: true,
+            message: 'Profile retrieved successfully',
+            data: { profile: userProfile }
+        });
     } catch (error) {
         console.error('Error in getProfile:', error);
         res.status(500).json({ success: false, message: 'Internal server error' });
@@ -106,7 +126,7 @@ exports.setProfile = async (req, res) => {
     try {
         // Use authenticated user's username
         const username = req.user.username;
-        
+
         let user = await UserProfile.findOne({ username });
 
         if (!user) {
@@ -126,7 +146,11 @@ exports.setProfile = async (req, res) => {
             await user.save();
         }
 
-        res.status(200).json({ success: true, user });
+        res.status(200).json({
+            success: true,
+            message: 'Profile set successfully',
+            data: { user }
+        });
     } catch (err) {
         console.error('Error setting user profile:', err);
         res.status(500).json({ success: false, message: err.message });
@@ -150,10 +174,10 @@ exports.updateProfile = async (req, res) => {
 
         await user.save();
 
-        res.status(200).json({ 
-            success: true, 
-            message: 'User Profile Updated successfully',
-            profile: user 
+        res.status(200).json({
+            success: true,
+            message: 'Profile updated successfully',
+            data: { profile: user }
         });
     } catch (err) {
         console.error('Error updating user profile:', err);
