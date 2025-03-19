@@ -31,6 +31,7 @@ class ApiResponse {
       if (data is Map<String, dynamic>) {
         return data;
       }
+      return {'data': data};
     }
     return null;
   }

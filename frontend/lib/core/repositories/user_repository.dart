@@ -20,8 +20,10 @@ class UserRepository {
 
       if (response.isSuccess && response.data != null) {
         // Save token if available in response
-        if (response.data!.containsKey('token')) {
-          await _tokenManager.saveToken(response.data!['token']);
+
+        if (response.data!.containsKey('accessToken')) {
+          await _tokenManager.saveToken(
+              response.data!['accessToken'], username);
         }
       }
 
@@ -63,6 +65,25 @@ class UserRepository {
         print('Get user profile error: $e');
       }
       return ApiResponse.error('Failed to get user profile: $e');
+    }
+  }
+
+  Future<ApiResponse> userExists(String username, String email) async {
+    try {
+      final response = await _apiService.post(
+        'user_exists',
+        data: {
+          'username': username,
+          'email': email,
+        },
+      );
+
+      return response;
+    } catch (e) {
+      if (kDebugMode) {
+        print('Check username exists error: $e');
+      }
+      return ApiResponse.error('Failed to check username: $e');
     }
   }
 

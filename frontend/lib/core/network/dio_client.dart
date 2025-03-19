@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:developer';
 
 import 'package:dio/dio.dart';
@@ -8,6 +9,7 @@ import '../config/app_config.dart';
 
 class DioClient {
   static final DioClient _instance = DioClient._internal();
+  late final StreamController<bool> _tokenExpiredController;
   late final Dio dio;
   final TokenManager _tokenManager = TokenManager();
 
@@ -15,8 +17,11 @@ class DioClient {
 
   DioClient._internal() {
     dio = Dio();
+    _tokenExpiredController = StreamController.broadcast();
     _configureClient();
   }
+
+  Stream<bool> get onTokenExpired => _tokenExpiredController.stream;
 
   void _configureClient() {
     try {
@@ -38,7 +43,8 @@ class DioClient {
         },
       );
 
-      dio.interceptors.add(AuthInterceptor(_tokenManager));
+      dio.interceptors
+          .add(AuthInterceptor(_tokenManager, _tokenExpiredController));
       dio.interceptors.add(RequestInterceptor());
       dio.interceptors.add(ResponseInterceptor());
     } catch (e) {
@@ -50,8 +56,9 @@ class DioClient {
 
 class AuthInterceptor extends Interceptor {
   final TokenManager _tokenManager;
+  final StreamController<bool> _tokenExpiredController;
 
-  AuthInterceptor(this._tokenManager);
+  AuthInterceptor(this._tokenManager, this._tokenExpiredController);
 
   @override
   void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
@@ -70,6 +77,8 @@ class AuthInterceptor extends Interceptor {
     // Handle 401 errors (token expired or invalid)
     if (err.response?.statusCode == 401) {
       log('Authentication error: Unauthorized access', name: 'AuthInterceptor');
+      _tokenExpiredController.add(true);
+      _tokenManager.clearToken();
     }
 
     return super.onError(err, handler);
