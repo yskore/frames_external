@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:frames_app/models/anchor_model.dart';
 import 'package:frames_app/models/piece_model.dart';
-import 'package:frames_app/models/user_profile_model.dart';
+import 'package:frames_app/models/user_model.dart';
 import 'package:frames_app/providers/user_provider.dart';
 import 'package:frames_app/ui/Screens/user_menu.dart';
 import 'package:frames_app/ui/Widgets/piece_preview_popup.dart';
@@ -57,18 +57,6 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
     }
   }
 
-  @override
-  void dispose() {
-    _disposeMapController();
-    super.dispose();
-  }
-
-  void _refreshProfileData({bool showLoading = true}) async {
-    await ref
-        .read(userNotifierProvider)
-        .refreshUserData(showLoading: showLoading);
-  }
-
   Future<void> _getCurrentLocation() async {
     try {
       final position = await Geolocator.getCurrentPosition(
@@ -83,12 +71,30 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
   }
 
   @override
-  Widget build(BuildContext context) {
-    // Get user profile from provider
-    final userProfile = ref.watch(userProfileProvider);
-    final bool isLoading = _isLoading || userProfile == null;
+  void dispose() {
+    _disposeMapController();
+    super.dispose();
+  }
 
-    print(userProfile?.pieces.map((p) => p.pieceTitle).toList());
+  void _refreshProfileData({bool showLoading = true}) async {
+    if (showLoading) {
+      await ref
+          .read(userNotifierProvider)
+          .refreshUserData(showLoading: showLoading);
+    } else {
+      await ref.read(userNotifierProvider).refreshUserData(showLoading: false);
+    }
+
+    // Force a rebuild after the refresh
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final userModel = ref.watch(userProfileProvider);
+    final bool isLoading = _isLoading || userModel == null;
 
     return Scaffold(
       resizeToAvoidBottomInset: false,
@@ -100,14 +106,14 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
                   Column(
                     children: [
                       const SizedBox(height: 56),
-                      _buildProfileInfoRow(userProfile),
+                      _buildProfileInfoRow(userModel),
                       const SizedBox(height: 16),
                       _buildToggleRow(),
                       Expanded(
                         child: _showGallery
-                            ? _buildGalleryView(userProfile.pieces)
+                            ? _buildGalleryView(userModel.pieces)
                             : _buildMapView(
-                                userProfile.anchors, userProfile.pieces),
+                                userModel.anchors, userModel.pieces),
                       ),
                     ],
                   ),
@@ -138,7 +144,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
     );
   }
 
-  Widget _buildProfileInfoRow(UserProfileModel userProfile) {
+  Widget _buildProfileInfoRow(UserModel userProfile) {
     return Stack(
       children: [
         Padding(
@@ -155,8 +161,8 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
                     },
                     child: CircleAvatar(
                       radius: 40,
-                      backgroundImage: userProfile.Profile_photo.isNotEmpty
-                          ? NetworkImage(userProfile.Profile_photo)
+                      backgroundImage: userProfile.profilePhoto.isNotEmpty
+                          ? NetworkImage(userProfile.profilePhoto)
                           : const NetworkImage(
                               'https://via.placeholder.com/80'),
                     ),
@@ -177,7 +183,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
                     _buildCountColumn(
                         'Following', userProfile.followingCount.toString()),
                     _buildCountColumn(
-                        'Live Pieces', userProfile.live_pieces.toString()),
+                        'Live Pieces', userProfile.livePieces.toString()),
                   ],
                 ),
               ),
@@ -252,6 +258,8 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
   }
 
   void _showPiecePreview(BuildContext context, Piece piece) {
+    print("Opening piece preview for: ${piece.pieceTitle} (${piece.pieceid})");
+
     showDialog(
       context: context,
       builder: (BuildContext context) {
@@ -276,6 +284,8 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
           piecePrice: piece.piecePrice,
           pieceOwner: piece.pieceOwner,
           onPieceUpdated: () {
+            print("Piece updated callback triggered for: ${piece.pieceTitle}");
+            // Do a full refresh to ensure data is updated
             _refreshProfileData(showLoading: false);
           },
         );

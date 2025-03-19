@@ -631,15 +631,17 @@ class _PiecePreviewPopupState extends ConsumerState<PiecePreviewPopup> {
           const SnackBar(content: Text('Piece updated successfully')),
         );
 
-        // Refresh user profile data when piece is updated
-        await ref.read(userNotifierProvider).refreshUserPieces();
+        // Explicitly refresh user data first - no showLoading to avoid UI flicker
+        await ref
+            .read(userNotifierProvider)
+            .refreshUserData(showLoading: false);
 
+        // Then make sure to call the callback
         widget.onPieceUpdated();
       } else {
         throw Exception(response.message ?? 'Failed to update piece');
       }
     } catch (e) {
-      // Use error provider instead of direct SnackBar
       ref.read(errorProvider.notifier).setError('Failed to update piece: $e');
     } finally {
       if (mounted) {

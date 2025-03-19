@@ -2,8 +2,8 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:frames_app/ui/Screens/home_screen.dart';
 import 'package:frames_app/providers/user_provider.dart';
+import 'package:frames_app/ui/Screens/home_screen.dart';
 import 'package:image_picker/image_picker.dart';
 
 class InitialProfileSetup extends ConsumerStatefulWidget {
@@ -57,8 +57,13 @@ class _InitialProfileSetupState extends ConsumerState<InitialProfileSetup> {
                       backgroundColor: Colors.grey[200],
                       child: pickedImage != null
                           ? ClipOval(
-                              child:
-                                  Image.file(pickedImage!, fit: BoxFit.cover))
+                              child: Image.file(
+                                pickedImage!,
+                                fit: BoxFit.cover,
+                                width: 240,
+                                height: 240,
+                              ),
+                            )
                           : const Icon(Icons.add, size: 70),
                     ),
                   ),
