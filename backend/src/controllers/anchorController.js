@@ -224,7 +224,8 @@ exports.fetchNearbyAnchors = async (req, res) => {
 
 exports.getAnchorsByOwner = async (req, res) => {
     try {
-        const { username } = req.body;
+        const username = req.user ? req.user.username : req.body.username;
+
         if (!username) {
             return res.status(400).json({
                 success: false,

@@ -128,6 +128,8 @@ exports.loginUser = async (req, res) => {
             }
         });
     } catch (err) {
+        console.log('Error logging in user:', err);
+        
         res.status(500).json({ success: false, message: 'Internal server error' });
     }
 };
@@ -137,7 +139,10 @@ exports.getUserInfo = async (req, res) => {
     try {
         const { username } = req.query;
 
-        console.log(username);
+        if (!username && !req.user) {
+            return res.status(400).json({ success: false, message: 'No username provided' });
+        }
+
 
         // If no username provided in query, use authenticated user's username
         const queryUsername = username || req.user.username;
