@@ -27,23 +27,56 @@ class StorageService {
       // Load credentials from app config
       final credentials = AppConfig().getConfig(['storage', 'credentials']);
 
-      // Make sure the private key is properly formatted with newlines
-      dynamic credentialsCopy = Map<String, dynamic>.from(credentials);
-      if (credentialsCopy['private_key'] is String &&
-          !credentialsCopy['private_key'].toString().contains(r'\n')) {}
+      // Instead of trying to modify the private key, let's create a credentials object from scratch
+      final Map<String, dynamic> jsonCredentials = {
+        'type': credentials['type'],
+        'project_id': credentials['project_id'],
+        'private_key_id': credentials['private_key_id'],
+        'private_key': credentials[
+            'private_key'], // This should already have proper newlines from YAML
+        'client_email': credentials['client_email'],
+        'client_id': credentials['client_id'],
+        'auth_uri': credentials['auth_uri'],
+        'token_uri': credentials['token_uri'],
+        'auth_provider_x509_cert_url':
+            credentials['auth_provider_x509_cert_url'],
+        'client_x509_cert_url': credentials['client_x509_cert_url'],
+        'universe_domain': credentials['universe_domain']
+      };
 
-      _credentials = auth.ServiceAccountCredentials.fromJson(credentialsCopy);
+      if (kDebugMode) {
+        print(
+            'Creating credentials with private key length: ${jsonCredentials['private_key'].toString().length}');
+        print(
+            'First 30 chars: ${jsonCredentials['private_key'].toString().substring(0, 30)}...');
+      }
+
+      // Use fromJson constructor instead of positional arguments
+      _credentials = auth.ServiceAccountCredentials.fromJson(jsonCredentials);
     } catch (e) {
       if (kDebugMode) {
         print('Failed to load storage credentials: $e');
+        print('Error details: ${e.toString()}');
       }
       rethrow;
     }
   }
 
   Future<storage.StorageApi> _authenticate() async {
-    var httpClient = await auth.clientViaServiceAccount(_credentials, _scopes);
-    return storage.StorageApi(httpClient);
+    try {
+      var httpClient =
+          await auth.clientViaServiceAccount(_credentials, _scopes);
+      return storage.StorageApi(httpClient);
+    } catch (e) {
+      if (kDebugMode) {
+        print('Authentication error: $e');
+        if (e.toString().contains('invalid_grant')) {
+          print(
+              'This is likely a private key formatting issue. Check your service account key.');
+        }
+      }
+      rethrow;
+    }
   }
 
   Future<String> uploadImage(

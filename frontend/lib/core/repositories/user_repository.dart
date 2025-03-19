@@ -39,7 +39,7 @@ class UserRepository {
   Future<ApiResponse> signup(Map<String, dynamic> userData) async {
     try {
       final response = await _apiService.post(
-        'signup',
+        'user_basic',
         data: userData,
       );
 

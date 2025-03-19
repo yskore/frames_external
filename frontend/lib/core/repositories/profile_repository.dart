@@ -109,7 +109,7 @@ class ProfileRepository {
   Future<ApiResponse> createUserProfile(String username) async {
     try {
       final response = await _apiService.post(
-        'createProfile',
+        'set_profile',
         data: {'username': username},
       );
 
@@ -126,7 +126,7 @@ class ProfileRepository {
       String username, String bio, String profilePictureUrl) async {
     try {
       final response = await _apiService.post(
-        'updateProfile',
+        'update_profile',
         data: {
           'username': username,
           'bio': bio,

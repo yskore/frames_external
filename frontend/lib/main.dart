@@ -22,6 +22,7 @@ void main() async {
       EmailService().initialize(),
       StorageService().initialize(),
     ]);
+
     runApp(const ProviderScope(child: MainApp()));
   } catch (e) {
     debugPrint('Error during initialization: $e');

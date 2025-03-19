@@ -133,8 +133,11 @@ class PieceNotifier extends StateNotifier<void> {
 
   Future<bool> fetchFrames() async {
     try {
-      _loadingNotifier.setLoading(true);
-      _errorNotifier.clearError();
+      final currentFrames = _ref.read(framesProvider);
+      if (currentFrames.isEmpty) {
+        _loadingNotifier.setLoading(true);
+        _errorNotifier.clearError();
+      }
 
       final response = await _pieceRepository.fetchFrames();
 

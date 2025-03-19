@@ -3,10 +3,8 @@ import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:frames_app/core/repositories/profile_repository.dart';
 import 'package:frames_app/core/services/email_service.dart';
-import 'package:frames_app/core/services/storage_service.dart';
 import 'package:frames_app/models/anchor_model.dart';
 import 'package:frames_app/models/piece_model.dart';
-import 'package:frames_app/models/user_profile_model.dart';
 import 'package:frames_app/providers/error_provider.dart';
 import 'package:frames_app/providers/loading_provider.dart';
 
@@ -34,11 +32,8 @@ final userProvider = StateNotifierProvider<UserNotifier, UserModel?>((ref) {
       userRepository, profileRepository, loadingNotifier, errorNotifier);
 });
 
-final userProfileProvider = Provider<UserProfileModel?>((ref) {
-  final user = ref.watch(userProvider);
-  if (user == null) return null;
-
-  return ref.read(userNotifierProvider).cachedUserProfile;
+final userProfileProvider = Provider<UserModel?>((ref) {
+  return ref.watch(userProvider);
 });
 
 final userNotifierProvider = Provider<UserNotifier>((ref) {
@@ -50,9 +45,6 @@ class UserNotifier extends StateNotifier<UserModel?> {
   final ProfileRepository _profileRepository;
   final LoadingNotifier _loadingNotifier;
   final ErrorNotifier _errorNotifier;
-
-  // User profile related data
-  UserProfileModel? cachedUserProfile;
 
   UserNotifier(this._userRepository, this._profileRepository,
       this._loadingNotifier, this._errorNotifier)
@@ -115,8 +107,15 @@ class UserNotifier extends StateNotifier<UserModel?> {
 
       if (response.isSuccess && response.data != null) {
         try {
-          cachedUserProfile =
-              UserProfileModel.fromJson(response.data!['profile']);
+          final profileData = response.data!['profile'];
+
+          if (state != null) {
+            state = state!.copyWith(
+              profilePhoto: profileData['Profile_photo'] ?? '',
+              bio: profileData['User_bio'] ?? '',
+              livePieces: profileData['Live_pieces'] ?? 0,
+            );
+          }
 
           await Future.wait([
             _loadFollowerCount(username),
@@ -149,8 +148,8 @@ class UserNotifier extends StateNotifier<UserModel?> {
       final response = await _profileRepository.getFollowerCount(username);
       if (response.isSuccess && response.data != null) {
         final count = response.data!['followerCount'] ?? 0;
-        if (cachedUserProfile != null) {
-          cachedUserProfile = cachedUserProfile!.copyWith(followerCount: count);
+        if (state != null) {
+          state = state!.copyWith(followerCount: count);
         }
         return;
       }
@@ -165,9 +164,8 @@ class UserNotifier extends StateNotifier<UserModel?> {
       final response = await _profileRepository.getFollowingCount(username);
       if (response.isSuccess && response.data != null) {
         final count = response.data!['followingCount'] ?? 0;
-        if (cachedUserProfile != null) {
-          cachedUserProfile =
-              cachedUserProfile!.copyWith(followingCount: count);
+        if (state != null) {
+          state = state!.copyWith(followingCount: count);
         }
         return;
       }
@@ -182,8 +180,8 @@ class UserNotifier extends StateNotifier<UserModel?> {
       final response = await _profileRepository.getPieceCount(username);
       if (response.isSuccess && response.data != null) {
         final count = response.data!['pieceCount'] ?? 0;
-        if (cachedUserProfile != null) {
-          cachedUserProfile = cachedUserProfile!.copyWith(pieceCount: count);
+        if (state != null) {
+          state = state!.copyWith(pieceCount: count);
         }
         return;
       }
@@ -195,18 +193,24 @@ class UserNotifier extends StateNotifier<UserModel?> {
 
   Future<void> _loadPieces(String username) async {
     try {
+      print("Loading pieces for user: $username");
       final response = await _profileRepository.getPiecesByOwner(username);
 
       if (response.isSuccess && response.data != null) {
         final List<dynamic> piecesData = response.data!['pieces'] ?? [];
         final pieces = piecesData.map((json) => Piece.fromJson(json)).toList();
-        if (cachedUserProfile != null) {
-          cachedUserProfile = cachedUserProfile!.copyWith(pieces: pieces);
+
+        print(
+            "Retrieved ${pieces.length} pieces from server: ${pieces.map((p) => p.pieceTitle).join(', ')}");
+
+        if (state != null) {
+          state = state!.copyWith(pieces: pieces);
         }
         return;
       }
       throw response.message ?? 'Failed to fetch pieces';
     } catch (e) {
+      print("Error loading pieces: $e");
       rethrow;
     }
   }
@@ -219,8 +223,8 @@ class UserNotifier extends StateNotifier<UserModel?> {
         final List<dynamic> anchorsData = response.data!['anchors'] ?? [];
         final anchors =
             anchorsData.map((json) => AnchorModel.fromJson(json)).toList();
-        if (cachedUserProfile != null) {
-          cachedUserProfile = cachedUserProfile!.copyWith(anchors: anchors);
+        if (state != null) {
+          state = state!.copyWith(anchors: anchors);
         }
         return;
       }
@@ -237,9 +241,10 @@ class UserNotifier extends StateNotifier<UserModel?> {
       final response = await _userRepository.signup(userData);
 
       if (response.isSuccess) {
-        if (await login(userData['username'], userData['password'])) {
-          return createUserProfile(userData['username']);
-        }
+        return await login(userData['username'], userData['password']);
+        // if (await login(userData['username'], userData['password'])) {
+        //   return await createUserProfile(userData['username']);
+        // }
       }
       _errorNotifier.setError(response.message);
       return false;
@@ -280,10 +285,10 @@ class UserNotifier extends StateNotifier<UserModel?> {
 
       String? imageUrl;
 
-      if (profileImage != null) {
-        imageUrl = await StorageService()
-            .uploadImage(profileImage, kBucketName, kFolderName);
-      }
+      // if (profileImage != null) {
+      //   imageUrl = await StorageService()
+      //       .uploadImage(profileImage, kBucketName, kFolderName);
+      // }
 
       final response = await _profileRepository.updateUserProfile(
           username, bio, imageUrl ?? "");
@@ -315,7 +320,7 @@ class UserNotifier extends StateNotifier<UserModel?> {
         return null;
       }
 
-      return sendVerificationCode(email.toLowerCase());
+      return await sendVerificationCode(email.toLowerCase());
     } catch (e) {
       _errorNotifier.setError('Error: $e');
       return null;
@@ -343,7 +348,6 @@ class UserNotifier extends StateNotifier<UserModel?> {
     }
   }
 
-  // Helper method to refresh all user data
   Future<void> refreshUserData({bool showLoading = true}) async {
     if (state == null) return;
     await _fetchProfileDetails(state!.username, showLoading: showLoading);
@@ -351,12 +355,34 @@ class UserNotifier extends StateNotifier<UserModel?> {
 
   Future<void> refreshUserPieces() async {
     if (state == null) return;
-    await _fetchProfileDetails(state!.username, showLoading: false);
+    try {
+      _loadingNotifier.setLoading(false);
+
+      if (state != null) {
+        state = state!.copyWith(pieces: []);
+      }
+
+      await Future.wait([
+        _loadPieces(state!.username),
+        _loadAnchors(state!.username),
+        _loadPieceCount(state!.username),
+      ]);
+
+      if (state != null) {
+        final currentUser = state!;
+        state = null;
+        await Future.delayed(const Duration(milliseconds: 50));
+        state = currentUser;
+      }
+    } catch (e) {
+      _errorNotifier.setError('Failed to refresh pieces: $e');
+    } finally {
+      _loadingNotifier.setLoading(false);
+    }
   }
 
   Future<void> logout() async {
     await _userRepository.logout();
-    cachedUserProfile = null;
     state = null;
   }
 }

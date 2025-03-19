@@ -207,11 +207,31 @@ class AppConfig {
     for (final entry in yamlMap.entries) {
       if (entry.value is YamlMap) {
         map[entry.key.toString()] = _convertYaml(entry.value as YamlMap);
+      } else if (entry.value is YamlList) {
+        map[entry.key.toString()] = _convertYamlList(entry.value as YamlList);
       } else {
+        // Handle string values precisely as they appear in the YAML
         map[entry.key.toString()] = entry.value;
       }
     }
 
     return map;
+  }
+
+  /// Convert YamlList to a regular Dart List
+  List<dynamic> _convertYamlList(YamlList yamlList) {
+    final list = <dynamic>[];
+
+    for (final item in yamlList) {
+      if (item is YamlMap) {
+        list.add(_convertYaml(item));
+      } else if (item is YamlList) {
+        list.add(_convertYamlList(item));
+      } else {
+        list.add(item);
+      }
+    }
+
+    return list;
   }
 }

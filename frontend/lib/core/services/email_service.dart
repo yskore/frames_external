@@ -1,4 +1,5 @@
-import 'dart:math';
+import 'dart:developer';
+import 'dart:math' as Mh;
 
 import 'package:frames_app/core/network/api_response.dart';
 import 'package:mailer/mailer.dart';
@@ -27,10 +28,7 @@ class EmailService {
       _username = AppConfig().getConfig(['smtp', 'username']);
       _password = AppConfig().getConfig(['smtp', 'password']);
       _senderName = AppConfig().getConfig(['smtp', 'sender_name']);
-      print('SMTP Server: $_smtpServer');
-      print('Username: $_username');
-      print('Password: $_password');
-      print('Sender Name: $_senderName');
+
       if (_smtpServer.isEmpty ||
           _username.isEmpty ||
           _password.isEmpty ||
@@ -46,7 +44,7 @@ class EmailService {
   String get generateOTP {
     String verificationCode = '';
     for (int i = 0; i < 6; i++) {
-      verificationCode += (Random().nextInt(10)).toString();
+      verificationCode += (Mh.Random().nextInt(10)).toString();
     }
     return verificationCode;
   }
@@ -56,6 +54,7 @@ class EmailService {
     if (!_isInitialized) {
       await initialize();
     }
+    log(verificationCode, name: 'EmailService');
 
     final smtpServer = SmtpServer(
       _smtpServer,
