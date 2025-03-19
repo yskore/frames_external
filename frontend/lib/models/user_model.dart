@@ -8,8 +8,6 @@ class UserModel {
   final String email;
   final String phoneNumber;
   final String userType;
-  final String? bio;
-  final String? profilePhoto;
 
   UserModel({
     required this.id,
@@ -21,25 +19,20 @@ class UserModel {
     required this.email,
     required this.phoneNumber,
     required this.userType,
-    this.bio,
-    this.profilePhoto,
   });
 
   factory UserModel.fromJson(Map<String, dynamic> json) {
+    final userData = json;
     return UserModel(
-      id: json['_id'] ?? '',
-      username: json['username'] ?? '',
-      firstName: json['firstName'] ?? '',
-      lastName: json['lastName'] ?? '',
-      dateOfBirth: json['dateOfBirth'] != null
-          ? DateTime.parse(json['dateOfBirth'])
-          : DateTime.now(),
-      country: json['country'] ?? '',
-      email: json['email'] ?? '',
-      phoneNumber: json['phoneNumber'] ?? '',
-      userType: json['userType'] ?? 'user',
-      bio: json['Bio'],
-      profilePhoto: json['Profile_photo'],
+      id: userData['_id'],
+      username: userData['username'],
+      firstName: userData['firstName'],
+      lastName: userData['lastName'],
+      dateOfBirth: DateTime.parse(userData['dateOfBirth']),
+      country: userData['country'],
+      email: userData['email'],
+      phoneNumber: userData['phoneNumber'],
+      userType: userData['userType'],
     );
   }
 }
