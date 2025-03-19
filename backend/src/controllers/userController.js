@@ -3,6 +3,7 @@ const Followers = require('../models/followers');
 const Following = require('../models/following');
 const { generateAccessToken } = require('../utils/tokenUtils');
 const { hashPassword, comparePassword } = require('../utils/passwordUtils');
+const profileController = require('./profileController'); 
 
 // Create new user
 exports.createUser = async (req, res) => {
@@ -50,6 +51,11 @@ exports.createUser = async (req, res) => {
         // Remove password from response
         const userResponse = savedUser.toObject();
         delete userResponse.password;
+
+        req.user = { username: savedUser.username };
+        await profileController.setProfile(req, { 
+            status: (code) => ({ json: (data) => {} }),
+        });
 
         res.status(201).json({ success: true, message: "", data: userResponse });
     } catch (err) {

@@ -98,16 +98,17 @@ exports.getPiecesByOwner = async (req, res) => {
         res.status(500).json({ success: false, message: 'Internal server error' });
     }
 };
-
 exports.getProfile = async (req, res) => {
     try {
         const { username } = req.body;
         if (!username) {
+            console.error('Username is required');
             return res.status(400).json({ success: false, message: 'Username is required' });
         }
 
         const userProfile = await UserProfile.findOne({ username });
         if (!userProfile) {
+            console.error('User profile not found for username:', username);
             return res.status(404).json({ success: false, message: 'User profile not found' });
         }
 
