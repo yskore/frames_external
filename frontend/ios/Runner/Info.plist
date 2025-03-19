@@ -45,5 +45,15 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	
+	<!-- Add location usage descriptions -->
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>This app needs access to location when open to show your position on the map relative to AR content.</string>
+	<key>NSLocationAlwaysUsageDescription</key>
+	<string>This app needs access to location when in the background to update AR content based on your position.</string>
+	
+	<!-- For macOS builds -->
+	<key>NSLocationUsageDescription</key>
+	<string>This app needs access to location to show your position on the map relative to AR content.</string>
 </dict>
 </plist>
