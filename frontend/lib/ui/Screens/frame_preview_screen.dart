@@ -4,13 +4,13 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:frames_app/providers/error_provider.dart';
+import 'package:frames_app/providers/piece_provider.dart';
+import 'package:frames_app/providers/user_provider.dart';
 // import 'package:flutter_unity_widget/flutter_unity_widget.dart';
 
 import 'package:frames_app/ui/Screens/home_screen.dart';
 import 'package:frames_app/ui/Screens/user_profile_screen.dart';
-import 'package:frames_app/providers/error_provider.dart';
-import 'package:frames_app/providers/piece_provider.dart';
-import 'package:frames_app/providers/user_provider.dart';
 import 'package:image_picker/image_picker.dart';
 
 class FramePreviewScreen extends ConsumerStatefulWidget {
@@ -277,17 +277,18 @@ class _FramePreviewScreenState extends ConsumerState<FramePreviewScreen> {
                           Center(
                             child: ElevatedButton(
                               onPressed: () async {
-                                await _savePiece();
-                                _resetUnityScene();
-                                Future.delayed(
-                                    const Duration(milliseconds: 100), () {
-                                  Navigator.of(context).pushReplacement(
-                                    MaterialPageRoute(
-                                      builder: (context) =>
-                                          const UserProfileScreen(),
-                                    ),
-                                  );
-                                });
+                                if (await _savePiece()) {
+                                  _resetUnityScene();
+                                  Future.delayed(
+                                      const Duration(milliseconds: 100), () {
+                                    Navigator.of(context).pushReplacement(
+                                      MaterialPageRoute(
+                                        builder: (context) =>
+                                            const UserProfileScreen(),
+                                      ),
+                                    );
+                                  });
+                                }
                               },
                               child: const Text('Save & Continue'),
                             ),
@@ -388,7 +389,7 @@ class _FramePreviewScreenState extends ConsumerState<FramePreviewScreen> {
     //     'GameManager', 'ResetUnityScene', 'reset');
   }
 
-  Future<void> _savePiece() async {
+  Future<bool> _savePiece() async {
     final user = ref.read(userProvider);
     final username = user?.username;
     if (_formKey.currentState!.validate()) {
@@ -399,7 +400,7 @@ class _FramePreviewScreenState extends ConsumerState<FramePreviewScreen> {
             .read(errorProvider.notifier)
             .setError('Please select a display picture');
 
-        return;
+        return false;
       }
 
       final piecePro = ref.read(pieceProvider.notifier);
@@ -413,7 +414,7 @@ class _FramePreviewScreenState extends ConsumerState<FramePreviewScreen> {
           piecePrice: 0,
           pieceImage: _image!,
           pieceOwner: username!);
-      if (!res) return;
+      if (!res) return false;
       // TODO: Implement the logic to save the 3D model data
       // This might involve sending a message to Unity to prepare the data
       // and then uploading it to your server or cloud storage
@@ -421,9 +422,11 @@ class _FramePreviewScreenState extends ConsumerState<FramePreviewScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Piece saved successfully!')),
       );
+      return true;
 
       // TODO: Navigate to the next screen or close this screen
       // Navigator.of(context).pop();
     }
+    return false;
   }
 }

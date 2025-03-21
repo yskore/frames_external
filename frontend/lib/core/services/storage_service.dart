@@ -27,13 +27,23 @@ class StorageService {
       // Load credentials from app config
       final credentials = AppConfig().getConfig(['storage', 'credentials']);
 
-      // Instead of trying to modify the private key, let's create a credentials object from scratch
+      if (kDebugMode) {
+        print('Loading credentials from config...');
+        print('Project ID: ${credentials['project_id']}');
+        print('Client Email: ${credentials['client_email']}');
+
+        // Check key formatting
+        final privateKey = credentials['private_key'] as String;
+        print('Private key starts with: ${privateKey.substring(0, 20)}...');
+        print('Private key contains newlines: ${privateKey.contains('\n')}');
+      }
+
+      // Create a clean Map for the credentials to ensure proper parsing
       final Map<String, dynamic> jsonCredentials = {
         'type': credentials['type'],
         'project_id': credentials['project_id'],
         'private_key_id': credentials['private_key_id'],
-        'private_key': credentials[
-            'private_key'], // This should already have proper newlines from YAML
+        'private_key': credentials['private_key'],
         'client_email': credentials['client_email'],
         'client_id': credentials['client_id'],
         'auth_uri': credentials['auth_uri'],
@@ -44,15 +54,21 @@ class StorageService {
         'universe_domain': credentials['universe_domain']
       };
 
-      if (kDebugMode) {
-        print(
-            'Creating credentials with private key length: ${jsonCredentials['private_key'].toString().length}');
-        print(
-            'First 30 chars: ${jsonCredentials['private_key'].toString().substring(0, 30)}...');
+      // Check if private key needs formatting (might be missing newlines)
+      if (!jsonCredentials['private_key'].toString().contains('\n')) {
+        if (kDebugMode) {
+          print('Private key missing newlines, attempting to format...');
+        }
+        // Replace literal '\n' with actual newlines
+        final String pkString = jsonCredentials['private_key'].toString();
+        jsonCredentials['private_key'] = pkString.replaceAll('\\n', '\n');
       }
 
-      // Use fromJson constructor instead of positional arguments
       _credentials = auth.ServiceAccountCredentials.fromJson(jsonCredentials);
+
+      if (kDebugMode) {
+        print('Storage service initialized successfully');
+      }
     } catch (e) {
       if (kDebugMode) {
         print('Failed to load storage credentials: $e');
