@@ -60,7 +60,6 @@ class PieceNotifier extends StateNotifier<void> {
       _loadingNotifier.setLoading(true);
       _errorNotifier.clearError();
 
-      // Upload image first
       final String pieceImageUrl = await _storageService.uploadPieceImage(
         pieceImage,
         kPieceBucketName,

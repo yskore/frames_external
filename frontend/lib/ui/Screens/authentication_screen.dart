@@ -1,17 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:frames_app/Providers/signup_form_notifier.dart';
-import 'package:frames_app/ui/Screens/initial_profile_setup.dart';
 import 'package:frames_app/providers/error_provider.dart';
 import 'package:frames_app/providers/user_provider.dart';
+import 'package:frames_app/ui/Screens/initial_profile_setup.dart';
 
-// ignore: must_be_immutable
 class AuthenticationScreen extends ConsumerStatefulWidget {
-  String verificationCode;
-
-  AuthenticationScreen({
+  const AuthenticationScreen({
     super.key,
-    required this.verificationCode,
   });
 
   @override
@@ -20,23 +16,29 @@ class AuthenticationScreen extends ConsumerStatefulWidget {
 
 class _AuthenticationScreenState extends ConsumerState<AuthenticationScreen> {
   final _codeController = TextEditingController();
+  bool _isLoading = false;
 
   void resendVerificationCode() async {
     final signupForm = ref.read(signupFormProvider);
 
     if (signupForm.email == null) {
+      ref.read(errorProvider.notifier).setError('Email address not found');
       return;
     }
 
-    final res = await ref
+    setState(() => _isLoading = true);
+
+    final success = await ref
         .read(userProvider.notifier)
-        .sendVerificationCode(signupForm.email ?? "");
+        .sendVerificationCode(signupForm.email!);
 
-    if (res == null) {
-      return;
+    setState(() => _isLoading = false);
+
+    if (success) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Verification code resent')),
+      );
     }
-
-    widget.verificationCode = res;
   }
 
   @override
@@ -64,49 +66,69 @@ class _AuthenticationScreenState extends ConsumerState<AuthenticationScreen> {
             ),
             const SizedBox(height: 20),
             ElevatedButton(
-              onPressed: resendVerificationCode,
-              child: const Text('Resend Code'),
+              onPressed: _isLoading ? null : resendVerificationCode,
+              child: _isLoading
+                  ? const CircularProgressIndicator(strokeWidth: 2)
+                  : const Text('Resend Code'),
             ),
             const SizedBox(height: 20),
             ElevatedButton(
-              onPressed: () async {
-                if (_codeController.text != widget.verificationCode) {
-                  ref
-                      .read(errorProvider.notifier)
-                      .setError('Invalid verification code. Please try again.');
-                  return;
-                }
+              onPressed: _isLoading
+                  ? null
+                  : () async {
+                      if (_codeController.text.isEmpty) {
+                        ref
+                            .read(errorProvider.notifier)
+                            .setError('Please enter the verification code');
+                        return;
+                      }
 
-                // Create user account data from the signupForm
-                final userData = {
-                  'username': signupForm.username!,
-                  'password': signupForm.password!,
-                  'firstName': signupForm.firstName!,
-                  'lastName': signupForm.lastName!,
-                  'dateOfBirth': signupForm.dateOfBirth!,
-                  'country': signupForm.country!,
-                  'email': signupForm.email!,
-                  'phoneNumber': signupForm.phoneNumber!,
-                  'userType': signupForm.userType!,
-                };
+                      setState(() => _isLoading = true);
 
-                final userNotifier = ref.read(userProvider.notifier);
-                final success = await userNotifier.signup(userData);
+                      // Verify OTP via API
+                      final isVerified = await ref
+                          .read(userProvider.notifier)
+                          .verifyOTP(signupForm.email!, _codeController.text);
 
-                if (success) {
-                  if (mounted && context.mounted) {
-                    Navigator.pushReplacement(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => InitialProfileSetup(
-                          username: signupForm.username!,
-                        ),
-                      ),
-                    );
-                  }
-                }
-              },
-              child: const Text('Submit'),
+                      if (!isVerified) {
+                        setState(() => _isLoading = false);
+                        return; // Error is already set in the provider
+                      }
+
+                      // Create user account data from the signupForm
+                      final userData = {
+                        'username': signupForm.username!,
+                        'password': signupForm.password!,
+                        'firstName': signupForm.firstName!,
+                        'lastName': signupForm.lastName!,
+                        'dateOfBirth': signupForm.dateOfBirth!,
+                        'country': signupForm.country!,
+                        'email': signupForm.email!,
+                        'phoneNumber': signupForm.phoneNumber!,
+                        'userType': signupForm.userType!,
+                      };
+
+                      final userNotifier = ref.read(userProvider.notifier);
+                      final success = await userNotifier.signup(userData);
+
+                      setState(() => _isLoading = false);
+
+                      if (success) {
+                        if (mounted && context.mounted) {
+                          Navigator.pushReplacement(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => InitialProfileSetup(
+                                username: signupForm.username!,
+                              ),
+                            ),
+                          );
+                        }
+                      }
+                    },
+              child: _isLoading
+                  ? const CircularProgressIndicator(strokeWidth: 2)
+                  : const Text('Submit'),
             ),
           ],
         ),

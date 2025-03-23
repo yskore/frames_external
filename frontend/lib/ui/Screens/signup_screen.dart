@@ -38,7 +38,6 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
       // Check country selection
       if (_selectedCountry == null || _selectedCountry!.isEmpty) {
         ref.read(errorProvider.notifier).setError('Please select a country');
-
         return;
       }
 
@@ -49,12 +48,18 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
             .setError('Please select your date of birth');
         return;
       }
-      final res = await ref.read(userProvider.notifier).checkUserExistSendOTp(
-          _usernameController.text, _emailController.text);
-      if (res == null) {
-        return;
+
+      // Check if user exists and send OTP
+      final success = await ref
+          .read(userProvider.notifier)
+          .checkUserExistsAndSendOTP(
+              _usernameController.text, _emailController.text);
+
+      if (!success) {
+        return; // Error is already set in the provider
       }
 
+      // Save form data
       final signupForm = SignupForm(
         username: _usernameController.text,
         password: _passwordController.text,
@@ -73,9 +78,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => AuthenticationScreen(
-              verificationCode: res,
-            ),
+            builder: (context) => const AuthenticationScreen(),
           ),
         );
       }

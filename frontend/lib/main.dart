@@ -3,8 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:frames_app/core/auth/token_manager.dart';
 import 'package:frames_app/core/config/app_config.dart';
 import 'package:frames_app/core/network/dio_client.dart';
-import 'package:frames_app/core/services/email_service.dart';
-import 'package:frames_app/core/services/storage_service.dart';
 import 'package:frames_app/providers/error_provider.dart';
 import 'package:frames_app/providers/loading_provider.dart';
 import 'package:frames_app/ui/Screens/login_screen.dart';
@@ -19,8 +17,6 @@ void main() async {
     await AppConfig().initialize();
     await Future.wait([
       TokenManager().initialize(),
-      EmailService().initialize(),
-      StorageService().initialize(),
     ]);
 
     runApp(const ProviderScope(child: MainApp()));

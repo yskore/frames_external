@@ -2,7 +2,7 @@ import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:frames_app/core/repositories/profile_repository.dart';
-import 'package:frames_app/core/services/email_service.dart';
+import 'package:frames_app/core/services/storage_service.dart';
 import 'package:frames_app/models/anchor_model.dart';
 import 'package:frames_app/models/piece_model.dart';
 import 'package:frames_app/providers/error_provider.dart';
@@ -285,10 +285,11 @@ class UserNotifier extends StateNotifier<UserModel?> {
 
       String? imageUrl;
 
-      // if (profileImage != null) {
-      //   imageUrl = await StorageService()
-      //       .uploadImage(profileImage, kBucketName, kFolderName);
-      // }
+      if (profileImage != null) {
+        final storageService = StorageService();
+        imageUrl = await storageService.uploadImage(
+            profileImage, kBucketName, kFolderName);
+      }
 
       final response = await _profileRepository.updateUserProfile(
           username, bio, imageUrl ?? "");
@@ -308,7 +309,51 @@ class UserNotifier extends StateNotifier<UserModel?> {
     }
   }
 
-  Future<String?> checkUserExistSendOTp(String username, String email) async {
+  Future<bool> sendVerificationCode(String email) async {
+    try {
+      _loadingNotifier.setLoading(true);
+      _errorNotifier.clearError();
+
+      final response = await _userRepository.sendOTP(email.toLowerCase());
+
+      if (!response.isSuccess) {
+        _errorNotifier
+            .setError(response.message ?? 'Failed to send verification code');
+        return false;
+      }
+
+      return true;
+    } catch (e) {
+      _errorNotifier.setError('Error sending verification code: $e');
+      return false;
+    } finally {
+      _loadingNotifier.setLoading(false);
+    }
+  }
+
+  Future<bool> verifyOTP(String email, String otp) async {
+    try {
+      _loadingNotifier.setLoading(true);
+      _errorNotifier.clearError();
+
+      final response =
+          await _userRepository.verifyOTP(email.toLowerCase(), otp);
+
+      if (!response.isSuccess) {
+        _errorNotifier.setError(response.message ?? 'Failed to verify code');
+        return false;
+      }
+
+      return true;
+    } catch (e) {
+      _errorNotifier.setError('Error verifying code: $e');
+      return false;
+    } finally {
+      _loadingNotifier.setLoading(false);
+    }
+  }
+
+  Future<bool> checkUserExistsAndSendOTP(String username, String email) async {
     try {
       _loadingNotifier.setLoading(true);
       _errorNotifier.clearError();
@@ -317,32 +362,13 @@ class UserNotifier extends StateNotifier<UserModel?> {
 
       if (!response.isSuccess) {
         _errorNotifier.setError(response.message);
-        return null;
+        return false;
       }
 
       return await sendVerificationCode(email.toLowerCase());
     } catch (e) {
       _errorNotifier.setError('Error: $e');
-      return null;
-    } finally {
-      _loadingNotifier.setLoading(false);
-    }
-  }
-
-  Future<String?> sendVerificationCode(String email) async {
-    try {
-      _loadingNotifier.setLoading(true);
-      _errorNotifier.clearError();
-      final OTP = EmailService().generateOTP;
-      final sendOTPRes =
-          await EmailService().sendVerificationCode(email.toLowerCase(), OTP);
-
-      if (!sendOTPRes.isSuccess) {
-        _errorNotifier.setError(sendOTPRes.message);
-        return null;
-      }
-
-      return OTP;
+      return false;
     } finally {
       _loadingNotifier.setLoading(false);
     }

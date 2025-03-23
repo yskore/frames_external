@@ -87,6 +87,51 @@ class UserRepository {
     }
   }
 
+  Future<ApiResponse> sendOTP(String email) async {
+    try {
+      final response = await _apiService.post(
+        'send-otp',
+        data: {
+          'email': email,
+        },
+      );
+
+      if (kDebugMode) {
+        print('Send OTP response: ${response.message}');
+      }
+
+      return response;
+    } catch (e) {
+      if (kDebugMode) {
+        print('Send OTP error: $e');
+      }
+      return ApiResponse.error('Failed to send verification code: $e');
+    }
+  }
+
+  Future<ApiResponse> verifyOTP(String email, String otp) async {
+    try {
+      final response = await _apiService.post(
+        'verify-otp',
+        data: {
+          'email': email,
+          'otp': otp,
+        },
+      );
+
+      if (kDebugMode) {
+        print('Verify OTP response: ${response.message}');
+      }
+
+      return response;
+    } catch (e) {
+      if (kDebugMode) {
+        print('Verify OTP error: $e');
+      }
+      return ApiResponse.error('Failed to verify code: $e');
+    }
+  }
+
   Future<void> logout() async {
     await _tokenManager.clearToken();
   }
