@@ -91,6 +91,50 @@
 						],
 						"description": "Retrieves user information. JWT token optional."
 					}
+				},
+				{
+					"name": "Send OTP",
+					"request": {
+						"method": "POST",
+						"url": "http://localhost:8080/send-otp",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "X-API-Key",
+								"value": "{{api_key}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\"email\":\"user@example.com\"}"
+						},
+						"description": "Sends a verification code to the specified email address. The code expires after 5 minutes."
+					}
+				},
+				{
+					"name": "Verify OTP",
+					"request": {
+						"method": "POST",
+						"url": "http://localhost:8080/verify-otp",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "X-API-Key",
+								"value": "{{api_key}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\"email\":\"user@example.com\",\"otp\":\"123456\"}"
+						},
+						"description": "Verifies the OTP sent to the specified email address. The OTP must be verified within 5 minutes of being sent."
+					}
 				}
 			]
 		},
@@ -552,6 +596,124 @@
 							}
 						],
 						"description": "Deletes a frame (Requires authentication)"
+					}
+				}
+			]
+		},
+		{
+			"name": "Storage Management",
+			"item": [
+				{
+					"name": "Upload Image",
+					"request": {
+						"method": "POST",
+						"url": "http://localhost:8080/upload-image",
+						"header": [
+							{
+								"key": "X-API-Key",
+								"value": "{{api_key}}"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "image",
+									"type": "file",
+									"src": "/path/to/image.jpg"
+								},
+								{
+									"key": "folderName",
+									"value": "piece_display",
+									"type": "text"
+								},
+								{
+									"key": "resourceId",
+									"value": "piece123",
+									"type": "text"
+								},
+								{
+									"key": "resourceType",
+									"value": "piece",
+									"type": "text"
+								}
+							]
+						},
+						"description": "Uploads an image to Google Cloud Storage. If resourceId and resourceType are provided, automatically deletes the previous image for that resource. Returns the public URL of the uploaded image."
+					}
+				},
+				{
+					"name": "Delete Image",
+					"request": {
+						"method": "POST",
+						"url": "http://localhost:8080/delete-image",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "X-API-Key",
+								"value": "{{api_key}}"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\"fileName\":\"piece_display/1623456789_image.jpg\"}"
+						},
+						"description": "Deletes an image from Google Cloud Storage using the file name."
+					}
+				},
+				{
+					"name": "Set Current Image",
+					"request": {
+						"method": "POST",
+						"url": "http://localhost:8080/set-current-image",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "X-API-Key",
+								"value": "{{api_key}}"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\"fileName\":\"piece_display/1623456789_image.jpg\",\"resourceId\":\"piece123\",\"resourceType\":\"piece\",\"deleteOld\":true}"
+						},
+						"description": "Sets the current image for a resource without uploading a new one. Can optionally delete the previous image."
+					}
+				},
+				{
+					"name": "Get Current Image",
+					"request": {
+						"method": "GET",
+						"url": "http://localhost:8080/get-current-image?resourceId=piece123&resourceType=piece",
+						"header": [
+							{
+								"key": "X-API-Key",
+								"value": "{{api_key}}"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"description": "Gets the current image URL for a resource."
 					}
 				}
 			]

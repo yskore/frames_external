@@ -17,7 +17,9 @@ const {
     pieceRoutes,
     anchorRoutes,
     frameRoutes,
-    profileRoutes
+    profileRoutes,
+    otpRoutes,
+    storageRoutes
 } = require('./routes');
 
 app.get('/', (req, res) => {
@@ -30,6 +32,8 @@ app.use(pieceRoutes);
 app.use(anchorRoutes);
 app.use(frameRoutes);
 app.use(profileRoutes);
+app.use(otpRoutes);
+app.use(storageRoutes);
 
 const PORT = process.env.PORT || 8080;
 app.listen(PORT, () => {
