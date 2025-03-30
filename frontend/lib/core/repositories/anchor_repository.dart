@@ -43,23 +43,24 @@ class AnchorRepository {
         'z': unityJson['localScale']['z']
       };
 
-      // Combine data from both sources into new anchor object
-      final newAnchor = {
-        'anchorId': unityJson['anchorId'],
-        'pieceId': pieceJson['PieceID'],
-        'piece_owner': username,
-        'frameName': pieceJson['frameName'],
-        'faceName': pieceJson['faceName'],
-        'imageUrl': pieceJson['imageUrl'],
-        'latitude': unityJson['latitude'],
-        'longitude': unityJson['longitude'],
-        'arPosition': arPosition,
-        'arRotation': arRotation,
-        'localScale': localScale,
-        'heightAboveCamera': unityJson['heightAboveCamera']
-      };
+       // Combine data from both sources into new anchor object
+ final newAnchor = {
+  'anchorId': unityJson['anchorId'],
+  'pieceId': pieceJson['PieceID'],
+  'piece_owner': username,
+  'frameName': pieceJson['frameName'],
+  'faceName': pieceJson['faceName'],
+  'imageUrl': pieceJson['imageUrl'],
+  'latitude': unityJson['latitude'],
+  'longitude': unityJson['longitude'],
+  'arPosition': arPosition,
+  'arRotation': arRotation,
+  'localScale': localScale,
+  'heightAboveCamera': unityJson['heightAboveCamera'],
+  'cloudAnchorId': unityJson['cloudAnchorId'] ?? '' // Add this when available
+};
 
-      return newAnchor;
+  return newAnchor;
     } catch (e) {
       if (kDebugMode) {
         print('Error creating anchor data: $e');
@@ -103,6 +104,7 @@ class AnchorRepository {
           response.data != null &&
           response.data!['anchors'] != null) {
         final List<dynamic> anchorsJson = response.data!['anchors'];
+        print('[LOGS] Cloud: anchorsJson: $anchorsJson');
         return (
           error: null,
           data: anchorsJson.map((json) => AnchorModel.fromJson(json)).toList()
