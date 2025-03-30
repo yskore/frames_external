@@ -129,8 +129,8 @@ class ProfileRepository {
         'update_profile',
         data: {
           'username': username,
-          'bio': bio,
-          'profilePictureUrl': profilePictureUrl,
+          'Bio': bio,
+          'imageUrl': profilePictureUrl,
         },
       );
 
