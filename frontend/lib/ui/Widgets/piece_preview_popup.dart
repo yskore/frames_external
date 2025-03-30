@@ -1,21 +1,38 @@
 // piece_preview_popup.dart
 
+import 'dart:math';
+import 'package:flutter/services.dart';
+import 'package:http/http.dart' as http;
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+import 'package:flutter_unity_widget/flutter_unity_widget.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:frames_app/core/repositories/piece_repository.dart';
-import 'package:frames_app/core/services/map.dart';
-import 'package:frames_app/models/anchor_model.dart';
-import 'package:frames_app/providers/error_provider.dart';
-import 'package:frames_app/providers/user_provider.dart';
+import 'package:frames_app/Functions/profile_page.dart';
+import 'package:frames_app/ui/Widgets/user_profile_widgets.dart';
 import 'package:frames_app/ui/Screens/user_profile_screen.dart';
-import 'package:frames_app/ui/Widgets/AR_Piece_placement.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:intl/intl.dart';
+import 'package:frames_app/ui/Screens/frame_preview_screen.dart';
+import 'package:frames_app/Providers/user_profile_info.dart';
+import 'package:frames_app/Functions/toggle_live_status.dart';
+import 'package:frames_app/Functions/piece_loading.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
 
-// Create a provider for the piece repository
+import 'package:frames_app/Providers/unity_scene_provider.dart';
+import 'package:frames_app/core/repositories/piece_repository.dart';
+
+import 'package:frames_app/core/services/map.dart';
+
+import 'package:frames_app/models/anchor_model.dart';
+
+import 'package:frames_app/providers/error_provider.dart';
+
+import 'package:frames_app/providers/user_provider.dart';
+import 'package:frames_app/ui/Widgets/AR_Piece_placement.dart';
+
+
+//NEW IMPLEMENTATION
 
 class PiecePreviewPopup extends ConsumerStatefulWidget {
   String pieceName;
@@ -24,7 +41,7 @@ class PiecePreviewPopup extends ConsumerStatefulWidget {
   final String pieceOwner;
   String? pieceDescription;
   double piecePrice;
-  final int pieceLikes;
+  int pieceLikes;
   bool pieceForSale;
   final DateTime pieceCreationDate;
   final Function onPieceUpdated;
@@ -48,13 +65,13 @@ class PiecePreviewPopup extends ConsumerStatefulWidget {
 }
 
 class _PiecePreviewPopupState extends ConsumerState<PiecePreviewPopup> {
-  // UnityWidgetController? _unityWidgetController;
+  UnityWidgetController? _unityWidgetController;
   bool _isUnityLoaded = false;
   bool _isUnityInitializing = false;
   bool _isSceneLoading = false;
   String _errorMessage = '';
   bool _isEditing = false;
-  bool _isLoading = false;
+  bool _isLoading = true;
   bool _isCorrectSceneLoaded = false;
   bool _isSceneReady = false;
   bool _isClosing = false;
@@ -64,33 +81,34 @@ class _PiecePreviewPopupState extends ConsumerState<PiecePreviewPopup> {
   late TextEditingController _descriptionController;
   late TextEditingController _priceController;
   final List<AnchorModel> _anchors = [];
-  bool _isFullScreen = false;
+    bool _isFullScreen = false;
+
 
   @override
   void initState() {
     super.initState();
     _nameController = TextEditingController(text: widget.pieceName);
-    _descriptionController =
-        TextEditingController(text: widget.pieceDescription);
-    _priceController =
-        TextEditingController(text: widget.piecePrice.toString());
+    _descriptionController = TextEditingController(text: widget.pieceDescription);
+    _priceController = TextEditingController(text: widget.piecePrice.toString());
   }
 
   @override
   void dispose() {
     if (!_isClosing) {
-      // _unityWidgetController?.dispose();
-      // _unityWidgetController = null;
+      _unityWidgetController?.dispose();
+      _unityWidgetController = null;
     }
     _nameController.dispose();
+
     _descriptionController.dispose();
+
     _priceController.dispose();
     super.dispose();
   }
 
   Future<void> _initializeUnityScene() async {
     if (_isSceneLoading) return;
-
+    
     setState(() {
       _isSceneLoading = true;
       _isUnityInitializing = true;
@@ -98,48 +116,54 @@ class _PiecePreviewPopupState extends ConsumerState<PiecePreviewPopup> {
       _errorMessage = '';
     });
 
-    // try {
-    //   // Reset scene first
-    //   _unityWidgetController?.postMessage(
-    //       'GameManager', 'ResetUnityScene', 'reset');
-    //   print('[Flutter Log] [_initializeUnityScene] Resetting Unity scene');
+    try {
+      // Reset scene first
+      _unityWidgetController?.postMessage(
+        'GameManager',
+        'ResetUnityScene',
+        'reset'
+      );
+      print('[LOGS] [_initializeUnityScene] Resetting Unity scene');
 
-    //   // Wait for reset
-    //   await Future.delayed(Duration(milliseconds: 500));
+      // Wait for reset
+      await Future.delayed(Duration(milliseconds: 500));
 
-    //   // Load new scene
-    //   _unityWidgetController?.postMessage(
-    //       'SceneLoader', 'LoadSceneByName', 'frames_test');
+      // Load new scene
+      _unityWidgetController?.postMessage(
+        'SceneLoader',
+        'LoadSceneByName',
+        'frames_test'
+      );
 
-    //   // Wait for scene load
-    //   await Future.delayed(Duration(seconds: 1));
+      // Wait for scene load
+      await Future.delayed(Duration(seconds: 1));
 
-    //   setState(() {
-    //     _isUnityLoaded = true;
-    //   });
+      setState(() {
+        _isUnityLoaded = true;
+      });
 
-    //   // Now send piece data
-    //   sendPieceDataToUnity();
-    // } catch (e) {
-    //   setErrorMessage('Error initializing Unity scene: $e');
-    // } finally {
-    //   if (mounted) {
-    //     setState(() {
-    //       _isSceneLoading = false;
-    //       _isUnityInitializing = false;
-    //     });
-    //   }
-    // }
+      // Now send piece data
+      sendPieceDataToUnity();
+    } catch (e) {
+      setErrorMessage('Error initializing Unity scene: $e');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSceneLoading = false;
+          _isUnityInitializing = false;
+        });
+      }
+    }
   }
 
-  // void onUnityCreated(UnityWidgetController controller) {
-  //   print('Unity Widget created - controller: $controller');
-  //   _unityWidgetController = controller;
-  //   setState(() {
-  //     _isClosing = false;
-  //   });
-  //   _initializeUnityScene();
-  // }
+  void onUnityCreated(UnityWidgetController controller) {
+    print('Unity Widget created - controller: $controller');
+    _unityWidgetController = controller;
+    setState(() {
+      _isClosing = false;
+    });
+    _initializeUnityScene();
+  }
 
   void _onUnityMessage(message) {
     print('Received message from Unity: $message');
@@ -148,25 +172,28 @@ class _PiecePreviewPopupState extends ConsumerState<PiecePreviewPopup> {
       setState(() {
         _setSceneReady();
       });
-    }
+    } 
 
-    switch (message.toString()) {
-      case 'TEXTURE_LOADING_STARTED':
-        print('${DateTime.now()}: Processing TEXTURE_LOADING_STARTED');
+      switch (message.toString()) {
+    case 'TEXTURE_LOADING_STARTED':
+      print('${DateTime.now()}: Processing TEXTURE_LOADING_STARTED');
+     
+      break;
+    case 'TEXTURE_LOADING_COMPLETED':
+      print('${DateTime.now()}: Processing TEXTURE_LOADING_COMPLETED');
+      setState(() {
+        isTextureCompleted = true;
+      });
+     
+      break;
+    case 'TEXTURE_LOADING_FAILED':
+      print('${DateTime.now()}: Processing TEXTURE_LOADING_FAILED');
+      
+      break;
+  }
 
-        break;
-      case 'TEXTURE_LOADING_COMPLETED':
-        print('${DateTime.now()}: Processing TEXTURE_LOADING_COMPLETED');
-        setState(() {
-          isTextureCompleted = true;
-        });
 
-        break;
-      case 'TEXTURE_LOADING_FAILED':
-        print('${DateTime.now()}: Processing TEXTURE_LOADING_FAILED');
 
-        break;
-    }
   }
 
   void _setSceneReady() {
@@ -175,33 +202,32 @@ class _PiecePreviewPopupState extends ConsumerState<PiecePreviewPopup> {
       _isCorrectSceneLoaded = true;
       _isSceneReady = true;
     });
-    print('Scene is ready');
+    print('[LOGS] Scene is ready');
   }
 
   void sendPieceDataToUnity() {
-    // if (_unityWidgetController == null) {
-    //   setErrorMessage('Unity controller is not initialized');
-    //   return;
-    // }
-    // if (!_isSceneReady) {
-    //   print('Scene not ready, delaying sendPieceDataToUnity');
-    //   return;
-    // }
+    if (_unityWidgetController == null) {
+      setErrorMessage('Unity controller is not initialized');
+      return;
+    }
+    if (!_isSceneReady) {
+      print('Scene not ready, delaying sendPieceDataToUnity');
+      return;
+    }
 
-    // try {
-    //   print(
-    //       '[TEST] Sending piece data to Unity for piece: ${widget.pieceName}');
-    //   print('Data being sent: ${widget.pieceData}');
+    try {
+      print('[LOGS] Sending piece data to Unity for piece: ${widget.pieceName}');
+      print('Data being sent: ${widget.pieceData}');
 
-    //   _unityWidgetController!.postMessage(
-    //     'GameManager',
-    //     'ReceiveDataFromFlutter',
-    //     widget.pieceData,
-    //   );
-    //   print('Piece data sent to Unity successfully');
-    // } catch (e) {
-    //   setErrorMessage('Error sending data to Unity: $e');
-    // }
+      _unityWidgetController!.postMessage(
+        'GameManager',
+        'ReceiveDataFromFlutter',
+        widget.pieceData,
+      );
+      print(' [LOGS] Piece data sent to Unity successfully');
+    } catch (e) {
+      setErrorMessage('Error sending data to Unity: $e');
+    }
   }
 
   void setErrorMessage(String message) {
@@ -213,179 +239,241 @@ class _PiecePreviewPopupState extends ConsumerState<PiecePreviewPopup> {
   }
 
   void _showDeleteConfirmation() {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Delete Piece'),
-          content: const Text(
-              'Are you sure you want to delete this piece? This action cannot be undone.'),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop(); // Close dialog
-              },
-              child: const Text('Cancel'),
+  showDialog(
+    context: context,
+    builder: (BuildContext context) {
+      return AlertDialog(
+        title: Text('Delete Piece'),
+        content: Text('Are you sure you want to delete this piece? This action cannot be undone.'),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop(); // Close dialog
+            },
+            child: Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              _deletePiece();
+              Navigator.of(context).pop(); // Close dialog
+            },
+            style: TextButton.styleFrom(
+              foregroundColor: Colors.red,
             ),
-            TextButton(
-              onPressed: () {
-                _deletePiece();
-                Navigator.of(context).pop(); // Close dialog
-              },
-              style: TextButton.styleFrom(
-                foregroundColor: Colors.red,
-              ),
-              child: const Text('Delete'),
-            ),
-          ],
-        );
-      },
-    );
-  }
+            child: Text('Delete'),
+          ),
+        ],
+      );
+    },
+  );
+}
 
   Future<void> _deletePiece() async {
+
     try {
+
       setState(() {
+
         _isLoading = true;
+
       });
 
+
+
       final pieceRepository = ref.read(pieceRepositoryProvider);
+
       final response = await pieceRepository.deletePiece(
+
           widget.pieceName, widget.pieceOwner);
 
+
+
       if (response.isSuccess && mounted) {
+
         Navigator.pushReplacement(
+
           context,
+
           MaterialPageRoute(
+
             builder: (context) => const UserProfileScreen(
+
               successMessage: 'Piece deleted successfully',
+
             ),
+
           ),
+
         );
+
         return;
+
       }
+
       ref
+
           .read(errorProvider.notifier)
+
           .setError(response.message ?? 'Failed to delete piece');
+
     } catch (e) {
+
       ref.read(errorProvider.notifier).setError('Failed to delete piece: $e');
+
     } finally {
+
       if (mounted) {
+
         setState(() {
+
           _isLoading = false;
+
         });
+
       }
+
     }
+
   }
 
-  void _showPieceLocationMap() async {
-    var pieceData = jsonDecode(widget.pieceData);
-    // Show loading indicator
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => const Center(child: CircularProgressIndicator()),
-    );
 
-    final pieceRepository = ref.read(pieceRepositoryProvider);
+void _showPieceLocationMap() async {
+  var pieceData = jsonDecode(widget.pieceData);
+   // Show loading indicator
+  showDialog(
+    context: context,
+    barrierDismissible: false,
+    builder: (context) => Center(child: CircularProgressIndicator()),
+  );
+
+final pieceRepository = ref.read(pieceRepositoryProvider);
+
     final anchorResponse =
+
         await pieceRepository.getAnchorByPieceId(pieceData['PieceID']);
+  Navigator.pop(context);
+
+  
+  if (anchorResponse.data != null) {
+    final anchor = anchorResponse.data!;
+
 
     if (!mounted) return;
-    Navigator.pop(context);
-
-    if (anchorResponse.data != null) {
-      final anchor = anchorResponse.data!;
-      showModalBottomSheet(
-        context: context,
-        isScrollControlled: true,
-        builder: (context) => SizedBox(
-          height: MediaQuery.of(context).size.height * 0.7,
-          child: Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.all(8.0),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text('Piece Location',
-                        style: TextStyle(
-                            fontSize: 18, fontWeight: FontWeight.bold)),
-                    IconButton(
-                      icon: const Icon(Icons.close),
-                      onPressed: () => Navigator.pop(context),
-                    ),
-                  ],
-                ),
+    
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) => SizedBox(
+        height: MediaQuery.of(context).size.height * 0.7,
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('Piece Location', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  IconButton(
+                    icon: Icon(Icons.close),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
               ),
-              Expanded(
-                child: Stack(
-                  children: [
-                    GoogleMap(
-                      initialCameraPosition: CameraPosition(
-                        target: LatLng(anchor.location.coordinates[1],
-                            anchor.location.coordinates[0]),
-                        zoom: 16,
-                      ),
-                      markers: {
-                        Marker(
-                          markerId: const MarkerId('piece_location'),
-                          position: LatLng(anchor.location.coordinates[1],
-                              anchor.location.coordinates[0]),
-                          infoWindow: InfoWindow(title: widget.pieceName),
-                        )
-                      },
-                      myLocationEnabled: true,
-                      myLocationButtonEnabled: true,
+            ),
+            Expanded(
+              child: Stack(
+                children: [
+                  GoogleMap(
+                    initialCameraPosition: CameraPosition(
+                      target: LatLng(anchor.location.coordinates[1], anchor.location.coordinates[0]),
+                      zoom: 16,
                     ),
-                    Positioned(
-                      bottom: 16,
-                      left: 16,
-                      right: 16,
-                      child: ElevatedButton.icon(
-                        icon: const Icon(Icons.directions),
-                        label: const Text('Get Directions'),
-                        onPressed: () {
-                          MapService.openGoogleMapsNavigation(
+                    markers: {
+                      Marker(
+                        markerId: MarkerId('piece_location'),
+                        position: LatLng(anchor.location.coordinates[1], anchor.location.coordinates[0]),
+                        infoWindow: InfoWindow(title: widget.pieceName),
+                      )
+                    },
+                    myLocationEnabled: true,
+                    myLocationButtonEnabled: true,
+                  ),
+                  Positioned(
+                    bottom: 16,
+                    left: 16,
+                    right: 16,
+                    child: ElevatedButton.icon(
+                      icon: Icon(Icons.directions),
+                      label: Text('Get Directions'),
+                      onPressed: () {
+                        MapService.openGoogleMapsNavigation(
+
                             anchor.location.coordinates[1],
+
                             anchor.location.coordinates[0],
+
                             ref: ref,
-                          );
-                        },
-                        style: ElevatedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                        ),
+
+                          );},
+                      style: ElevatedButton.styleFrom(
+                        padding: EdgeInsets.symmetric(vertical: 12),
                       ),
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-            ],
-          ),
+            ),
+          ],
         ),
-      );
-      return;
-    }
-    ref.read(errorProvider.notifier).setError(anchorResponse.error);
+      ),
+    );
+  } else {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Could not load piece location'))
+    );
   }
+}
 
-  Future<void> _shareLocation() async {
+void _openGoogleMapsNavigation(double lat, double lng) async {
+  final url = Uri.parse('google.navigation:q=$lat,$lng&mode=w');
+  if (!await launchUrl(url)) {
+    // Fallback URL for web or if google.navigation doesn't work
+    final webUrl = Uri.parse('https://www.google.com/maps/dir/?api=1&destination=$lat,$lng&travelmode=walking');
+    if (!await launchUrl(webUrl)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not launch navigation'))
+      );
+    }
+  }
+}
+
+Future<void> _shareLocation() async {
+  
     // Show loading indicator
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) => const Center(child: CircularProgressIndicator()),
+      builder: (context) => Center(child: CircularProgressIndicator()),
     );
 
     // Get piece data
     var pieceData = jsonDecode(widget.pieceData);
-    final pieceRepository = ref.read(pieceRepositoryProvider);
+
+     final pieceRepository = ref.read(pieceRepositoryProvider);
+
     final anchorResponse =
+
         await pieceRepository.getAnchorByPieceId(pieceData['PieceID']);
+
     if (!mounted) return;
 
+
+
     if (anchorResponse.error != null) {
+
       ref.read(errorProvider.notifier).setError(anchorResponse.error);
+
     }
 
     // Dismiss loading indicator
@@ -407,8 +495,8 @@ class _PiecePreviewPopupState extends ConsumerState<PiecePreviewPopup> {
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: const Text('Location Copied!'),
-          content: const Column(
+          title: Text('Location Copied!'),
+          content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -422,14 +510,14 @@ class _PiecePreviewPopupState extends ConsumerState<PiecePreviewPopup> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('OK'),
+              child: Text('OK'),
             ),
           ],
         );
       },
     );
-  }
-
+    
+}
   Widget _buildInfoRow(String label, String value) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4.0),
@@ -463,35 +551,35 @@ class _PiecePreviewPopupState extends ConsumerState<PiecePreviewPopup> {
   }
 
   Future<void> _handleClosing() async {
-    if (_isClosing) return; // Prevent multiple closing attempts
-
+    if (_isClosing) return;  // Prevent multiple closing attempts
+    
     setState(() {
       _isClosing = true;
     });
 
-    //TODO:temp
-    Navigator.of(context).pop();
+    try {
+      _unityWidgetController?.postMessage(
+        'GameManager',
+        'ResetUnityScene',
+        'reset'
+      );
 
-    // try {
-    //   _unityWidgetController?.postMessage(
-    //       'GameManager', 'ResetUnityScene', 'reset');
+      await Future.delayed(const Duration(milliseconds: 500));
+      
+      if (_unityWidgetController != null) {
+        _unityWidgetController?.dispose();
+        _unityWidgetController = null;
+      }
 
-    //   await Future.delayed(const Duration(milliseconds: 500));
-
-    //   if (_unityWidgetController != null) {
-    //     _unityWidgetController?.dispose();
-    //     _unityWidgetController = null;
-    //   }
-
-    //   if (mounted) {
-    //     Navigator.of(context).pop();
-    //   }
-    // } catch (e) {
-    //   print('Error during closing: $e');
-    //   if (mounted) {
-    //     Navigator.of(context).pop();
-    //   }
-    // }
+      if (mounted) {
+        Navigator.of(context).pop();
+      }
+    } catch (e) {
+      print('Error during closing: $e');
+      if (mounted) {
+        Navigator.of(context).pop();
+      }
+    }
   }
 
   void liveStatusChange() {
@@ -501,36 +589,35 @@ class _PiecePreviewPopupState extends ConsumerState<PiecePreviewPopup> {
         context: context,
         builder: (BuildContext context) {
           return AlertDialog(
-            title: const Text('Turn Piece Offline'),
-            content: const Text(
-                'Are you sure you want to turn this piece offline? Users will not be able to view it and its specific location will be lost.'),
+            title: Text('Turn Piece Offline'),
+            content: Text('Are you sure you want to turn this piece offline? Users will not be able to view it and its specific location will be lost.'),
             actions: [
               TextButton(
                 onPressed: () {
                   Navigator.of(context).pop();
                 },
-                child: const Text('Cancel'),
+                child: Text('Cancel'),
               ),
               TextButton(
                 onPressed: () async {
                   setState(() {
-                    _isLoading = true;
-                  });
+                  _isLoading = true; });
+try{
+                  var decodedData = jsonDecode(widget.pieceData);
+                  String pieceId = decodedData['PieceID'];
 
-                  try {
-                    var decodedData = jsonDecode(widget.pieceData);
-                    String pieceId = decodedData['PieceID'];
 
                     final pieceRepository = ref.read(pieceRepositoryProvider);
-                    final response = await pieceRepository
-                        .togglePieceLiveStatus(pieceId, false);
-
+                    final response = await pieceRepository.togglePieceLiveStatus(pieceId, false);
                     if (response.isSuccess) {
-                      setState(() {
-                        widget.liveStatus = false;
-                      });
 
-                      Navigator.pushReplacement(
+                      setState(() {
+                        widget.liveStatus = false; });
+                        
+
+
+
+ Navigator.pushReplacement(
                         context,
                         MaterialPageRoute(
                           builder: (context) => const UserProfileScreen(
@@ -568,14 +655,14 @@ class _PiecePreviewPopupState extends ConsumerState<PiecePreviewPopup> {
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: const Text('Piece Live Placement'),
-          content: const Text('Proceed to place this piece live?'),
+          title: Text('Piece Live Placement'),
+          content: Text('Proceed to place this piece live?'),
           actions: [
             TextButton(
               onPressed: () {
                 Navigator.of(context).pop();
               },
-              child: const Text('Close'),
+              child: Text('Close'),
             ),
             TextButton(
               onPressed: () async {
@@ -586,13 +673,17 @@ class _PiecePreviewPopupState extends ConsumerState<PiecePreviewPopup> {
                   Navigator.of(context).pop(); // pop alert dialog
                   Navigator.of(context).pop(); // pop piece preview popup
 
-                  Navigator.of(context).push(MaterialPageRoute(
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
                       builder: (context) => UnityARViewPlacement(
-                          pieceData: pieceDataToPass,
-                          username: usernameToPass)));
+                        pieceData: pieceDataToPass, 
+                        username: usernameToPass
+                      )
+                    )
+                  );
                 }
               },
-              child: const Text('Proceed'),
+              child: Text('Proceed'),
             ),
           ],
         );
@@ -600,7 +691,7 @@ class _PiecePreviewPopupState extends ConsumerState<PiecePreviewPopup> {
     );
   }
 
-  Future<void> _savePieceChanges() async {
+    Future<void> _savePieceChanges() async {
     setState(() {
       _isLoading = true;
     });
@@ -652,8 +743,56 @@ class _PiecePreviewPopupState extends ConsumerState<PiecePreviewPopup> {
     }
   }
 
+
+  Future<void> deletePiece() async {
+  // TODO: Implement delete functionality
+  print('Delete piece functionality to be implemented');
+  // Suggested implementation steps:
+  // 1. Make API call to delete piece
+  // 2. Handle success/failure
+  // 3. Update UI/navigate back
+  // 4. Show success/error message
+}
+
+Future<Anchor?> _loadAnchorByPieceId(String pieceId) async {
+  print("_loadAnchorByPieceId called with pieceId: $pieceId");
+  try {
+    final url = Uri.parse('https://x-fabric-419423.uc.r.appspot.com/get_anchor_by_piece_id');
+    final requestBody = jsonEncode({'pieceId': pieceId});
+    print("Sending request with body: $requestBody");
+    
+    final response = await http.post(
+      url,
+      headers: <String, String>{
+        'Content-Type': 'application/json; charset=UTF-8',
+      },
+      body: requestBody,
+    );
+    
+    print("Response status code: ${response.statusCode}");
+    print("Response body: ${response.body}");
+    
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      print("Raw anchor data: $data");
+      
+      final anchor = Anchor.fromJson(data);
+      print('Anchor loaded successfully for piece: $pieceId');
+      return anchor;
+    } else {
+      print('Error loading anchor. Status: ${response.statusCode}, Body: ${response.body}');
+      return null;
+    }
+  } catch (e, stackTrace) {
+    print('Error loading anchor: $e');
+    print('Stack trace: $stackTrace');
+    return null;
+  }
+}
+
   @override
   Widget build(BuildContext context) {
+    print('[LOGS] isLoading is" $_isLoading');
     return PopScope(
       canPop: false,
       onPopInvoked: (didPop) async {
@@ -665,9 +804,7 @@ class _PiecePreviewPopupState extends ConsumerState<PiecePreviewPopup> {
             ? const EdgeInsets.all(8) // Minimal padding in full-screen
             : const EdgeInsets.symmetric(
                 horizontal: 40, vertical: 24), // Default padding
-        child: _isLoading
-            ? const Center(child: CircularProgressIndicator())
-            : SizedBox(
+        child: SizedBox(
                 width: _isFullScreen
                     ? MediaQuery.of(context).size.width *
                         0.95 // Wider in full-screen
@@ -741,39 +878,13 @@ class _PiecePreviewPopupState extends ConsumerState<PiecePreviewPopup> {
 
                       child: Stack(
                         children: [
-                          // UnityWidget(
-                          //   onUnityCreated: onUnityCreated,
-                          //   onUnityMessage: _onUnityMessage,
-                          //   useAndroidViewSurface: true,
-                          //   fullscreen: false,
-                          // ),
+                           UnityWidget(
+                             onUnityCreated: onUnityCreated,
+                             onUnityMessage: _onUnityMessage,
+                             useAndroidViewSurface: true,
+                             fullscreen: false,
+                           ),
                           // Placeholder instead of Unity Widget
-                          Container(
-                            color: Colors.grey[300],
-                            child: Center(
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Image.network(
-                                    jsonDecode(widget.pieceData)['imageUrl'] ??
-                                        'https://via.placeholder.com/300',
-                                    height: _isFullScreen ? 400 : 200,
-                                    fit: BoxFit.contain,
-                                    errorBuilder: (context, error, stackTrace) {
-                                      return const Icon(
-                                          Icons.image_not_supported,
-                                          size: 100);
-                                    },
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Text(
-                                    "${jsonDecode(widget.pieceData)['frameName']} Frame",
-                                    style: const TextStyle(fontSize: 16),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
                           if (_isLoading && !isTextureCompleted)
                             Container(
                               color: Colors.white,
