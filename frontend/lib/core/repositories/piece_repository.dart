@@ -136,7 +136,7 @@ class PieceRepository {
     required String pieceLocation,
     required String pieceDescription,
     required String pieceCreationDate,
-    required bool pieceDisplay,
+    required String pieceDisplay,
     required bool pieceForSale,
     required double piecePrice,
   }) async {
