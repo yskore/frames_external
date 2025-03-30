@@ -1,3 +1,4 @@
+
 import 'package:flutter/material.dart';
 
 class Location {
@@ -61,7 +62,7 @@ class Quaternion {
 }
 
 class AnchorModel {
-  final String anchorId;
+    final String anchorId;
   final String? pieceOwner;
   final String pieceId;
   final String frameName;
@@ -70,8 +71,10 @@ class AnchorModel {
   final Location location;
   final Vector3 arPosition;
   final Quaternion arRotation;
+    // Add these new fields:
   final Vector3 localScale;
   final double heightAboveCamera;
+  final String? cloudAnchorId;  // Add this field
 
   AnchorModel({
     required this.anchorId,
@@ -83,39 +86,42 @@ class AnchorModel {
     required this.location,
     required this.arPosition,
     required this.arRotation,
-    required this.localScale,
+    required this.localScale,        // Add this
     required this.heightAboveCamera,
+    this.cloudAnchorId,
   });
 
-  Map<String, dynamic> toJson() => {
-        'anchorId': anchorId,
-        'pieceOwner': pieceOwner,
-        'pieceId': pieceId,
-        'frameName': frameName,
-        'faceName': faceName,
-        'imageUrl': imageUrl,
-        'location': location.toJson(),
-        'arPosition': arPosition.toJson(),
-        'arRotation': arRotation.toJson(),
-        'localScale': localScale.toJson(),
-        'heightAboveCamera': heightAboveCamera,
-      };
+ Map<String, dynamic> toJson() => {
+    'anchorId': anchorId,
+    'pieceOwner': pieceOwner,
+    'pieceId': pieceId,
+    'frameName': frameName,
+    'faceName': faceName,
+    'imageUrl': imageUrl,
+    'location': location.toJson(),
+    'arPosition': arPosition.toJson(),
+    'arRotation': arRotation.toJson(),
+    'localScale': localScale.toJson(),        // Add this
+    'heightAboveCamera': heightAboveCamera, 
+    'cloudAnchorId': cloudAnchorId,  // Add this field
 
-  factory AnchorModel.fromJson(Map<String, dynamic> json) {
-    return AnchorModel(
-      anchorId: json['anchorId'],
-      pieceOwner: json['pieceOwner'],
-      pieceId: json['pieceId'],
-      frameName: json['frameName'],
-      faceName: json['faceName'],
-      imageUrl: json['imageUrl'],
-      location: Location.fromJson(json['location']),
-      arPosition: Vector3.fromJson(json['arPosition']),
-      arRotation: Quaternion.fromJson(json['arRotation']),
-      localScale: Vector3.fromJson(json['localScale']),
-      heightAboveCamera: json['heightAboveCamera'].toDouble(),
-    );
-  }
+  };
+
+  factory AnchorModel.fromJson(Map<String, dynamic> json) => AnchorModel(
+    anchorId: json['anchorId'],
+    pieceOwner: json['pieceOwner'],
+    pieceId: json['pieceId'],
+    frameName: json['frameName'],
+    faceName: json['faceName'],
+    imageUrl: json['imageUrl'],
+    location: Location.fromJson(json['location']),
+    arPosition: Vector3.fromJson(json['arPosition']),
+    arRotation: Quaternion.fromJson(json['arRotation']),
+    localScale: Vector3.fromJson(json['localScale']),        // Add this
+    heightAboveCamera: json['heightAboveCamera'].toDouble(), // Add this
+    cloudAnchorId: json['cloudAnchorId'],  // Add this field
+
+  );
   void validateAnchorData() {
     // Using logger instead of print for production code
     debugPrint(
