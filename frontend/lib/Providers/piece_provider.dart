@@ -54,7 +54,7 @@ class PieceNotifier extends StateNotifier<void> {
     required File pieceImage,
     required String pieceOwner,
     bool liveStatus = false,
-    bool pieceDisplay = true,
+    String pieceDisplay = " ",
   }) async {
     try {
       _loadingNotifier.setLoading(true);
@@ -93,7 +93,7 @@ class PieceNotifier extends StateNotifier<void> {
         pieceLocation: pieceLocation,
         pieceDescription: pieceDescription,
         pieceCreationDate: pieceCreationDate,
-        pieceDisplay: pieceDisplay,
+        pieceDisplay: pieceImageUrl,
         pieceForSale: pieceForSale,
         piecePrice: piecePrice,
       );
