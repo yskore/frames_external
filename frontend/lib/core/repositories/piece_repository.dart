@@ -198,4 +198,25 @@ class PieceRepository {
       return ApiResponse.error('Failed to fetch frames: $e');
     }
   }
+  Future<ApiResponse> getPieceById(String pieceId) async {
+  try {
+    final response = await _apiService.get(
+      'piece/$pieceId',
+    );
+    if (kDebugMode) {
+      if (response.isSuccess) {
+        print('TEST: Piece details fetched successfully');
+        print('TEST:Response data: ${response.data}');  // Add this line
+      } else {
+        print('Failed to fetch piece details: ${response.message}');
+      }
+    }
+    return response;
+  } catch (e) {
+    if (kDebugMode) {
+      print('TEST: Get piece by ID error: $e');
+    }
+    return ApiResponse.error('Failed to get piece details: $e');
+  }
+}
 }
