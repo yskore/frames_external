@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_unity_widget/flutter_unity_widget.dart';
+import 'package:frames_app/Providers/piece_provider.dart';
+import 'package:frames_app/ui/Widgets/enhanced_piece_details_sheet.dart';
+import 'package:frames_app/ui/Widgets/piece_interaction_widget.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:geolocator/geolocator.dart';
 import 'dart:async';
@@ -42,6 +45,10 @@ class _UnityARViewState extends ConsumerState<UnityARView> {
   bool _userHasCompletedCalibration = false;
   bool _showCalibrationWarning = false;
   String _calibrationQuality = 'Unknown';
+  // Variable to store the currently selected piece data
+
+  String? _selectedPieceData;
+
 
   @override
   void initState() {
@@ -73,12 +80,15 @@ class _UnityARViewState extends ConsumerState<UnityARView> {
     });
   }
 
-  void _startCalibration() {
-    if (_isCalibrating) {
-      print('Calibration already in progress');
-      return;
-    }
-
+ void _startCalibration() {
+  // Reset isCalibrating flag regardless of current state
+  // This ensures we can restart calibration even if previous state was stuck
+  setState(() {
+    _isCalibrating = false;
+  });
+  
+  // Small delay to ensure state is updated before starting new calibration
+  Future.delayed(Duration(milliseconds: 100), () {
     setState(() {
       _isCalibrating = true;
       _calibrationProgress = 0;
@@ -86,7 +96,7 @@ class _UnityARViewState extends ConsumerState<UnityARView> {
       _showCalibrationWarning = false; // Hide warning when starting calibration
     });
 
-    Future.delayed(Duration(seconds: 5), () {
+    Future.delayed(Duration(seconds: 10), () {
       if (_isCalibrating) {
         _showCalibrationTimeoutDialog('Unknown');
       }
@@ -97,7 +107,8 @@ class _UnityARViewState extends ConsumerState<UnityARView> {
       'StartCalibration',
       '',
     );
-  }
+  });
+}
 
   void _handleCalibrationMessage(String message) {
     print('Calibration message received: $message');
@@ -566,6 +577,17 @@ class _UnityARViewState extends ConsumerState<UnityARView> {
         _currentViewType = viewType;  // Store it in state if needed
       });
     }
+    else if (message.toString().startsWith('PIECE_SELECTED:')) {
+    final pieceData = message.toString().substring('PIECE_SELECTED:'.length);
+    print('Piece selected: $pieceData');
+    
+    if (mounted) {
+      setState(() {
+        _selectedPieceData = pieceData;
+      });
+      _showPieceInfo();
+    }
+  }
   }
 
   void onUnitySceneLoaded(SceneLoaded? scene) {
@@ -665,6 +687,112 @@ class _UnityARViewState extends ConsumerState<UnityARView> {
     }
   }
 
+void _showPieceInfo() {
+  if (_selectedPieceData == null) return;
+  
+  // Store the data locally so it can't be changed during the modal display
+  final pieceData = _selectedPieceData!;
+  
+  showModalBottomSheet(
+    context: context,
+    backgroundColor: Colors.transparent,
+    isScrollControlled: true,
+    isDismissible: true,  // Ensure it's dismissible
+    enableDrag: true,     // Allow dragging to dismiss
+    builder: (context) => PieceInteractionWidget(
+      pieceData: pieceData,
+      onClose: () {
+        if (Navigator.canPop(context)) {
+          Navigator.pop(context);
+        }
+      },
+      onViewDetails: () {
+        if (Navigator.canPop(context)) {
+          Navigator.pop(context);
+        }
+        _viewDetailedPieceInfo();
+      },
+    ),
+  ).then((_) {
+    // Use a guard to ensure we only reset if still mounted
+    if (mounted) {
+      setState(() {
+        // Only reset if the current selectedPieceData matches what was shown
+        // This prevents issues if multiple sheets were shown rapidly
+        if (_selectedPieceData == pieceData) {
+          _selectedPieceData = null;
+          print('TEST: Selected piece data reset after modal closed');
+        }
+      });
+    }
+  }).catchError((error) {
+    // Add error handling just in case
+    print('Error with modal bottom sheet: $error');
+    if (mounted) {
+      setState(() {
+        _selectedPieceData = null;
+        print('TEST: Selected piece data reset due to error');
+      });
+    }
+  });
+}
+void _viewDetailedPieceInfo() async {
+  try {
+    if (_selectedPieceData == null) return;
+    final pieceJson = jsonDecode(_selectedPieceData!);
+    final pieceId = pieceJson['pieceid'];
+    
+    if (pieceId != null) {
+      setState(() {
+        _isLoading = true;
+      });
+      
+      // Get detailed piece information from database
+      final pieceNotifier = ref.read(pieceProvider.notifier);
+      final pieceDetails = await pieceNotifier.getPieceDetails(pieceId);
+      
+      setState(() {
+        _isLoading = false;
+      });
+      
+      if (pieceDetails != null && mounted) {
+        print('TEST: Passing piece details to sheet: $pieceDetails');
+        
+        // Create the expected structure for the details sheet
+        final formattedDetails = {
+          'piece': pieceDetails  // Wrap the piece details in a 'piece' object
+        };
+        
+        // Show enhanced bottom sheet with the complete piece details
+        showModalBottomSheet(
+          context: context,
+          backgroundColor: Colors.transparent,
+          isScrollControlled: true,
+          builder: (context) => EnhancedPieceDetailsSheet(
+            arPieceData: pieceJson,
+            databaseDetails: formattedDetails,  // Pass the formatted data
+          ),
+        );
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Could not retrieve piece details')),
+          );
+        }
+      }
+    }
+  } catch (e) {
+    setState(() {
+      _isLoading = false;
+    });
+    print('Error fetching piece details: $e');
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: $e')),
+      );
+    }
+  }
+}
   @override
   void dispose() {
     _pieceLoadingTimer?.cancel();
