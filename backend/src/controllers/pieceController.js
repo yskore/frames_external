@@ -231,3 +231,49 @@ exports.toggleLiveStatus = async (req, res) => {
         session.endSession();
     }
 };
+
+
+// Get piece by ID
+exports.getPieceById = async (req, res) => {
+    const { pieceId } = req.params;
+    
+    try {
+        // Find the piece
+        const piece = await Piece.findOne({ Piece_id: pieceId });
+        
+        if (!piece) {
+            return res.status(404).json({
+                success: false,
+                message: 'Piece not found'
+            });
+        }
+        
+        // Format the response with parsed fields
+        const formattedPiece = {
+            id: piece.Piece_id,
+            title: piece.Piece_title,
+            owner: piece.Piece_owner,
+            frameName: piece.Frame_name,
+            description: piece.Piece_description,
+            imageUrl: piece.Piece_display,
+            creationDate: piece.Piece_creation_date,
+            likes: piece.Piece_likes,
+            isLive: piece.live_status,
+            forSale: piece.Piece_for_sale,
+            price: piece.Piece_price
+        };
+        
+        res.status(200).json({
+            success: true,
+            message: 'Piece retrieved by ID successfully',
+            data: { piece: formattedPiece }
+        });
+    } catch (error) {
+        console.error('Error retrieving piece:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to retrieve piece information',
+            error: error.message
+        });
+    }
+};
