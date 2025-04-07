@@ -12,5 +12,7 @@ router.post('/new_piece', validateToken, pieceController.createPiece);
 router.put('/update_piece', validateToken, pieceController.updatePiece);
 router.post('/delete_piece', validateToken, pieceController.deletePiece);
 router.post('/toggle_live_status', validateToken, pieceController.toggleLiveStatus);
+router.get('/piece/:pieceId', pieceController.getPieceById);
+
 
 module.exports = router;
