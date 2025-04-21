@@ -250,7 +250,7 @@ exports.getOwnerPieces = async (req, res) => {
     try {
         const username = req.user.username;
         const pieces = await Piece.find({ Piece_owner: username });
-        
+
         res.status(200).json({
             success: true,
             data: { pieces }
@@ -273,12 +273,12 @@ exports.toggleForSale = async (req, res) => {
         console.log(req.user);
         console.log('Username:', username);
         console.log('Piece ID:', piece_id);
-        
-        
 
-        const piece = await Piece.findOne({ 
+
+
+        const piece = await Piece.findOne({
             Piece_id: piece_id,
-            Piece_owner: username 
+            Piece_owner: username
         });
 
         if (!piece) {
@@ -287,14 +287,14 @@ exports.toggleForSale = async (req, res) => {
 
         const updatedPiece = await Piece.findOneAndUpdate(
             { Piece_id: piece_id },
-            { 
+            {
                 Piece_for_sale: for_sale,
                 Piece_price: for_sale ? price : 0,
                 payment_details: for_sale ? payment_details : null
             },
             { new: true }
         );
-        
+
         res.status(200).json({
             success: true,
             message: `Piece ${for_sale ? 'listed for sale' : 'unlisted from sale'} successfully`,
@@ -305,6 +305,51 @@ exports.toggleForSale = async (req, res) => {
         res.status(500).json({
             success: false,
             message: error.message || 'Failed to update piece sale status'
+        });
+    }
+};
+
+// Get piece by ID
+exports.getPieceById = async (req, res) => {
+    const { pieceId } = req.params;
+
+    try {
+        // Find the piece
+        const piece = await Piece.findOne({ Piece_id: pieceId });
+
+        if (!piece) {
+            return res.status(404).json({
+                success: false,
+                message: 'Piece not found'
+            });
+        }
+
+        // Format the response with parsed fields
+        const formattedPiece = {
+            id: piece.Piece_id,
+            title: piece.Piece_title,
+            owner: piece.Piece_owner,
+            frameName: piece.Frame_name,
+            description: piece.Piece_description,
+            imageUrl: piece.Piece_display,
+            creationDate: piece.Piece_creation_date,
+            likes: piece.Piece_likes,
+            isLive: piece.live_status,
+            forSale: piece.Piece_for_sale,
+            price: piece.Piece_price
+        };
+
+        res.status(200).json({
+            success: true,
+            message: 'Piece retrieved by ID successfully',
+            data: { piece: formattedPiece }
+        });
+    } catch (error) {
+        console.error('Error retrieving piece:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to retrieve piece information',
+            error: error.message
         });
     }
 };

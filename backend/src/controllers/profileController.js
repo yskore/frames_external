@@ -173,7 +173,12 @@ exports.updateProfile = async (req, res) => {
         if (Bio !== undefined) user.User_bio = Bio;
         if (imageUrl !== undefined) user.Profile_photo = imageUrl;
 
-        await user.save();
+        try {
+            await user.save();
+        } catch (saveError) {
+            console.error('Error saving user:', saveError);
+            return res.status(500).json({ success: false, message: 'Failed to save user data' });
+        }
 
         res.status(200).json({
             success: true,

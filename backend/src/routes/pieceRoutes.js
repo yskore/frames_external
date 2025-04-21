@@ -15,6 +15,8 @@ router.post('/new_piece', validateToken, validatePieceInput, pieceController.cre
 router.put('/update_piece', validateToken, validatePieceInput, pieceController.updatePiece);
 router.post('/delete_piece', validateToken, pieceController.deletePiece);
 router.post('/toggle_live_status', validateToken, pieceController.toggleLiveStatus);
+router.get('/piece/:pieceId', pieceController.getPieceById);
+
 
 // Add new route for toggling sale status
 router.post('/toggle_for_sale', validateToken, validateSaleToggle, pieceController.toggleForSale);
