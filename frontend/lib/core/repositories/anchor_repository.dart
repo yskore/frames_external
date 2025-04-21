@@ -15,6 +15,25 @@ final anchorRepositoryProvider = Provider<AnchorRepository>((ref) {
 class AnchorRepository {
   final ApiService _apiService = ApiService();
 
+   Future<({String? error, AnchorModel? data})> getAnchorByPieceId(String pieceId) async {
+    try {
+      final response = await _apiService.post(
+        'get_anchor_by_piece_id',
+        data: {'pieceId': pieceId},
+      );
+
+      if (response.isSuccess && response.data != null && response.data!['anchor'] != null) {
+        return (error: null, data: AnchorModel.fromJson(response.data!['anchor']));
+      }
+      return (error: response.message ?? "Anchor not found", data: null);
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error fetching anchor by piece ID: $e');
+      }
+      return (error: e.toString(), data: null);
+    }
+  }
+
   Map<String, dynamic> _createAnchorData(
       String unityData, String pieceData, String username) {
     try {
