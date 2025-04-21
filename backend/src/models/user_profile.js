@@ -25,6 +25,7 @@ const user_profileSchema = new mongoose.Schema({
     User_following: { type: [String] }, // nullable
     Live_pieces: { type: Number, default: 0 },
     Is_premium: { type: Boolean, default: false },
+    push_token: { type: String }, // Add field for push notification token
   });
 
 // Create User model

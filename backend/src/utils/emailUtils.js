@@ -45,6 +45,54 @@ const sendVerificationEmail = async (email, verificationCode) => {
   }
 };
 
+/**
+ * Send a transaction notification email
+ * @param {Object} options - Email options
+ * @param {string} options.email - Recipient email
+ * @param {string} options.subject - Email subject
+ * @param {string} options.message - Main message content
+ * @param {Object} options.transaction - Transaction details
+ */
+const sendTransactionEmail = async (options) => {
+  try {
+    const transporter = createTransporter();
+    
+    const info = await transporter.sendMail({
+      from: `"${config.smtp.sender_name}" <${config.smtp.username}>`,
+      to: options.email,
+      subject: options.subject || 'Transaction Update',
+      text: options.message,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #333;">${options.subject || 'Transaction Update'}</h2>
+          <p>${options.message}</p>
+          
+          ${options.transaction ? `
+          <div style="background-color: #f4f4f4; padding: 15px; border-radius: 5px; margin-top: 20px;">
+            <h3 style="margin-top: 0;">Transaction Details</h3>
+            <p><strong>ID:</strong> ${options.transaction.id || 'N/A'}</p>
+            <p><strong>Amount:</strong> ${options.transaction.amount || 'N/A'}</p>
+            <p><strong>Date:</strong> ${options.transaction.date || new Date().toISOString()}</p>
+            <p><strong>Status:</strong> ${options.transaction.status || 'Pending'}</p>
+          </div>
+          ` : ''}
+          
+          <p style="color: #777; font-size: 12px; margin-top: 30px;">This is an automated message from Frames App. Please do not reply to this email.</p>
+        </div>
+      `
+    });
+
+    console.log('Transaction email sent successfully:', info.messageId);
+    return { success: true, messageId: info.messageId };
+  } catch (error) {
+    console.error('Error sending transaction email:', error);
+    throw error;
+  }
+};
+
+
+
 module.exports = {
-  sendVerificationEmail
+  sendVerificationEmail,
+  sendTransactionEmail,
 };

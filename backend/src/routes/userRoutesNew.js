@@ -25,6 +25,8 @@ router.post('/login', userController.loginUser);
 // Route to get user info with JWT validation if provided
 router.get('/user_info', validateTokenOptional, userController.getUserInfo);
 
+router.post('/update-push-token', validateToken, userController.updatePushToken);
+
 // router.get('/profile', validateToken, userController.getUserProfile);
 // router.put('/profile/update', validateToken, userController.updateProfile);
 // router.get('/protected', validateToken, userController.protectedRoute);
