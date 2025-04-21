@@ -1,7 +1,9 @@
 // piece_preview_popup.dart
 
 import 'dart:math';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+import 'package:frames_app/core/repositories/anchor_repository.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 
@@ -76,6 +78,8 @@ class _PiecePreviewPopupState extends ConsumerState<PiecePreviewPopup> {
   bool _isSceneReady = false;
   bool _isClosing = false;
   bool isTextureCompleted = false;
+  DateTime? _anchorExpireTime;
+  bool _isLoadingAnchorDetails = false;
 
   late TextEditingController _nameController;
   late TextEditingController _descriptionController;
@@ -90,6 +94,9 @@ class _PiecePreviewPopupState extends ConsumerState<PiecePreviewPopup> {
     _nameController = TextEditingController(text: widget.pieceName);
     _descriptionController = TextEditingController(text: widget.pieceDescription);
     _priceController = TextEditingController(text: widget.piecePrice.toString());
+    if (widget.liveStatus) {
+      _fetchAnchorDetails();
+    }
   }
 
   @override
@@ -105,6 +112,99 @@ class _PiecePreviewPopupState extends ConsumerState<PiecePreviewPopup> {
     _priceController.dispose();
     super.dispose();
   }
+
+  
+  
+
+    Future<void> _fetchAnchorDetails() async {
+    try {
+      setState(() {
+        _isLoadingAnchorDetails = true;
+      });
+
+      var pieceData = jsonDecode(widget.pieceData);
+      String pieceId = pieceData['PieceID'];
+
+      final anchorRepository = ref.read(anchorRepositoryProvider);
+      final response = await anchorRepository.getAnchorByPieceId(pieceId);
+
+      if (response.data != null && response.data!.expireTime != null) {
+        setState(() {
+          _anchorExpireTime = response.data!.expireTime;
+        });
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error fetching anchor details: $e');
+      }
+    } finally {
+      setState(() {
+        _isLoadingAnchorDetails = false;
+      });
+    }
+  }
+
+  Widget _buildExpiryTimeInfo() {
+    if (!widget.liveStatus) {
+      return const SizedBox.shrink(); // Don't show for non-live pieces
+    }
+
+    if (_isLoadingAnchorDetails) {
+      return const Padding(
+        padding: EdgeInsets.only(top: 8.0),
+        child: Center(child: CircularProgressIndicator(strokeWidth: 2.0)),
+      );
+    }
+
+    if (_anchorExpireTime == null) {
+      return const Padding(
+        padding: EdgeInsets.only(top: 8.0),
+        child: Text('Expiry time not available', 
+                   style: TextStyle(fontStyle: FontStyle.italic, color: Colors.grey)),
+      );
+    }
+
+    // Calculate days remaining
+    final now = DateTime.now();
+    final difference = _anchorExpireTime!.difference(now);
+    final daysRemaining = difference.inDays;
+    
+    // Choose color based on days remaining
+    Color textColor = Colors.green;
+    if (daysRemaining < 30) {
+      textColor = Colors.orange;
+    }
+    if (daysRemaining < 7) {
+      textColor = Colors.red;
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 8.0),
+      child: Row(
+        children: [
+          const Text('Anchor Expires: ', style: TextStyle(fontWeight: FontWeight.bold)),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  DateFormat('yyyy-MM-dd').format(_anchorExpireTime!),
+                ),
+                Text(
+                  '$daysRemaining days remaining',
+                  style: TextStyle(
+                    color: textColor,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+  
 
   Future<void> _initializeUnityScene() async {
     if (_isSceneLoading) return;
@@ -915,6 +1015,7 @@ Future<Anchor?> _loadAnchorByPieceId(String pieceId) async {
                                   'Likes', widget.pieceLikes.toString()),
                               _buildInfoRow('Live Status',
                                   widget.liveStatus ? 'Live' : 'Not Live'),
+                                  _buildExpiryTimeInfo(),
                               Row(
                                 children: [
                                   const Text('For Sale: ',
