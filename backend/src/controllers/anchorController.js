@@ -2,6 +2,84 @@ const Anchor = require('../models/anchors');
 const Piece = require('../models/pieces');
 const user_profile = require('../models/user_profile');
 const mongoose = require('mongoose');
+const { GoogleAuth } = require('google-auth-library');
+const axios = require('axios');
+const path = require('path');
+const config = require('../config');
+
+// Cloud Anchor Service functionality
+const env = process.env.NODE_ENV || 'development';
+const arcoreConfig = config.arcore;
+
+// Cloud Anchor Service functionality
+const cloudAnchorService = {
+    async getAccessToken() {
+        try {
+            const credentialsPath = path.join(process.cwd(), arcoreConfig.credentials_path);
+            console.log(`Looking for credentials at: ${credentialsPath}`);
+            
+            const auth = new GoogleAuth({
+                keyFile: credentialsPath,
+                scopes: [arcoreConfig.scope]
+            });
+            
+            const client = await auth.getClient();
+            const token = await client.getAccessToken();
+            return token.token;
+        } catch (error) {
+            console.error('Error getting access token:', error);
+            throw error;
+        }
+    },
+
+    async getAnchorDetails(cloudAnchorId) {
+        try {
+            const token = await this.getAccessToken();
+            const response = await axios.get(
+                `${arcoreConfig.api_url}/anchors/${cloudAnchorId}`,
+                {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                }
+            );
+            return response.data;
+        } catch (error) {
+            console.error(`Error getting anchor details for ${cloudAnchorId}:`, error.response?.data || error.message);
+            throw error;
+        }
+    },
+
+    async extendAnchorToMaximum(cloudAnchorId) {
+        try {
+            // Get current anchor details to obtain the maximumExpireTime
+            const anchorDetails = await this.getAnchorDetails(cloudAnchorId);
+            const maximumExpireTime = anchorDetails.maximumExpireTime;
+            
+            if (!maximumExpireTime) {
+                throw new Error(`No maximumExpireTime found for anchor ${cloudAnchorId}`);
+            }
+
+            // Update the anchor to use the maximum expiry time
+            const token = await this.getAccessToken();
+            const response = await axios.patch(
+                `${arcoreConfig.api_url}/anchors/${cloudAnchorId}?updateMask=expire_time`,
+                { expireTime: maximumExpireTime },
+                {
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                }
+            );
+
+            return response.data;
+        } catch (error) {
+            console.error(`Error extending lifetime for anchor ${cloudAnchorId}:`, error.response?.data || error.message);
+            throw error;
+        }
+    }
+};
 
 exports.createAnchor = async (req, res) => {
     // Extract client request ID for tracking
@@ -95,7 +173,20 @@ exports.createAnchor = async (req, res) => {
                 });
             }
 
-            // Create and save the new anchor
+            // Extend cloud anchor lifetime if available
+            let extendedAnchorData = null;
+            if (cloudAnchorId) {
+                try {
+                    console.log(`[${clientId}] Extending lifetime for cloud anchor ${cloudAnchorId}`);
+                    extendedAnchorData = await cloudAnchorService.extendAnchorToMaximum(cloudAnchorId);
+                    console.log(`[${clientId}] Successfully extended anchor lifetime to ${extendedAnchorData.expireTime}`);
+                } catch (error) {
+                    console.error(`[${clientId}] Failed to extend anchor lifetime: ${error.message}`);
+                    // Continue with creation even if extension fails
+                }
+            }
+
+            // Create and save the new anchor with extended expiry time if available
             const newAnchor = new Anchor({
                 anchorId,
                 pieceId,
@@ -111,7 +202,8 @@ exports.createAnchor = async (req, res) => {
                 arRotation,
                 localScale,
                 heightAboveCamera,
-                cloudAnchorId
+                cloudAnchorId,
+                expireTime: extendedAnchorData ? new Date(extendedAnchorData.expireTime) : null
             });
 
             console.log(`[${clientId}] Saving new anchor`);
@@ -147,7 +239,8 @@ exports.createAnchor = async (req, res) => {
                 data: {
                     anchorId: newAnchor.anchorId,
                     pieceStatus: updatedPiece.live_status,
-                    userLivePieces: updatedUserProfile.Live_pieces
+                    userLivePieces: updatedUserProfile.Live_pieces,
+                    expireTime: extendedAnchorData ? extendedAnchorData.expireTime : null
                 }
             });
 
@@ -190,6 +283,48 @@ exports.createAnchor = async (req, res) => {
     }
 };
 
+exports.extendAnchorExpiry = async (req, res) => {
+    try {
+        const { anchorId } = req.params;
+        
+        const anchor = await Anchor.findOne({ anchorId });
+        if (!anchor || !anchor.cloudAnchorId) {
+            return res.status(404).json({
+                success: false,
+                message: 'Anchor not found or has no cloud anchor ID',
+                data: null
+            });
+        }
+        
+        const extendedAnchor = await cloudAnchorService.extendAnchorToMaximum(anchor.cloudAnchorId);
+        const newExpireTime = new Date(extendedAnchor.expireTime);
+        
+        // Update the anchor in our database
+        await Anchor.updateOne(
+            { anchorId },
+            { $set: { expireTime: newExpireTime } }
+        );
+        
+        res.status(200).json({
+            success: true,
+            message: 'Anchor extended successfully',
+            data: {
+                anchorId: anchor.anchorId,
+                cloudAnchorId: anchor.cloudAnchorId,
+                newExpireTime: extendedAnchor.expireTime
+            }
+        });
+    } catch (error) {
+        console.error('Error extending anchor expiry:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to extend anchor expiry',
+            data: null,
+            error: error.message
+        });
+    }
+};
+
 exports.fetchNearbyAnchors = async (req, res) => {
     try {
         const { latitude, longitude, radius = 100 } = req.body;
@@ -224,8 +359,7 @@ exports.fetchNearbyAnchors = async (req, res) => {
 
 exports.getAnchorsByOwner = async (req, res) => {
     try {
-        const username = req.user ? req.user.username : req.body.username;
-
+        const { username } = req.body;
         if (!username) {
             return res.status(400).json({
                 success: false,
@@ -281,6 +415,74 @@ exports.getAnchorByPieceId = async (req, res) => {
         res.status(500).json({
             success: false,
             message: 'Failed to fetch anchor',
+            data: null,
+            error: error.message
+        });
+    }
+};
+
+exports.extendExpiringAnchors = async (req, res) => {
+    try {
+        // Calculate date threshold (e.g., 7 days from now)
+        const daysThreshold = req.body.days || 7;
+        const expiryThreshold = new Date();
+        expiryThreshold.setDate(expiryThreshold.getDate() + daysThreshold);
+        
+        // Find anchors that will expire soon
+        const expiringAnchors = await Anchor.find({
+            cloudAnchorId: { $exists: true, $ne: '' },
+            $or: [
+                { expireTime: { $lt: expiryThreshold } },
+                { expireTime: { $exists: false } }
+            ]
+        });
+        
+        const results = {
+            total: expiringAnchors.length,
+            processed: 0,
+            extended: 0,
+            failed: 0,
+            details: []
+        };
+        
+        // Process each anchor
+        for (const anchor of expiringAnchors) {
+            try {
+                results.processed++;
+                const extendedAnchor = await cloudAnchorService.extendAnchorToMaximum(anchor.cloudAnchorId);
+                
+                await Anchor.updateOne(
+                    { _id: anchor._id },
+                    { $set: { expireTime: new Date(extendedAnchor.expireTime) } }
+                );
+                
+                results.extended++;
+                results.details.push({
+                    anchorId: anchor.anchorId,
+                    cloudAnchorId: anchor.cloudAnchorId,
+                    expireTime: extendedAnchor.expireTime,
+                    status: 'extended'
+                });
+            } catch (error) {
+                results.failed++;
+                results.details.push({
+                    anchorId: anchor.anchorId,
+                    cloudAnchorId: anchor.cloudAnchorId,
+                    error: error.message,
+                    status: 'failed'
+                });
+            }
+        }
+        
+        res.status(200).json({
+            success: true,
+            message: `Processed ${results.processed} anchors, extended ${results.extended}, failed ${results.failed}`,
+            data: results
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: 'Failed to process expiring anchors',
             data: null,
             error: error.message
         });
