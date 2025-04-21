@@ -163,7 +163,6 @@ exports.deletePiece = async (req, res) => {
     }
 };
 
-// Add new toggle live status function
 exports.toggleLiveStatus = async (req, res) => {
     const { piece_id, live_status } = req.body;
     const session = await mongoose.startSession();
@@ -184,17 +183,19 @@ exports.toggleLiveStatus = async (req, res) => {
                 { session }
             );
 
-            if (deleteResult.deletedCount) {
-                const updatedUserProfile = await user_profile.findOneAndUpdate(
-                    { username: piece_owner },
-                    { $inc: { Live_pieces: -1 } },
-                    { session, new: true }
-                );
+            let updatedUserProfile = null;
 
-                if (!updatedUserProfile) {
-                    throw new Error(`User profile for ${piece_owner} not found`);
-                }
-            }
+if (deleteResult.deletedCount) {
+    updatedUserProfile = await user_profile.findOneAndUpdate(
+        { username: piece_owner },
+        { $inc: { Live_pieces: -1 } },
+        { session, new: true }
+    );
+
+    if (!updatedUserProfile) {
+        throw new Error(`User profile for ${piece_owner} not found`);
+    }
+}
 
             const updatedPiece = await Piece.findOneAndUpdate(
                 { Piece_id: piece_id },
@@ -208,7 +209,7 @@ exports.toggleLiveStatus = async (req, res) => {
                 message: 'Piece set to inactive',
                 data: {
                     piece: updatedPiece,
-                    userLivePieces: updatedUserProfile.Live_pieces
+                    userLivePieces: updatedUserProfile ? updatedUserProfile.Live_pieces : null
                 }
             });
         }
