@@ -75,6 +75,7 @@ class AnchorModel {
   final Vector3 localScale;
   final double heightAboveCamera;
   final String? cloudAnchorId;  // Add this field
+  final DateTime? expireTime;
 
   AnchorModel({
     required this.anchorId,
@@ -89,6 +90,7 @@ class AnchorModel {
     required this.localScale,        // Add this
     required this.heightAboveCamera,
     this.cloudAnchorId,
+    this.expireTime,
   });
 
  Map<String, dynamic> toJson() => {
@@ -104,6 +106,7 @@ class AnchorModel {
     'localScale': localScale.toJson(),        // Add this
     'heightAboveCamera': heightAboveCamera, 
     'cloudAnchorId': cloudAnchorId,  // Add this field
+    'expireTime': expireTime?.toIso8601String(),
 
   };
 
@@ -120,6 +123,8 @@ class AnchorModel {
     localScale: Vector3.fromJson(json['localScale']),        // Add this
     heightAboveCamera: json['heightAboveCamera'].toDouble(), // Add this
     cloudAnchorId: json['cloudAnchorId'],  // Add this field
+    expireTime: json['expireTime'] != null ? DateTime.parse(json['expireTime']) : null,
+
 
   );
   void validateAnchorData() {
