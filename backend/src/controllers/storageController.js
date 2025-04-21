@@ -82,7 +82,7 @@ const userImageMap = new Map();
 
 exports.uploadImage = [
   upload.single('image'),
-  async (req, res) => {
+  async (req, res, next) => {
     try {
       if (!req.file) {
         return res.status(400).json({
@@ -137,16 +137,36 @@ exports.uploadImage = [
       // Clean up local file
       fs.unlinkSync(req.file.path);
 
-      res.status(200).json({
-        success: true,
-        message: 'Image uploaded successfully',
-        data: {
-          imageUrl: imageUrl,
-          fileName: gcsFileName,
-          resourceId: resourceId,
-          resourceType: resourceType
-        }
-      });
+      // Prepare response data
+      const responseData = {
+        imageUrl: imageUrl,
+        fileName: gcsFileName,
+        resourceId: resourceId,
+        resourceType: resourceType
+      };
+
+      // Attach data to request for next middleware
+      req.uploadedFileUrl = imageUrl;
+      req.uploadedData = responseData;
+      
+      // Check if we should respond directly or continue to next middleware
+      // This can be set in the query parameter, body, or as a property added by previous middleware
+      const respondDirectly = req.query.directResponse === 'true' || 
+                             req.body.directResponse === true || 
+                             req.directResponse === true;
+      
+      if (respondDirectly) {
+        // Respond directly to the client
+        return res.status(200).json({
+          success: true,
+          message: 'Image uploaded successfully',
+          data: responseData
+        });
+      } else {
+        // Continue to next middleware
+        next();
+      }
+      
     } catch (error) {
       console.error('Error uploading file:', error);
       // Clean up local file if exists

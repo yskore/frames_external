@@ -24,6 +24,12 @@ exports.createPiece = async (req, res) => {
             Piece_creation_date, Piece_display, Piece_for_sale, Piece_price
         });
 
+        // Add payment details to piece if for sale
+        if (Piece_for_sale) {
+            const { payment_details } = req.body;
+            newPiece.payment_details = payment_details;
+        }
+
         await newPiece.save();
         res.status(201).json({
             success: true,
@@ -55,14 +61,21 @@ exports.updatePiece = async (req, res) => {
             }
         }
 
+        const updateData = {
+            Piece_title: new_piece_title,
+            Piece_description: updated_piece_description,
+            Piece_for_sale: piece_for_sale,
+            Piece_price: piece_price
+        };
+
+        if (piece_for_sale) {
+            const { payment_details } = req.body;
+            updateData.payment_details = payment_details;
+        }
+
         const piece = await Piece.findOneAndUpdate(
             { Piece_owner: piece_owner, Piece_title: old_piece_title },
-            {
-                Piece_title: new_piece_title,
-                Piece_description: updated_piece_description,
-                Piece_for_sale: piece_for_sale,
-                Piece_price: piece_price
-            },
+            updateData,
             { new: true, runValidators: true }
         );
 
@@ -192,7 +205,7 @@ exports.toggleLiveStatus = async (req, res) => {
             await session.commitTransaction();
             return res.status(200).json({
                 success: true,
-                message: 'Piece set to inactive, anchor removed, and user profile updated',
+                message: 'Piece set to inactive',
                 data: {
                     piece: updatedPiece,
                     userLivePieces: updatedUserProfile.Live_pieces
@@ -229,5 +242,69 @@ exports.toggleLiveStatus = async (req, res) => {
         });
     } finally {
         session.endSession();
+    }
+};
+
+// Add new method to get owner's pieces
+exports.getOwnerPieces = async (req, res) => {
+    try {
+        const username = req.user.username;
+        const pieces = await Piece.find({ Piece_owner: username });
+        
+        res.status(200).json({
+            success: true,
+            data: { pieces }
+        });
+    } catch (error) {
+        console.error('Error fetching pieces:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to fetch pieces'
+        });
+    }
+};
+
+// Simplified toggleForSale method
+exports.toggleForSale = async (req, res) => {
+    try {
+        const { piece_id, for_sale, price, payment_details } = req.body;
+        const username = req.user.username;
+
+        console.log(req.user);
+        console.log('Username:', username);
+        console.log('Piece ID:', piece_id);
+        
+        
+
+        const piece = await Piece.findOne({ 
+            Piece_id: piece_id,
+            Piece_owner: username 
+        });
+
+        if (!piece) {
+            throw new Error('Piece not found or not owned by user');
+        }
+
+        const updatedPiece = await Piece.findOneAndUpdate(
+            { Piece_id: piece_id },
+            { 
+                Piece_for_sale: for_sale,
+                Piece_price: for_sale ? price : 0,
+                payment_details: for_sale ? payment_details : null
+            },
+            { new: true }
+        );
+        
+        res.status(200).json({
+            success: true,
+            message: `Piece ${for_sale ? 'listed for sale' : 'unlisted from sale'} successfully`,
+            data: { piece: updatedPiece }
+        });
+    } catch (error) {
+        console.error('Error toggling sale status:', error);
+        res.status(500).json({
+            success: false,
+            message: error.message || 'Failed to update piece sale status'
+        });
     }
 };
