@@ -19,8 +19,26 @@ const {
     frameRoutes,
     profileRoutes,
     otpRoutes,
-    storageRoutes
+    storageRoutes,
+    adminRoutes,
+    offerRoutes
 } = require('./routes');
+
+const { initializeFirebaseApp } = require('./utils/notificationUtils');
+const { initCronJobs } = require('./utils/cronJobs');
+
+try {
+  initializeFirebaseApp();
+  console.log('Firebase initialized for push notifications');
+} catch (error) {
+  console.error('Failed to initialize Firebase:', error);
+}
+
+try {
+  initCronJobs();
+} catch (error) {
+  console.error('Failed to initialize cron jobs:', error);
+}
 
 app.get('/', (req, res) => {
     res.send('Hello from App Engine!');
@@ -34,6 +52,8 @@ app.use(frameRoutes);
 app.use(profileRoutes);
 app.use(otpRoutes);
 app.use(storageRoutes);
+app.use(adminRoutes);
+app.use(offerRoutes);
 
 const PORT = process.env.PORT || 8080;
 app.listen(PORT, () => {

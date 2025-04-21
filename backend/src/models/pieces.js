@@ -38,6 +38,16 @@ const PieceSchema = new mongoose.Schema({
   Piece_display: { type: String, required: false },
   Piece_for_sale: { type: Boolean, default: false },
   Piece_price: { type: Number, default: 0.0 },
+  payment_details: { type: String },
+  temporary_status: {
+    type: String,
+    enum: ['normal', 'platform_hold', 'transfer_pending'],
+    default: 'normal'
+  },
+  pending_owner: {
+    type: String,
+    ref: 'user_basic'
+  }
 });
 
 const Piece = mongoose.model('Piece', PieceSchema, 'pieces');

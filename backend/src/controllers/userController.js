@@ -1,6 +1,7 @@
 const user_basic = require('../models/user_basic');
 const Followers = require('../models/followers');
 const Following = require('../models/following');
+const UserProfile = require('../models/user_profile'); // Add this import 
 const { generateAccessToken } = require('../utils/tokenUtils');
 const { hashPassword, comparePassword } = require('../utils/passwordUtils');
 const profileController = require('./profileController'); 
@@ -114,7 +115,7 @@ exports.checkUserExists = async (req, res) => {
     }
 };
 
-// Login user
+// Login user - modified to handle push token
 exports.loginUser = async (req, res) => {
     try {
         const user = await user_basic.findOne({ "username": req.body.username });
@@ -126,6 +127,17 @@ exports.loginUser = async (req, res) => {
         }
 
         const accessToken = generateAccessToken(user);
+        
+        // Check if push token was provided in the login request
+        if (req.body.push_token) {
+            const userProfile = await UserProfile.findOne({ username: user.username });
+            if (userProfile) {
+                userProfile.push_token = req.body.push_token;
+                await userProfile.save();
+                console.log(`Updated push token for user ${user.username}`);
+            }
+        }
+
         res.status(200).json({
             success: true,
             message: 'Logged in successfully',
@@ -135,7 +147,6 @@ exports.loginUser = async (req, res) => {
         });
     } catch (err) {
         console.log('Error logging in user:', err);
-        
         res.status(500).json({ success: false, message: 'Internal server error' });
     }
 };
@@ -149,12 +160,10 @@ exports.getUserInfo = async (req, res) => {
             return res.status(400).json({ success: false, message: 'No username provided' });
         }
 
-
         // If no username provided in query, use authenticated user's username
         const queryUsername = username || req.user.username;
 
         const user = await user_basic.findOne({ username: queryUsername });
-
         if (!user) {
             return res.status(404).json({ success: false, message: 'User not found' });
         }
@@ -163,12 +172,9 @@ exports.getUserInfo = async (req, res) => {
         const userResponse = user.toObject();
         delete userResponse.password;
 
-
         res.status(200).json({
             success: true,
-
             data: {
-
                 user: userResponse,
                 isOwnProfile: req.user ? (req.user.username === username) : false
             }
@@ -180,6 +186,51 @@ exports.getUserInfo = async (req, res) => {
         } else {
             res.status(500).json({ success: false, message: 'Internal server error' });
         }
+    }
+};
+
+// Protected route handler
+exports.protectedRoute = (req, res) => {
+    res.json({ message: 'Welcome to the protected route!', user: req.user });
+};
+
+// Update push token
+exports.updatePushToken = async (req, res) => {
+    try {
+        const { push_token } = req.body;
+        const username = req.user.username;
+
+        if (!push_token) {
+            return res.status(400).json({ 
+                success: false, 
+                message: 'Push token is required' 
+            });
+        }
+
+        // Find user profile and update push token
+        const userProfile = await UserProfile.findOne({ username });
+        
+        if (!userProfile) {
+            return res.status(404).json({ 
+                success: false, 
+                message: 'User profile not found' 
+            });
+        }
+
+        userProfile.push_token = push_token;
+        await userProfile.save();
+
+        res.status(200).json({
+            success: true,
+            message: 'Push token updated successfully',
+            data: { username }
+        });
+    } catch (err) {
+        console.error('Error updating push token:', err);
+        res.status(500).json({ 
+            success: false, 
+            message: 'Internal server error' 
+        });
     }
 };
 

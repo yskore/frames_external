@@ -54,7 +54,7 @@ class PieceNotifier extends StateNotifier<void> {
     required File pieceImage,
     required String pieceOwner,
     bool liveStatus = false,
-    bool pieceDisplay = true,
+    String pieceDisplay = " ",
   }) async {
     try {
       _loadingNotifier.setLoading(true);
@@ -93,7 +93,7 @@ class PieceNotifier extends StateNotifier<void> {
         pieceLocation: pieceLocation,
         pieceDescription: pieceDescription,
         pieceCreationDate: pieceCreationDate,
-        pieceDisplay: pieceDisplay,
+        pieceDisplay: pieceImageUrl,
         pieceForSale: pieceForSale,
         piecePrice: piecePrice,
       );
@@ -160,4 +160,42 @@ class PieceNotifier extends StateNotifier<void> {
       _loadingNotifier.setLoading(false);
     }
   }
+
+  Future<Map<String, dynamic>?> getPieceDetails(String pieceId) async {
+  try {
+    _loadingNotifier.setLoading(true);
+    _errorNotifier.clearError();
+    
+    final response = await _pieceRepository.getPieceById(pieceId);
+    print('TEST: Full response: $response');
+    
+    if (response.isSuccess) {
+      // Look at the raw response content
+      print('TEST: Checking raw response structure');
+      
+      // If the response data exists
+      if (response.data != null) {
+        print('TEST: Response data exists');
+        
+        // Check if it has a 'piece' field
+        if (response.data is Map<String, dynamic> && 
+            (response.data as Map<String, dynamic>).containsKey('piece')) {
+          print('TEST: Found piece data in response');
+          return (response.data as Map<String, dynamic>)['piece'];
+        }
+        
+        // Return the data as-is if no piece field
+        return response.data as Map<String, dynamic>;
+      }
+    }
+    
+    _errorNotifier.setError(response.message ?? 'Failed to get piece details');
+    return null;
+  } catch (e) {
+    _errorNotifier.setError('Error getting piece details: $e');
+    return null;
+  } finally {
+    _loadingNotifier.setLoading(false);
+  }
+}
 }

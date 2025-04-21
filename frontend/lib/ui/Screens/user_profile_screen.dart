@@ -164,7 +164,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
                       backgroundImage: userProfile.profilePhoto.isNotEmpty
                           ? NetworkImage(userProfile.profilePhoto)
                           : const NetworkImage(
-                              'https://via.placeholder.com/80'),
+                              'https://dummyimage.com/250/ffffff'),
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -307,7 +307,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
           children: [
             // Image with loading indicator
             Image.network(
-              piece.pieceDisplay ?? 'https://via.placeholder.com/150',
+              piece.pieceDisplay ?? 'https://dummyimage.com/250/ffffff',
               fit: BoxFit.cover,
               loadingBuilder: (BuildContext context, Widget child,
                   ImageChunkEvent? loadingProgress) {

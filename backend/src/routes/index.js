@@ -5,6 +5,8 @@ const frameRoutes = require('./frameRoutes');
 const profileRoutes = require('./profileRoutes');
 const otpRoutes = require('./otpRoutes');
 const storageRoutes = require('./storageRoutes');
+const offerRoutes = require('./offerRoutes');
+const adminRoutes = require('./adminRoutes');
 
 module.exports = {
     userRoutes,
@@ -13,5 +15,7 @@ module.exports = {
     frameRoutes,
     profileRoutes,
     otpRoutes,
-    storageRoutes
+    storageRoutes,
+    offerRoutes,
+    adminRoutes
 };
