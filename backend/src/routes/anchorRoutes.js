@@ -9,6 +9,8 @@ router.use(validateApiKey);
 
 // Protected routes (require authentication)
 router.post('/anchor', validateToken, anchorController.createAnchor);
+router.post('/extend-anchor/:anchorId', validateToken, anchorController.extendAnchorExpiry);
+router.post('/extend-expiring-anchors', validateToken, anchorController.extendExpiringAnchors);
 
 // Public routes
 router.post('/fetchanchors', anchorController.fetchNearbyAnchors);
