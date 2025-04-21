@@ -3,6 +3,7 @@ const Offer = require('../models/offer');
 const mongoose = require('mongoose');
 const OwnershipHistory = require('../models/ownership_history');
 const config = require('../config');
+const { sendNotification } = require('../utils/notificationUtils');
 
 exports.createOffer = async (req, res) => {
     const session = await mongoose.startSession();
@@ -57,8 +58,20 @@ exports.createOffer = async (req, res) => {
 
         await newOffer.save({ session });
 
-        // TODO: Send push notification to seller about new offer
-        // TODO: Implement notification system integration
+        // Send notification to seller about new offer
+        sendNotification({
+            userId: piece.Piece_owner,
+            notificationType: 'offer_received',
+            data: {
+                id: newOffer._id.toString(),
+                pieceId: piece_id,
+                pieceTitle: piece.Piece_title,
+                amount: piece.Piece_price,
+                buyerUsername: buyer,
+                date: new Date().toISOString(),
+                status: 'pending'
+            }
+        }).catch(err => console.error('Error sending notification:', err));
 
         await session.commitTransaction();
 
@@ -169,6 +182,9 @@ exports.acceptOffer = async (req, res) => {
             throw new Error('Offer not found or not available');
         }
 
+        // Get piece details for notification
+        const piece = await Piece.findOne({ Piece_id: offer.piece_id }).session(session);
+        
         // Update offer status and set expiration
         const expirationTime = new Date(Date.now() + config.payment.timeout);
         
@@ -196,17 +212,23 @@ exports.acceptOffer = async (req, res) => {
             { session }
         );
 
-        // TODO: Send push notification to buyer
-        // Will be implemented when notification system is ready
-        // NotificationService.sendPushNotification({
-        //     userId: offer.buyer,
-        //     type: 'offer_accepted',
-        //     data: {
-        //         offerId: offer._id,
-        //         pieceId: offer.piece_id,
-        //         expirationTime
-        //     }
-        // });
+        // Send notification to buyer about offer acceptance
+        sendNotification({
+            userId: offer.buyer,
+            notificationType: 'offer_accepted',
+            data: {
+                id: offer._id.toString(),
+                pieceId: offer.piece_id,
+                pieceTitle: piece ? piece.Piece_title : 'Untitled',
+                amount: offer.amount,
+                sellerUsername: seller,
+                date: new Date().toISOString(),
+                status: 'accepted',
+                deadline: expirationTime.toISOString(),
+                timeWindow: '30 minutes'
+            },
+            priority: 'high'
+        }).catch(err => console.error('Error sending notification:', err));
 
         await session.commitTransaction();
 
@@ -266,6 +288,9 @@ exports.submitPaymentProof = async (req, res) => {
         const now = new Date();
         const seller_confirmation_deadline = new Date(now.getTime() + config.payment.seller_confirmation_timeout);
 
+        // Get piece details for notification
+        const piece = await Piece.findOne({ Piece_id: existingOffer.piece_id }).session(session);
+
         const offer = await Offer.findOneAndUpdate(
             {
                 _id: offerId,
@@ -285,6 +310,24 @@ exports.submitPaymentProof = async (req, res) => {
         if (!offer) {
             throw new Error('Offer update failed');
         }
+
+        // Send notification to seller about payment submission
+        sendNotification({
+            userId: offer.seller,
+            notificationType: 'payment_submitted',
+            data: {
+                id: offer._id.toString(),
+                pieceId: offer.piece_id,
+                pieceTitle: piece ? piece.Piece_title : 'Untitled',
+                amount: offer.amount,
+                buyerUsername: buyer,
+                date: now.toISOString(),
+                status: 'payment_submitted',
+                deadline: seller_confirmation_deadline.toISOString(),
+                paymentProofUrl: payment_proof_url
+            },
+            priority: 'high'
+        }).catch(err => console.error('Error sending notification:', err));
 
         await session.commitTransaction();
         res.status(200).json({
@@ -353,8 +396,7 @@ exports.getPaymentProof = async (req, res) => {
     }
 };
 
-//TODO: add cron job to check for expired confirmations
-// Add new method to handle expired confirmations
+
 exports.handleExpiredConfirmations = async () => {
     const session = await mongoose.startSession();
     session.startTransaction();
@@ -378,19 +420,6 @@ exports.handleExpiredConfirmations = async () => {
 
             offer.seller_grace_deadline = seller_grace_deadline;
             await offer.save({ session });
-
-            // TODO: Send urgent notification to seller about payment confirmation
-            // NotificationService.sendPushNotification({
-            //     userId: offer.seller,
-            //     type: 'urgent_payment_confirmation',
-            //     data: {
-            //         offerId: offer._id,
-            //         pieceId: offer.piece_id,
-            //         graceDeadline: seller_grace_deadline,
-            //         message: 'URGENT: Please confirm payment within 30 minutes or ownership will transfer automatically'
-            //     },
-            //     priority: 'high'
-            // });
         }
 
         // Handle second window expiration - transfer to buyer
@@ -399,7 +428,7 @@ exports.handleExpiredConfirmations = async () => {
             const ownershipRecord = new OwnershipHistory({
                 piece_id: offer.piece_id,
                 owner: offer.buyer,
-                transfer_type: 'platform_transfer', // Changed to match schema enum
+                transfer_type: 'platform_transfer',
                 previous_owner: offer.seller,
                 related_offer: offer._id,
                 transfer_price: offer.amount,
@@ -466,7 +495,10 @@ exports.confirmPayment = async (req, res) => {
             throw new Error('Offer not found or not in correct state');
         }
 
-        // Create new ownership history record without updating previous records
+        // Get piece details for notification
+        const piece = await Piece.findOne({ Piece_id: offer.piece_id }).session(session);
+
+        // Create new ownership history record and update piece ownership
         const ownershipRecord = new OwnershipHistory({
             piece_id: offer.piece_id,
             owner: offer.buyer,
@@ -484,7 +516,7 @@ exports.confirmPayment = async (req, res) => {
                 piece_id: offer.piece_id,
                 owner: offer.seller,
                 end_date: null,
-                _id: { $ne: ownershipRecord._id } // Ensure we don't update the new record
+                _id: { $ne: ownershipRecord._id }
             },
             { end_date: new Date() },
             { session }
@@ -504,6 +536,21 @@ exports.confirmPayment = async (req, res) => {
 
         offer.status = 'completed';
         await offer.save({ session });
+
+        // Send notification to buyer about payment confirmation
+        sendNotification({
+            userId: offer.buyer,
+            notificationType: 'payment_confirmed',
+            data: {
+                id: offer._id.toString(),
+                pieceId: offer.piece_id,
+                pieceTitle: piece ? piece.Piece_title : 'Untitled',
+                amount: offer.amount,
+                sellerUsername: seller,
+                date: new Date().toISOString(),
+                status: 'completed'
+            }
+        }).catch(err => console.error('Error sending notification:', err));
 
         await session.commitTransaction();
         res.status(200).json({
@@ -545,6 +592,9 @@ exports.denyPayment = async (req, res) => {
             throw new Error('Offer not found or not in correct state');
         }
 
+        // Get piece details for notification
+        const piece = await Piece.findOne({ Piece_id: offer.piece_id }).session(session);
+
         // Update offer status and create dispute
         offer.status = 'disputed';
         offer.dispute = {
@@ -563,6 +613,23 @@ exports.denyPayment = async (req, res) => {
             },
             { session }
         );
+
+        // Send notification to buyer about payment denial
+        sendNotification({
+            userId: offer.buyer,
+            notificationType: 'payment_denied',
+            data: {
+                id: offer._id.toString(),
+                pieceId: offer.piece_id,
+                pieceTitle: piece ? piece.Piece_title : 'Untitled',
+                amount: offer.amount,
+                sellerUsername: seller,
+                date: new Date().toISOString(),
+                status: 'disputed',
+                reason: reason
+            },
+            priority: 'high'
+        }).catch(err => console.error('Error sending notification:', err));
 
         await session.commitTransaction();
         res.status(200).json({
@@ -604,5 +671,103 @@ exports.getMadeOffers = async (req, res) => {
             success: false,
             message: error.message || 'Failed to fetch made offers'
         });
+    }
+};
+
+// Add a new function to send payment reminders
+exports.sendPaymentReminders = async () => {
+    try {
+        const now = new Date();
+        // Find offers that are accepted but expiring soon (10 minutes left)
+        const reminderWindow = new Date(now.getTime() + 10 * 60 * 1000); // 10 minutes from now
+        
+        const offersNeedingReminders = await Offer.find({
+            status: 'accepted',
+            payment_deadline: { 
+                $gt: now,  
+                $lt: reminderWindow 
+            }
+        });
+
+        console.log(`Found ${offersNeedingReminders.length} offers needing payment reminders`);
+        
+        for (const offer of offersNeedingReminders) {
+            const piece = await Piece.findOne({ Piece_id: offer.piece_id });
+            
+            sendNotification({
+                userId: offer.buyer,
+                notificationType: 'payment_reminder',
+                data: {
+                    id: offer._id.toString(),
+                    pieceId: offer.piece_id,
+                    pieceTitle: piece ? piece.Piece_title : 'Untitled',
+                    amount: offer.amount,
+                    deadline: offer.payment_deadline.toISOString(),
+                    timeLeft: 'less than 10 minutes'
+                },
+                priority: 'high'
+            }).catch(err => console.error(`Error sending reminder for offer ${offer._id}:`, err));
+        }
+        
+        return { 
+            success: true, 
+            count: offersNeedingReminders.length 
+        };
+    } catch (error) {
+        console.error('Error sending payment reminders:', error);
+        return { 
+            success: false, 
+            error: error.message 
+        };
+    }
+};
+
+// Add a new function to send confirmation reminders
+exports.sendConfirmationReminders = async () => {
+    try {
+        const now = new Date();
+        // Find offers where payment was submitted but confirmation deadline is approaching (10 minutes left)
+        const reminderWindow = new Date(now.getTime() + 10 * 60 * 1000); // 10 minutes from now
+        
+        const offersNeedingReminders = await Offer.find({
+            status: 'payment_submitted',
+            seller_confirmation_deadline: { 
+                $gt: now, 
+                $lt: reminderWindow 
+            },
+            seller_grace_deadline: { $exists: false }
+        });
+
+        console.log(`Found ${offersNeedingReminders.length} offers needing confirmation reminders`);
+        
+        for (const offer of offersNeedingReminders) {
+            const piece = await Piece.findOne({ Piece_id: offer.piece_id });
+            
+            sendNotification({
+                userId: offer.seller,
+                notificationType: 'confirmation_reminder',
+                data: {
+                    id: offer._id.toString(),
+                    pieceId: offer.piece_id,
+                    pieceTitle: piece ? piece.Piece_title : 'Untitled',
+                    amount: offer.amount,
+                    buyerUsername: offer.buyer,
+                    deadline: offer.seller_confirmation_deadline.toISOString(),
+                    timeLeft: 'less than 10 minutes'
+                },
+                priority: 'high'
+            }).catch(err => console.error(`Error sending reminder for offer ${offer._id}:`, err));
+        }
+        
+        return { 
+            success: true, 
+            count: offersNeedingReminders.length 
+        };
+    } catch (error) {
+        console.error('Error sending confirmation reminders:', error);
+        return { 
+            success: false, 
+            error: error.message 
+        };
     }
 };
