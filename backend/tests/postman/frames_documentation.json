@@ -411,6 +411,50 @@
 						},
 						"description": "Toggles a piece's live status. When set to false, removes associated anchor and updates user's live piece count. (Requires authentication)"
 					}
+				},
+				{
+					"name": "Toggle For Sale",
+					"request": {
+						"method": "POST",
+						"url": "http://localhost:8080/toggle_for_sale",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "X-API-Key",
+								"value": "{{api_key}}"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\"piece_id\":\"piece123\",\"for_sale\":true,\"price\":100.00,\"payment_details\":\"payment@email.com\"}"
+						},
+						"description": "Toggles a piece's for sale status and updates price and payment details. (Requires authentication)"
+					}
+				},
+				{
+					"name": "Get My Pieces",
+					"request": {
+						"method": "GET",
+						"url": "http://localhost:8080/my-pieces",
+						"header": [
+							{
+								"key": "X-API-Key",
+								"value": "{{api_key}}"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"description": "Retrieves all pieces owned by the authenticated user. (Requires authentication)"
+					}
 				}
 			]
 		},
@@ -714,6 +758,282 @@
 							}
 						],
 						"description": "Gets the current image URL for a resource."
+					}
+				}
+			]
+		},
+		{
+			"name": "Offer Management",
+			"item": [
+				{
+					"name": "Make Offer",
+					"request": {
+						"method": "POST",
+						"url": "http://localhost:8080/create-offer",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "X-API-Key",
+								"value": "{{api_key}}"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\"piece_id\":\"piece123\"}"
+						},
+						"description": "Creates a new offer for a piece. The piece must be for sale and not have any accepted offers. A user cannot make an offer on their own piece or have multiple pending offers for the same piece. (Requires authentication)"
+					}
+				},
+				{
+					"name": "Get Piece Offers",
+					"request": {
+						"method": "GET",
+						"url": "http://localhost:8080/piece-offers/:piece_id",
+						"header": [
+							{
+								"key": "X-API-Key",
+								"value": "{{api_key}}"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"description": "Retrieves all offers for a specific piece. Only the piece owner can access this endpoint. (Requires authentication)"
+					}
+				},
+				{
+					"name": "Get My Received Offers",
+					"request": {
+						"method": "GET",
+						"url": "http://localhost:8080/my-received-offers",
+						"header": [
+							{
+								"key": "X-API-Key",
+								"value": "{{api_key}}"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"description": "Retrieves all offers received for all pieces owned by the authenticated user, grouped by piece. (Requires authentication)"
+					}
+				},
+				{
+					"name": "Get My Made Offers",
+					"request": {
+						"method": "GET",
+						"url": "http://localhost:8080/my-made-offers",
+						"header": [
+							{
+								"key": "X-API-Key",
+								"value": "{{api_key}}"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"description": "Retrieves all offers made by the authenticated user. Returns offers sorted by creation date (newest first). (Requires authentication)"
+					}
+				},
+				{
+					"name": "Accept Offer",
+					"request": {
+						"method": "POST",
+						"url": "http://localhost:8080/accept-offer/:offerId",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "X-API-Key",
+								"value": "{{api_key}}"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"description": "Accept an offer for a piece. Only the piece owner can accept offers. Once accepted, other pending offers are cancelled and the buyer has 30 minutes to submit payment. (Requires authentication)"
+					}
+				},
+				{
+					"name": "Submit Payment Proof",
+					"request": {
+						"method": "POST",
+						"url": "http://localhost:8080/submit-payment-proof/:offerId",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "X-API-Key",
+								"value": "{{api_key}}"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\"payment_proof_url\":\"https://example.com/receipt.jpg\"}"
+						},
+						"description": "Submit proof of payment for an accepted offer. Must be submitted within 30 minutes of offer acceptance. Only the buyer can submit payment proof. (Requires authentication)"
+					}
+				},
+				{
+					"name": "Submit Payment Proof",
+					"request": {
+						"method": "POST",
+						"url": "http://localhost:8080/submit-payment-proof/:offerId",
+						"header": [
+							{
+								"key": "X-API-Key",
+								"value": "{{api_key}}"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "image",
+									"type": "file",
+									"src": "/path/to/payment_proof.jpg"
+								}
+							]
+						},
+						"description": "Submit proof of payment as an image or PDF file (max 5MB) for an accepted offer. Must be submitted within 30 minutes of offer acceptance. Only the buyer can submit payment proof. File will be stored in payment_proofs folder. (Requires authentication)"
+					}
+				},
+				{
+					"name": "Get Payment Proof",
+					"request": {
+						"method": "GET",
+						"url": "http://localhost:8080/payment-proof/:offerId",
+						"header": [
+							{
+								"key": "X-API-Key",
+								"value": "{{api_key}}"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"description": "Retrieves the payment proof for an offer. Only the seller can view the payment proof, and only for offers with status 'payment_submitted' or 'completed'. (Requires authentication)"
+					}
+				},
+				{
+					"name": "Confirm Payment",
+					"request": {
+						"method": "POST",
+						"url": "http://localhost:8080/confirm-payment/:offerId",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "X-API-Key",
+								"value": "{{api_key}}"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"description": "Confirms buyer's payment and transfers piece ownership. Only the seller can confirm payment. Must be done within confirmation window or piece will be automatically transferred. Creates ownership history record. (Requires authentication)"
+					}
+				},
+				{
+					"name": "Deny Payment",
+					"request": {
+						"method": "POST",
+						"url": "http://localhost:8080/deny-payment/:offerId",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "X-API-Key",
+								"value": "{{api_key}}"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\"reason\":\"Payment amount does not match\"}"
+						},
+						"description": "Denies buyer's payment and opens a dispute. Only the seller can deny payment. Must provide reason for denial. Opens dispute process. (Requires authentication)"
+					}
+				}
+			]
+		},
+		{
+			"name": "Admin Management",
+			"item": [
+				{
+					"name": "Get Disputed Offers",
+					"request": {
+						"method": "GET",
+						"url": "http://localhost:8080/admin/disputed-offers",
+						"header": [
+							{
+								"key": "X-API-Key",
+								"value": "{{api_key}}"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"description": "Retrieves all offers with dispute status. Returns detailed information about each dispute including opening reason, timestamps, and related offer details. (Requires admin authentication)"
+					}
+				},
+				{
+					"name": "Resolve Dispute",
+					"request": {
+						"method": "POST",
+						"url": "http://localhost:8080/admin/resolve-dispute/:offerId",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "X-API-Key",
+								"value": "{{api_key}}"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\"resolution\":\"Payment verified through bank statement\",\"transferOwnership\":true,\"newOwner\":\"buyer_username\"}"
+						},
+						"description": "Resolves a disputed offer. Can optionally transfer piece ownership as part of resolution. Creates dispute resolution record in ownership history. (Requires admin authentication)"
 					}
 				}
 			]
