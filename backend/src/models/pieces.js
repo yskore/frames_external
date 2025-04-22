@@ -22,6 +22,7 @@ const PieceSchema = new mongoose.Schema({
   Frame_name: { type: String, required: true },
   live_status: { type: Boolean, default: false },
   Piece_likes: { type: Number, default: 0 },
+  Piece_impressions: { type: Number, default: 0 },
   Piece_location: {
     type: {
       type: String,
