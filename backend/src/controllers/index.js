@@ -5,6 +5,8 @@ const frameController = require('./frameController');
 const profileController = require('./profileController');
 const otpController = require('./otpController');
 const storageController = require('./storageController');
+const impressionController = require('./impressionController');
+
 
 module.exports = {
     userController,
