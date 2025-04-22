@@ -18,4 +18,8 @@ router.post('/getPieceCount', profileController.getPieceCount);
 router.post('/getpiecesbyowner', profileController.getPiecesByOwner);
 router.post('/getProfile', profileController.getProfile);
 
+// New routes
+router.post('/search_users', profileController.searchUsersByUsername);
+router.post('/get_profile_with_pieces', profileController.getProfileWithPieces);
+
 module.exports = router;

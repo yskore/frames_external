@@ -2,6 +2,7 @@ const Followers = require('../models/followers');
 const Following = require('../models/following');
 const Piece = require('../models/pieces');
 const UserProfile = require('../models/user_profile');
+const user_basic = require('../models/user_basic');
 
 exports.getFollowerCount = async (req, res) => {
     try {
@@ -188,5 +189,91 @@ exports.updateProfile = async (req, res) => {
     } catch (err) {
         console.error('Error updating user profile:', err);
         res.status(500).json({ success: false, message: err.message });
+    }
+};
+
+// Search users by username
+exports.searchUsersByUsername = async (req, res) => {
+    try {
+        const { query } = req.body;
+        
+        if (!query) {
+            return res.status(400).json({ 
+                success: false, 
+                message: 'Search query is required' 
+            });
+        }
+
+        const searchPattern = new RegExp(query, 'i');
+        
+        const users = await user_basic.find(
+            { username: searchPattern }, 
+            { username: 1, firstName: 1, lastName: 1, _id: 0 }
+        ).limit(20); 
+
+        res.json({
+            success: true,
+            message: 'Users retrieved successfully',
+            data: { users }
+        });
+    } catch (error) {
+        console.error('Error in searchUsersByUsername:', error);
+        res.status(500).json({ success: false, message: 'Internal server error' });
+    }
+};
+
+// Get user profile with pieces
+exports.getProfileWithPieces = async (req, res) => {
+    try {
+        const { username } = req.body;
+        
+        if (!username) {
+            return res.status(400).json({ 
+                success: false, 
+                message: 'Username is required' 
+            });
+        }
+
+        // Get user profile
+        const userProfile = await UserProfile.findOne({ username });
+        
+        if (!userProfile) {
+            return res.status(404).json({ 
+                success: false, 
+                message: 'User profile not found' 
+            });
+        }
+
+        // Get user's pieces
+        const pieces = await Piece.find({ Piece_owner: username });
+        
+        // Format piece data
+        const piecesData = pieces.map(piece => ({
+            Piece_Object: piece.Piece_Object,
+            Piece_id: piece.Piece_id,
+            Piece_owner: piece.Piece_owner,
+            Piece_title: piece.Piece_title,
+            Frame_name: piece.Frame_name,
+            live_status: piece.live_status,
+            Piece_likes: piece.Piece_likes,
+            Piece_location: piece.Piece_location,
+            Piece_description: piece.Piece_description,
+            Piece_creation_date: piece.Piece_creation_date,
+            Piece_display: piece.Piece_display,
+            Piece_for_sale: piece.Piece_for_sale,
+            Piece_price: piece.Piece_price
+        }));
+
+        res.json({
+            success: true,
+            message: 'Profile and pieces retrieved successfully',
+            data: { 
+                profile: userProfile,
+                pieces: piecesData
+            }
+        });
+    } catch (error) {
+        console.error('Error in getProfileWithPieces:', error);
+        res.status(500).json({ success: false, message: 'Internal server error' });
     }
 };
