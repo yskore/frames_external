@@ -1,64 +1,82 @@
 const validatePieceInput = (req, res, next) => {
-  const { Piece_for_sale, Piece_price, payment_details } = req.body;
-
-  if (Piece_for_sale) {
-    if (!Piece_price || Piece_price <= 0) {
+    console.log("Request body in validation:", JSON.stringify(req.body));
+    
+    const pieceForSale = req.body.Piece_for_sale;
+    const payment_details = req.body.payment_details; // Make sure to extract this variable
+    
+    console.log("Piece for sale value:", pieceForSale, "Type:", typeof pieceForSale);
+    
+    if (pieceForSale === true) {
+      console.log("Entering validation for pieces marked for sale");
+      const piecePrice = req.body.Piece_price;
+      console.log("Piece price:", piecePrice);
+      
+      if (!piecePrice || piecePrice <= 0) {
+        return res.status(400).json({
+          success: false,
+          message: "A valid price greater than 0 is required for pieces marked for sale",
+        });
+      }
+  
+      if (
+        !payment_details ||
+        typeof payment_details !== "string" ||
+        !payment_details.trim()
+      ) {
+        return res.status(400).json({
+          success: false,
+          message: "Payment details are required for pieces marked for sale",
+        });
+      }
+    } else {
+      console.log("Piece not for sale, skipping price validation");
+    }
+  
+    next();
+  };
+  
+  const validateSaleToggle = (req, res, next) => {
+    console.log("Sale toggle request body:", JSON.stringify(req.body));
+    
+    const { piece_id, for_sale, price, payment_details } = req.body;
+    console.log("For sale value:", for_sale, "Type:", typeof for_sale);
+    
+    if (!piece_id) {
       return res.status(400).json({
         success: false,
-        message:
-          "A valid price greater than 0 is required for pieces marked for sale",
+        message: "Piece ID is required",
       });
     }
-
-    if (
-      !payment_details ||
-      typeof payment_details !== "string" ||
-      !payment_details.trim()
-    ) {
-      return res.status(400).json({
-        success: false,
-        message: "Payment details are required for pieces marked for sale",
-      });
+  
+    if (for_sale === true) {
+      console.log("Entering validation for piece being put up for sale");
+      console.log("Price:", price, "Type:", typeof price);
+      
+      if (!price || price <= 0) {
+        return res.status(400).json({
+          success: false,
+          message: "A valid price greater than 0 is required",
+        });
+      }
+  
+      if (
+        !payment_details ||
+        typeof payment_details !== "string" ||
+        !payment_details.trim()
+      ) {
+        return res.status(400).json({
+          success: false,
+          message: "Payment details are required",
+        });
+      }
+    } else {
+      console.log("Piece not being put up for sale, skipping price validation");
     }
-  }
-
-  next();
-};
-
-const validateSaleToggle = (req, res, next) => {
-  const { piece_id, for_sale, price, payment_details } = req.body;
-
-  if (!piece_id) {
-    return res.status(400).json({
-      success: false,
-      message: "Piece ID is required",
-    });
-  }
-
-  if (for_sale) {
-    if (!price || price <= 0) {
-      return res.status(400).json({
-        success: false,
-        message: "A valid price greater than 0 is required",
-      });
-    }
-
-    if (
-      !payment_details ||
-      typeof payment_details !== "string" ||
-      !payment_details.trim()
-    ) {
-      return res.status(400).json({
-        success: false,
-        message: "Payment details are required",
-      });
-    }
-  }
-
-  next();
-};
-
-module.exports = {
-  validatePieceInput,
-  validateSaleToggle,
-};
+  
+    next();
+  };
+  
+  module.exports = {
+    validatePieceInput,
+    validateSaleToggle,
+  };
