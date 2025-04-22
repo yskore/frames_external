@@ -8,6 +8,8 @@ const storageRoutes = require('./storageRoutes');
 const offerRoutes = require('./offerRoutes');
 const adminRoutes = require('./adminRoutes');
 const likeRoutes = require('./likeRoutes');
+const impressionRoutes = require('./impressionRoutes');
+
 
 
 module.exports = {
@@ -21,5 +23,6 @@ module.exports = {
     offerRoutes,
     adminRoutes,
     likeRoutes,
+    impressionRoutes,
 
 };
