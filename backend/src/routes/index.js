@@ -7,6 +7,8 @@ const otpRoutes = require('./otpRoutes');
 const storageRoutes = require('./storageRoutes');
 const offerRoutes = require('./offerRoutes');
 const adminRoutes = require('./adminRoutes');
+const likeRoutes = require('./likeRoutes');
+
 
 module.exports = {
     userRoutes,
@@ -17,5 +19,7 @@ module.exports = {
     otpRoutes,
     storageRoutes,
     offerRoutes,
-    adminRoutes
+    adminRoutes,
+    likeRoutes,
+
 };
