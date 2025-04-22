@@ -21,7 +21,8 @@ const {
     otpRoutes,
     storageRoutes,
     adminRoutes,
-    offerRoutes
+    offerRoutes,
+    likeRoutes,
 } = require('./routes');
 
 const { initializeFirebaseApp } = require('./utils/notificationUtils');
@@ -54,6 +55,7 @@ app.use(otpRoutes);
 app.use(storageRoutes);
 app.use(adminRoutes);
 app.use(offerRoutes);
+app.use(likeRoutes);
 
 const PORT = process.env.PORT || 8080;
 app.listen(PORT, () => {
