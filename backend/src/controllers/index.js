@@ -13,5 +13,7 @@ module.exports = {
     frameController,
     profileController,
     otpController,
-    storageController
+    storageController,
+    likeController,
+    impressionController
 };
