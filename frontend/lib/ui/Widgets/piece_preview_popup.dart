@@ -1,5 +1,6 @@
 // piece_preview_popup.dart
 
+import 'dart:async';
 import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
@@ -44,6 +45,7 @@ class PiecePreviewPopup extends ConsumerStatefulWidget {
   String? pieceDescription;
   double piecePrice;
   int pieceLikes;
+  int impressions;
   bool pieceForSale;
   final DateTime pieceCreationDate;
   final Function onPieceUpdated;
@@ -57,6 +59,7 @@ class PiecePreviewPopup extends ConsumerStatefulWidget {
     required this.pieceDescription,
     required this.piecePrice,
     required this.pieceLikes,
+    this.impressions =0,
     required this.pieceForSale,
     required this.pieceCreationDate,
     required this.onPieceUpdated,
@@ -86,6 +89,8 @@ class _PiecePreviewPopupState extends ConsumerState<PiecePreviewPopup> {
   late TextEditingController _priceController;
   final List<AnchorModel> _anchors = [];
     bool _isFullScreen = false;
+ Timer? _impressionsRefreshTimer;
+ final int _refreshIntervalSeconds = 30; // Refresh every 30 seconds
 
 
   @override
@@ -97,10 +102,17 @@ class _PiecePreviewPopupState extends ConsumerState<PiecePreviewPopup> {
     if (widget.liveStatus) {
       _fetchAnchorDetails();
     }
+    _fetchPieceImpressions();
+    _impressionsRefreshTimer = Timer.periodic(
+    Duration(seconds: _refreshIntervalSeconds), 
+    (_) => _fetchPieceImpressions()
+  );
   }
 
   @override
   void dispose() {
+    _impressionsRefreshTimer?.cancel();
+
     if (!_isClosing) {
       _unityWidgetController?.dispose();
       _unityWidgetController = null;
@@ -843,6 +855,30 @@ try{
     }
   }
 
+   Future<void> _fetchPieceImpressions() async {
+  try {
+    // Parse the piece data to get the piece ID
+    var pieceData = jsonDecode(widget.pieceData);
+    String pieceId = pieceData['PieceID'];
+    
+    if (pieceId.isNotEmpty) {
+      final pieceRepository = ref.read(pieceRepositoryProvider);
+      final impressions = await pieceRepository.getPieceImpressions(pieceId);
+      
+      if (mounted) {
+        setState(() {
+          // This updates the local state to show in the UI
+          widget.impressions = impressions;
+        });
+        print('[IMP] Updated impressions count: $impressions');
+      }
+    }
+  } catch (e) {
+    print('[IMP] Error fetching impressions: $e');
+    // Don't update state on error
+  }
+}
+
 
   Future<void> deletePiece() async {
   // TODO: Implement delete functionality
@@ -1013,6 +1049,7 @@ Future<Anchor?> _loadAnchorByPieceId(String pieceId) async {
                                       .format(widget.pieceCreationDate)),
                               _buildInfoRow(
                                   'Likes', widget.pieceLikes.toString()),
+                              _buildInfoRow('Impressions', widget.impressions.toString()),
                               _buildInfoRow('Live Status',
                                   widget.liveStatus ? 'Live' : 'Not Live'),
                                   _buildExpiryTimeInfo(),
@@ -1101,4 +1138,5 @@ Future<Anchor?> _loadAnchorByPieceId(String pieceId) async {
       ),
     );
   }
+ 
 }
