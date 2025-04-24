@@ -133,6 +133,7 @@ class PieceRepository {
     required String frameName,
     required bool liveStatus,
     required int pieceLikes,
+    required int pieceImpressions,
     required String pieceLocation,
     required String pieceDescription,
     required String pieceCreationDate,
@@ -154,6 +155,7 @@ class PieceRepository {
           'Frame_name': frameName,
           'live_status': liveStatus.toString(),
           'piece_likes': pieceLikes.toString(),
+          'piece_impressions': pieceImpressions.toString(),
           'Piece_location': pieceLocation,
           'Piece_description': pieceDescription,
           'Piece_creation_date': pieceCreationDate,
@@ -198,7 +200,8 @@ class PieceRepository {
       return ApiResponse.error('Failed to fetch frames: $e');
     }
   }
-  Future<ApiResponse> getPieceById(String pieceId) async {
+
+Future<ApiResponse> getPieceById(String pieceId) async {
   try {
     final response = await _apiService.get(
       'piece/$pieceId',
@@ -219,4 +222,71 @@ class PieceRepository {
     return ApiResponse.error('Failed to get piece details: $e');
   }
 }
+
+Future<ApiResponse> incrementImpressions(String pieceId) async {
+  try {
+    final response = await _apiService.post(
+      'increment_impressions',
+      data: {
+        'pieceId': pieceId,
+      },
+    );
+
+    if (kDebugMode) {
+      if (response.isSuccess) {
+        print('Piece impressions incremented successfully.');
+      } else {
+        print('Failed to increment impressions: ${response.message}');
+      }
+    }
+
+    return response;
+  } catch (e) {
+    if (kDebugMode) {
+      print('Increment impressions error: $e');
+    }
+    return ApiResponse.error('Failed to increment impressions: $e');
+  }
+}
+
+Future<int> getPieceImpressions(String pieceId) async {
+  try {
+    final response = await _apiService.get(
+      'piece_impressions/$pieceId',
+    );
+
+    if (response.isSuccess && response.data != null) {
+      if (kDebugMode) {
+        print('[IMP] Impressions response data: ${response.data}');
+      }
+      
+      // Check for multiple possible response formats
+      if (response.data!.containsKey('impressions')) {
+        // Directly available in response data
+        return response.data!['impressions'] as int;
+      } else if (response.data!.containsKey('data') && 
+                response.data!['data'] is Map<String, dynamic> &&
+                response.data!['data'].containsKey('impressions')) {
+        // Nested in 'data' object
+        return response.data!['data']['impressions'] as int;
+      } else {
+        if (kDebugMode) {
+          print('[IMP] Impressions data not found in response: ${response.data}');
+        }
+      }
+    } else {
+      if (kDebugMode) {
+        print('[IMP] Failed to fetch impressions: ${response.message}');
+      }
+    }
+    
+    return 0; // Default if we can't get the data
+  } catch (e) {
+    if (kDebugMode) {
+      print('[IMP] Error fetching piece impressions: $e');
+    }
+    return 0;
+  }
+}
+
 }
