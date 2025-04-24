@@ -5,8 +5,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:frames_app/core/repositories/piece_repository.dart';
 import 'package:frames_app/core/services/storage_service.dart';
 import 'package:frames_app/models/frame_model.dart';
-import 'package:frames_app/providers/error_provider.dart';
-import 'package:frames_app/providers/loading_provider.dart';
+import 'package:frames_app/Providers/error_provider.dart';
+import 'package:frames_app/Providers/loading_provider.dart';
 import 'package:frames_app/providers/user_provider.dart';
 import 'package:intl/intl.dart';
 
@@ -54,7 +54,7 @@ class PieceNotifier extends StateNotifier<void> {
     required File pieceImage,
     required String pieceOwner,
     bool liveStatus = false,
-    String pieceDisplay = " ",
+    String pieceDisplay = " "//CHANGES: Changed PieceDisplay to String [URL]
   }) async {
     try {
       _loadingNotifier.setLoading(true);
@@ -90,6 +90,7 @@ class PieceNotifier extends StateNotifier<void> {
         frameName: frameName,
         liveStatus: liveStatus,
         pieceLikes: 0,
+        pieceImpressions: 0,
         pieceLocation: pieceLocation,
         pieceDescription: pieceDescription,
         pieceCreationDate: pieceCreationDate,
@@ -161,7 +162,7 @@ class PieceNotifier extends StateNotifier<void> {
     }
   }
 
-  Future<Map<String, dynamic>?> getPieceDetails(String pieceId) async {
+Future<Map<String, dynamic>?> getPieceDetails(String pieceId) async {
   try {
     _loadingNotifier.setLoading(true);
     _errorNotifier.clearError();
