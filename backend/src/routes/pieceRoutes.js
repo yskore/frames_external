@@ -20,6 +20,5 @@ router.get('/piece/:pieceId', pieceController.getPieceById);
 
 // Add new route for toggling sale status
 router.post('/toggle_for_sale', validateToken, validateSaleToggle, pieceController.toggleForSale);
-router.post('/increment_impressions', pieceController.incrementImpressions);
 
 module.exports = router;
