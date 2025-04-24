@@ -5,6 +5,8 @@ const frameController = require('./frameController');
 const profileController = require('./profileController');
 const otpController = require('./otpController');
 const storageController = require('./storageController');
+const likeController = require('./likeController');
+const likeController = require('./likeController');
 const impressionController = require('./impressionController');
 
 
