@@ -12,6 +12,8 @@ class Piece {
   final String? pieceDisplay;
   final bool pieceForSale;
   final double piecePrice;
+  final String ownership;
+
 
   Piece({
     required this.pieceid,
@@ -27,6 +29,8 @@ class Piece {
     this.pieceDisplay,
     required this.pieceForSale,
     required this.piecePrice,
+    required this.ownership,
+
   });
 
   factory Piece.fromJson(Map<String, dynamic> json) {
@@ -46,6 +50,8 @@ class Piece {
       pieceDisplay: json['Piece_display'],
       pieceForSale: json['Piece_for_sale'] ?? false,
       piecePrice: (json['Piece_price'] ?? 0).toDouble(),
+      ownership: json['ownership'] ?? '00',
+
     );
   }
 }
