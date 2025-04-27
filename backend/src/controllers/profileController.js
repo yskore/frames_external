@@ -81,12 +81,14 @@ exports.getPiecesByOwner = async (req, res) => {
             Frame_name: piece.Frame_name,
             live_status: piece.live_status,
             Piece_likes: piece.Piece_likes,
+            Piece_impressions: piece.Piece_impressions,
             Piece_location: piece.Piece_location,
             Piece_description: piece.Piece_description,
             Piece_creation_date: piece.Piece_creation_date,
             Piece_display: piece.Piece_display,
             Piece_for_sale: piece.Piece_for_sale,
-            Piece_price: piece.Piece_price
+            Piece_price: piece.Piece_price,
+            ownership: piece.ownership,
         }));
 
         res.json({
@@ -256,12 +258,14 @@ exports.getProfileWithPieces = async (req, res) => {
             Frame_name: piece.Frame_name,
             live_status: piece.live_status,
             Piece_likes: piece.Piece_likes,
+            Piece_impressions: piece.Piece_impressions,
             Piece_location: piece.Piece_location,
             Piece_description: piece.Piece_description,
             Piece_creation_date: piece.Piece_creation_date,
             Piece_display: piece.Piece_display,
             Piece_for_sale: piece.Piece_for_sale,
-            Piece_price: piece.Piece_price
+            Piece_price: piece.Piece_price,
+            ownership: piece.ownership,
         }));
 
         res.json({
