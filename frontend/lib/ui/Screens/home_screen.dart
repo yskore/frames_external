@@ -54,7 +54,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         body: const SafeArea(
           child: Column(
             children: [
-              ToggleBar(),
+             // ToggleBar(),
               Expanded(
                 child: UnityARView(),
               ),
