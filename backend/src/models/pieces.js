@@ -40,6 +40,12 @@ const PieceSchema = new mongoose.Schema({
   Piece_for_sale: { type: Boolean, default: false },
   Piece_price: { type: Number, default: 0.0 },
   payment_details: { type: String },
+  ownership: { 
+    type: String, 
+    enum: ['00', '01', '10', '11'], 
+    default: '00',
+    required: true
+  },
   temporary_status: {
     type: String,
     enum: ['normal', 'platform_hold', 'transfer_pending'],
