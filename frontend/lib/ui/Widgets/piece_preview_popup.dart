@@ -33,6 +33,8 @@ import 'package:frames_app/providers/error_provider.dart';
 
 import 'package:frames_app/providers/user_provider.dart';
 import 'package:frames_app/ui/Widgets/AR_Piece_placement.dart';
+import 'package:frames_app/ui/Widgets/ownership_selection.dart';
+
 
 
 //NEW IMPLEMENTATION
@@ -49,6 +51,7 @@ class PiecePreviewPopup extends ConsumerStatefulWidget {
   bool pieceForSale;
   final DateTime pieceCreationDate;
   final Function onPieceUpdated;
+  String? ownership;
 
   PiecePreviewPopup({
     super.key,
@@ -63,6 +66,7 @@ class PiecePreviewPopup extends ConsumerStatefulWidget {
     required this.pieceForSale,
     required this.pieceCreationDate,
     required this.onPieceUpdated,
+    required this.ownership,
   });
 
   @override
@@ -83,6 +87,10 @@ class _PiecePreviewPopupState extends ConsumerState<PiecePreviewPopup> {
   bool isTextureCompleted = false;
   DateTime? _anchorExpireTime;
   bool _isLoadingAnchorDetails = false;
+  String _ownership = '';
+
+  
+
 
   late TextEditingController _nameController;
   late TextEditingController _descriptionController;
@@ -107,6 +115,11 @@ class _PiecePreviewPopupState extends ConsumerState<PiecePreviewPopup> {
     Duration(seconds: _refreshIntervalSeconds), 
     (_) => _fetchPieceImpressions()
   );
+    final pieceData = jsonDecode(widget.pieceData);
+    _ownership = widget.ownership ?? '00'; // Default ownership status
+    print('TESTING ownership: $_ownership');
+
+
   }
 
   @override
@@ -803,6 +816,13 @@ try{
     );
   }
 
+  void _handleOwnershipChanged(String value) {
+    setState(() {
+      _ownership = value;
+    });
+  }
+
+
     Future<void> _savePieceChanges() async {
     setState(() {
       _isLoading = true;
@@ -817,6 +837,7 @@ try{
         pieceDescription: _descriptionController.text,
         pieceForSale: widget.pieceForSale,
         piecePrice: double.tryParse(_priceController.text) ?? 0.0,
+        ownership: _ownership,
       );
 
       if (response.isSuccess) {
@@ -1053,6 +1074,13 @@ Future<Anchor?> _loadAnchorByPieceId(String pieceId) async {
                               _buildInfoRow('Live Status',
                                   widget.liveStatus ? 'Live' : 'Not Live'),
                                   _buildExpiryTimeInfo(),
+                              const SizedBox(height: 16),
+                              OwnershipSelectionWidget(
+                                initialValue: _ownership,
+                                onChanged: _handleOwnershipChanged,
+                                isEditing: _isEditing,
+                              ),
+                              const SizedBox(height: 16),
                               Row(
                                 children: [
                                   const Text('For Sale: ',
