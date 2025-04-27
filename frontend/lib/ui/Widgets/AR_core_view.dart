@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_unity_widget/flutter_unity_widget.dart';
 import 'package:frames_app/Providers/piece_provider.dart';
+import 'package:frames_app/core/repositories/piece_repository.dart';
+import 'package:frames_app/models/anchor_model.dart';
 import 'package:frames_app/ui/Widgets/enhanced_piece_details_sheet.dart';
 import 'package:frames_app/ui/Widgets/piece_interaction_widget.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -34,6 +36,9 @@ class _UnityARViewState extends ConsumerState<UnityARView> {
   double _gpsAccuracy = 0.0;
   late AnchorService _anchorService;
 
+  final Set<String> _recentlyImpressedPieces = {};
+  final Map<String, Timer> _impressionTimers = {};
+
   // Calibration states
   bool _isCalibrating = false;
   int _calibrationProgress = 0;
@@ -43,10 +48,10 @@ class _UnityARViewState extends ConsumerState<UnityARView> {
   
   // New variables to manage calibration UX
   bool _userHasCompletedCalibration = false;
-  bool _showCalibrationWarning = false;
+  // bool _showCalibrationWarning = false; // Commented out as requested
   String _calibrationQuality = 'Unknown';
+  
   // Variable to store the currently selected piece data
-
   String? _selectedPieceData;
 
 
@@ -56,6 +61,11 @@ class _UnityARViewState extends ConsumerState<UnityARView> {
     _requestPermissions();
     _anchorService = AnchorService();
     _startLocationUpdates();
+    
+    // Auto-set user has completed calibration to true
+    // This will allow loading pieces without waiting for calibration
+    _userHasCompletedCalibration = true;
+    _calibrationCompleted = true;
   }
   
   Future<void> _requestPermissions() async {
@@ -81,8 +91,8 @@ class _UnityARViewState extends ConsumerState<UnityARView> {
   }
 
  void _startCalibration() {
+  // GPS calibration now runs in background and doesn't block the UI
   // Reset isCalibrating flag regardless of current state
-  // This ensures we can restart calibration even if previous state was stuck
   setState(() {
     _isCalibrating = false;
   });
@@ -93,13 +103,7 @@ class _UnityARViewState extends ConsumerState<UnityARView> {
       _isCalibrating = true;
       _calibrationProgress = 0;
       _calibrationStatus = 'Initializing GPS calibration...';
-      _showCalibrationWarning = false; // Hide warning when starting calibration
-    });
-
-    Future.delayed(Duration(seconds: 10), () {
-      if (_isCalibrating) {
-        _showCalibrationTimeoutDialog('Unknown');
-      }
+      // _showCalibrationWarning = false; // Commented out as requested
     });
 
     _unityWidgetController?.postMessage(
@@ -136,15 +140,10 @@ class _UnityARViewState extends ConsumerState<UnityARView> {
     } else if (message.startsWith('CALIBRATION_TIME_ELAPSED:')) {
       final status = message.contains(':') ? message.split(':')[1] : 'Unknown';
       _calibrationQuality = status;
-      if (!_userHasCompletedCalibration) {
-        _showCalibrationTimeoutDialog(status);
-      } else {
-        // Just update the status without showing dialog
-        setState(() {
-          _isCalibrating = false;
-          _showCalibrationWarning = true;
-        });
-      }
+      setState(() {
+        _isCalibrating = false;
+        // _showCalibrationWarning = true; // Commented out as requested
+      });
     } else if (message.startsWith('CALIBRATION_COMPLETED:')) {
       final parts = message.split(':');
       if (parts.length >= 3) {
@@ -159,8 +158,7 @@ class _UnityARViewState extends ConsumerState<UnityARView> {
           _userHasCompletedCalibration = true;
           
           // Only show warning if quality is poor
-          _showCalibrationWarning = 
-              status.contains('Poor') || status.contains('Fair');
+          // _showCalibrationWarning = status.contains('Poor') || status.contains('Fair'); // Commented out as requested
         });
       } else {
         // Handle legacy format or simple completion message
@@ -185,20 +183,22 @@ class _UnityARViewState extends ConsumerState<UnityARView> {
           setState(() {
             _isCalibrating = false;
             _calibrationStatus = 'Calibration failed';
-            _showCalibrationWarning = true;
+            // _showCalibrationWarning = true; // Commented out as requested
+            // Even if calibration fails, allow the user to continue
+            _userHasCompletedCalibration = true;
+            _calibrationCompleted = true;
           });
-          
-          // Only show the dialog if user hasn't completed calibration yet
-          if (!_userHasCompletedCalibration) {
-            _showCalibrationFailedDialog();
-          }
           break;
 
         case 'CALIBRATION_PREREQUISITES_MISSING':
           setState(() {
             _isCalibrating = false;
             _calibrationStatus = 'Prerequisites not met';
-            _showCalibrationWarning = true;
+            // _showCalibrationWarning = true; // Commented out as requested
+            
+            // Even if prerequisites are missing, allow the user to continue
+            _userHasCompletedCalibration = true;
+            _calibrationCompleted = true;
           });
           break;
 
@@ -242,86 +242,6 @@ class _UnityARViewState extends ConsumerState<UnityARView> {
     );
   }
 
-  void _showCalibrationFailedDialog() {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: Text('Calibration Failed'),
-          content: Text(
-            'GPS calibration failed. This might be due to poor GPS signal or movement during calibration. Would you like to try again?'
-          ),
-          actions: <Widget>[
-            TextButton(
-              child: Text('Try Again'),
-              onPressed: () {
-                Navigator.of(context).pop();
-                _startCalibration();
-              },
-            ),
-            TextButton(
-              child: Text('Proceed Anyway'),
-              onPressed: () {
-                Navigator.of(context).pop();
-                setState(() {
-                  _userHasCompletedCalibration = true;
-                  _calibrationCompleted = true;
-                  _showCalibrationWarning = true;
-                });
-              },
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  void _showCalibrationTimeoutDialog(String status) {
-    // Don't show dialog if user has already dealt with calibration
-    if (_userHasCompletedCalibration) return;
-    
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: Text('GPS Calibration Timeout'),
-          content: Text(
-            'Current calibration quality: $status\n\n' +
-            'Would you like to retry calibration or proceed with current readings?'
-          ),
-          actions: <Widget>[
-            TextButton(
-              child: Text('Retry'),
-              onPressed: () {
-                Navigator.of(context).pop();
-                _startCalibration();
-              },
-            ),
-            TextButton(
-              child: Text('Proceed Anyway'),
-              onPressed: () async {
-                setState(() {
-                  _isLoading = true;  // Show loading
-                  _userHasCompletedCalibration = true;
-                  _calibrationCompleted = true;
-                  _showCalibrationWarning = status.contains('Poor') || status.contains('Fair');
-                });
-                Navigator.of(context).pop();
-                await _unityWidgetController?.postMessage(
-                  'LocationManager',
-                  'ForceCalibrationCompletion',
-                  ''
-                );
-                setState(() => _isLoading = false);  // Hide loading
-              },
-            ),
-          ],
-        );
-      },
-    );
-  }
-
   void _showPermissionDeniedDialog() {
     showDialog(
       context: context,
@@ -352,6 +272,8 @@ class _UnityARViewState extends ConsumerState<UnityARView> {
     );
   }
 
+  // Commented out as calibration warning overlay is being removed
+  /*
   Widget _buildCalibrationOverlay() {
     return Container(
       color: Colors.black12,  // More transparent
@@ -419,6 +341,7 @@ class _UnityARViewState extends ConsumerState<UnityARView> {
       ),
     );
   }
+  */
 
   @override
   Widget build(BuildContext context) {
@@ -431,10 +354,8 @@ class _UnityARViewState extends ConsumerState<UnityARView> {
               child: UnityWidget(
                 onUnityCreated: (controller) {
                   onUnityCreated(controller);
-                  // Only start calibration automatically if user hasn't completed it
-                  if (!_userHasCompletedCalibration) {
-                    _startCalibration();
-                  }
+                  // Start calibration in background but don't wait for it
+                  _startCalibration();
                 },
                 onUnityMessage: (message) {
                   onUnityMessage(message);
@@ -453,7 +374,8 @@ class _UnityARViewState extends ConsumerState<UnityARView> {
           else if (!_isARSceneLoaded)
             Center(child: Text('AR Scene not loaded. Please wait or retry.')),
 
-          // Calibration warning banner at top
+          // Calibration warning banner commented out
+          /*
           Positioned(
             top: 0,
             left: 0,
@@ -462,10 +384,11 @@ class _UnityARViewState extends ConsumerState<UnityARView> {
               child: _buildCalibrationWarningBanner(),
             ),
           ),
+          */
 
           // Status panel
           Positioned(
-            top: _showCalibrationWarning ? 80 : 40, // Adjust position if warning banner is showing
+            top: 40, // Fixed position now that banner is removed
             left: 20,
             child: Container(
               padding: EdgeInsets.all(8),
@@ -489,9 +412,11 @@ class _UnityARViewState extends ConsumerState<UnityARView> {
             ),
           ),
 
-          // Calibration overlay - only show during calibration process
+          // Calibration overlay removed - GPS calibration now happens in background
+          /*
           if (_isCalibrating && !_userHasCompletedCalibration)
             _buildCalibrationOverlay(),
+          */
 
           // Load pieces button at bottom
           Positioned(
@@ -501,28 +426,14 @@ class _UnityARViewState extends ConsumerState<UnityARView> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // Show recalibrate button if needed but not already calibrating
-                if (_userHasCompletedCalibration && !_isCalibrating && _gpsAccuracy < 60)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 10),
-                    child: ElevatedButton.icon(
-                      icon: Icon(Icons.gps_fixed),
-                      label: Text('Recalibrate GPS'),
-                      onPressed: _startCalibration,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.amber,
-                        foregroundColor: Colors.black,
-                      ),
-                    ),
-                  ),
+                // Recalibrate button is removed since calibration runs in background
                 
-                // Main Load Pieces button
+                // Main Load Pieces button - now always enabled
                 ElevatedButton(
-                  onPressed: (_calibrationCompleted || _userHasCompletedCalibration) ? 
-                    () {
-                      _loadNearbyPiecesEnhanced();
-                      print("Load Pieces button pressed (using EnhancedPieceLoader)");
-                    } : null,
+                  onPressed: () {
+                    _loadNearbyPiecesEnhanced();
+                    print("Load Pieces button pressed (using EnhancedPieceLoader)");
+                  },
                   style: ElevatedButton.styleFrom(
                     padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                     backgroundColor: Colors.blue,
@@ -588,6 +499,14 @@ class _UnityARViewState extends ConsumerState<UnityARView> {
       _showPieceInfo();
     }
   }
+  else if (message.toString().startsWith('PIECE_LOADED:')) {
+  final pieceId = message.toString().substring('PIECE_LOADED:'.length);
+  print('Piece loaded: $pieceId');
+  
+  // Track and increment impressions when a piece is loaded
+  _trackImpression(pieceId);
+}
+
   }
 
   void onUnitySceneLoaded(SceneLoaded? scene) {
@@ -736,6 +655,7 @@ void _showPieceInfo() {
     }
   });
 }
+
 void _viewDetailedPieceInfo() async {
   try {
     if (_selectedPieceData == null) return;
@@ -747,9 +667,14 @@ void _viewDetailedPieceInfo() async {
         _isLoading = true;
       });
       
-      // Get detailed piece information from database
-      final pieceNotifier = ref.read(pieceProvider.notifier);
-      final pieceDetails = await pieceNotifier.getPieceDetails(pieceId);
+      // Run these two requests in parallel for efficiency
+      final piecesFuture = ref.read(pieceProvider.notifier).getPieceDetails(pieceId);
+      final anchorFuture = ref.read(anchorRepositoryProvider).getAnchorByPieceId(pieceId);
+      
+      // Wait for both to complete
+      final results = await Future.wait([piecesFuture, anchorFuture]);
+      final pieceDetails = results[0];
+      final anchorResponse = results[1] as ({String? error, AnchorModel? data});
       
       setState(() {
         _isLoading = false;
@@ -760,7 +685,11 @@ void _viewDetailedPieceInfo() async {
         
         // Create the expected structure for the details sheet
         final formattedDetails = {
-          'piece': pieceDetails  // Wrap the piece details in a 'piece' object
+          'piece': pieceDetails,  // Wrap the piece details in a 'piece' object
+          'anchor': anchorResponse.data != null ? {
+            'expireTime': anchorResponse.data!.expireTime?.toIso8601String(),
+            'cloudAnchorId': anchorResponse.data!.cloudAnchorId
+          } : null
         };
         
         // Show enhanced bottom sheet with the complete piece details
@@ -793,8 +722,28 @@ void _viewDetailedPieceInfo() async {
     }
   }
 }
+
+void _trackImpression(String pieceId) {
+  // Check if we've already counted this piece recently
+  if (!_recentlyImpressedPieces.contains(pieceId)) {
+    // Record the impression
+    ref.read(pieceRepositoryProvider).incrementImpressions(pieceId);
+    
+    // Add to recently impressed set
+    _recentlyImpressedPieces.add(pieceId);
+    
+    // Set a timer to remove from the set after 5 minutes
+    _impressionTimers[pieceId] = Timer(Duration(minutes: 5), () {
+      _recentlyImpressedPieces.remove(pieceId);
+      _impressionTimers.remove(pieceId);
+    });
+  }
+}
+
   @override
   void dispose() {
+    _impressionTimers.forEach((_, timer) => timer.cancel());
+    _impressionTimers.clear();
     _pieceLoadingTimer?.cancel();
     super.dispose();
   }
