@@ -20,6 +20,8 @@ class PieceRepository {
     required String pieceDescription,
     required bool pieceForSale,
     required double piecePrice,
+    required String ownership, // Added ownership parameter
+
   }) async {
     try {
       final response = await _apiService.put(
@@ -31,6 +33,8 @@ class PieceRepository {
           'updated_piece_description': pieceDescription,
           'piece_for_sale': pieceForSale,
           'piece_price': piecePrice,
+          'ownership': ownership, // Added ownership to request body
+
         },
       );
 
@@ -140,6 +144,8 @@ class PieceRepository {
     required String pieceDisplay,
     required bool pieceForSale,
     required double piecePrice,
+    required String ownership,
+
   }) async {
     try {
       const uuid = Uuid();
@@ -162,6 +168,8 @@ class PieceRepository {
           'Piece_display': pieceDisplay.toString(),
           'Piece_for_sale': pieceForSale.toString(),
           'Piece_price': piecePrice.toString(),
+          'ownership': ownership,
+
         },
       );
 
