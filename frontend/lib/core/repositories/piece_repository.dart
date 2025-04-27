@@ -110,25 +110,31 @@ class PieceRepository {
     }
   }
 
-  Future<({String? error, AnchorModel? data})> getAnchorByPieceId(
-      String pieceId) async {
-    try {
-      final response = await _apiService.post(
-        'get_anchor_by_piece_id',
-        data: {'pieceId': pieceId},
-      );
+Future<({String? error, AnchorModel? data})> getAnchorByPieceId(String pieceId) async {
+  try {
+    final response = await _apiService.post(
+      'get_anchor_by_piece_id',
+      data: {'pieceId': pieceId},
+    );
 
-      if (response.isSuccess && response.data != null) {
-        return (error: null, data: AnchorModel.fromJson(response.data!));
+    if (response.isSuccess && response.data != null) {
+      // Extract the anchor data from the nested structure
+      if (response.data!.containsKey('anchor')) {
+        // The actual anchor data is inside the 'anchor' field
+        return (error: null, data: AnchorModel.fromJson(response.data!['anchor']));
+      } else {
+        print('Unexpected response structure: ${response.data}');
+        return (error: "Unexpected response structure", data: null);
       }
-      return (error: response.message ?? "", data: null);
-    } catch (e) {
-      if (kDebugMode) {
-        print('Get anchor by piece ID error: $e');
-      }
-      return (error: e.toString(), data: null);
     }
+    return (error: response.message ?? "", data: null);
+  } catch (e) {
+    if (kDebugMode) {
+      print('Get anchor by piece ID error: $e');
+    }
+    return (error: e.toString(), data: null);
   }
+}
 
   Future<ApiResponse> createPiece({
     required String pieceObject,
