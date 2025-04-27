@@ -293,7 +293,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
       context: context,
       builder: (BuildContext context) {
         print(
-            '[TEST] PiecePreviewPopup: Creating fresh piece data for ${piece.pieceTitle}, Frame_name = ${piece.frameName}');
+            'TESTING PiecePreviewPopup: Creating fresh piece data for ${piece.pieceTitle}, Frame_name = ${piece.frameName}, ownership = ${piece.ownership}');
         String freshPieceData = jsonEncode({
           'frameName': piece.frameName,
           'faceName': 'Face',
@@ -314,6 +314,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
           pieceCreationDate: piece.pieceCreationDate,
           piecePrice: piece.piecePrice,
           pieceOwner: piece.pieceOwner,
+          ownership: piece.ownership,
           onPieceUpdated: () {
            // print("Piece updated callback triggered for: ${piece.pieceTitle}");
             // Do a full refresh to ensure data is updated
