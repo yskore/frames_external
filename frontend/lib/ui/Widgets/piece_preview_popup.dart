@@ -748,7 +748,6 @@ class _PiecePreviewPopupState extends ConsumerState<PiecePreviewPopup> {
     try {
       final pieceRepository = ref.read(pieceRepositoryProvider);
 
-      // Convert the Quill document to JSON if for sale
       String? paymentDetails;
       if (widget.pieceForSale) {
         paymentDetails = _paymentDetailsController.text;
@@ -757,6 +756,7 @@ class _PiecePreviewPopupState extends ConsumerState<PiecePreviewPopup> {
       final response = await pieceRepository.updatePieceInfo(
         pieceOwner: widget.pieceOwner,
         oldPieceTitle: widget.pieceName,
+        ownership: "",
         newPieceTitle: _nameController.text,
         pieceDescription: _descriptionController.text,
         pieceForSale: widget.pieceForSale,

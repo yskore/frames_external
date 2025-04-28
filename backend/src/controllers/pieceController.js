@@ -7,7 +7,7 @@ const mongoose = require('mongoose');
 exports.createPiece = async (req, res) => {
     const { Piece_id, Piece_Object, Piece_owner, Piece_title, Frame_name, live_status,
         Piece_likes, Piece_location, Piece_description, Piece_creation_date,
-        Piece_display, Piece_for_sale, Piece_price } = req.body;
+        Piece_display, Piece_for_sale, Piece_price, ownership } = req.body;
 
     try {
         const existingPiece = await Piece.findOne({ Piece_owner, Piece_title });
@@ -21,7 +21,8 @@ exports.createPiece = async (req, res) => {
         const newPiece = new Piece({
             Piece_id, Piece_Object, Piece_owner, Piece_title, Frame_name,
             live_status, Piece_likes, Piece_location, Piece_description,
-            Piece_creation_date, Piece_display, Piece_for_sale, Piece_price
+            Piece_creation_date, Piece_display, Piece_for_sale, Piece_price,
+            ownership: ownership || '00' // Default to '00' if not provided
         });
 
         // Add payment details to piece if for sale
@@ -45,7 +46,7 @@ exports.createPiece = async (req, res) => {
 // Update piece
 exports.updatePiece = async (req, res) => {
     const { piece_owner, old_piece_title, new_piece_title,
-        updated_piece_description, piece_for_sale, piece_price } = req.body;
+        updated_piece_description, piece_for_sale, piece_price, ownership } = req.body;
 
     try {
         if (old_piece_title !== new_piece_title) {
@@ -67,6 +68,11 @@ exports.updatePiece = async (req, res) => {
             Piece_for_sale: piece_for_sale,
             Piece_price: piece_price
         };
+
+        // Only update ownership if provided
+        if (ownership) {
+            updateData.ownership = ownership;
+        }
 
         if (piece_for_sale) {
             const { payment_details } = req.body;
@@ -163,6 +169,7 @@ exports.deletePiece = async (req, res) => {
     }
 };
 
+// Add new toggle live status function
 exports.toggleLiveStatus = async (req, res) => {
     const { piece_id, live_status } = req.body;
     const session = await mongoose.startSession();
@@ -185,17 +192,17 @@ exports.toggleLiveStatus = async (req, res) => {
 
             let updatedUserProfile = null;
 
-if (deleteResult.deletedCount) {
-    updatedUserProfile = await user_profile.findOneAndUpdate(
-        { username: piece_owner },
-        { $inc: { Live_pieces: -1 } },
-        { session, new: true }
-    );
+            if (deleteResult.deletedCount) {
+                updatedUserProfile = await user_profile.findOneAndUpdate(
+                    { username: piece_owner },
+                    { $inc: { Live_pieces: -1 } },
+                    { session, new: true }
+                );
 
-    if (!updatedUserProfile) {
-        throw new Error(`User profile for ${piece_owner} not found`);
-    }
-}
+                if (!updatedUserProfile) {
+                    throw new Error(`User profile for ${piece_owner} not found`);
+                }
+            }
 
             const updatedPiece = await Piece.findOneAndUpdate(
                 { Piece_id: piece_id },
@@ -275,8 +282,6 @@ exports.toggleForSale = async (req, res) => {
         console.log('Username:', username);
         console.log('Piece ID:', piece_id);
 
-
-
         const piece = await Piece.findOne({
             Piece_id: piece_id,
             Piece_owner: username
@@ -335,11 +340,12 @@ exports.getPieceById = async (req, res) => {
             imageUrl: piece.Piece_display,
             creationDate: piece.Piece_creation_date,
             likes: piece.Piece_likes,
-            impressions: piece.Piece_impressions, 
+            impressions: piece.Piece_impressions,
+            ownership: piece.ownership || '00', // Include the ownership field
             isLive: piece.live_status,
             forSale: piece.Piece_for_sale,
             price: piece.Piece_price
-        };;
+        };
 
         res.status(200).json({
             success: true,
@@ -355,4 +361,3 @@ exports.getPieceById = async (req, res) => {
         });
     }
 };
-

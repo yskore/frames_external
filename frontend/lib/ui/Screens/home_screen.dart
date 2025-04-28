@@ -28,13 +28,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   bool showNewPieceUploadFrame = false;
   bool showSearchResults = false;
   final TextEditingController searchController = TextEditingController();
-  // Create debouncer instance
   final Debouncer _searchDebouncer = Debouncer();
 
   @override
   void dispose() {
     searchController.dispose();
-    _searchDebouncer.dispose(); // Clean up the debouncer
+    _searchDebouncer.dispose();
     super.dispose();
   }
 
@@ -80,7 +79,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           });
         }
 
-        // Also hide search results when tapping elsewhere
         if (showSearchResults) {
           setState(() {
             showSearchResults = false;
@@ -113,13 +111,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     setState(() {
                       showSearchResults = query.isNotEmpty;
                     });
-                    // Use the debouncer to avoid excessive API calls
                     _searchDebouncer.run(() {
                       searchUsers(query);
                     });
                   },
                   onSubmitted: (query) {
-                    // For direct submission, we can call search immediately
                     searchUsers(query);
                     setState(() {
                       showSearchResults = query.isNotEmpty;
@@ -150,7 +146,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               Positioned(
                 top: 10,
                 right: 8,
-                width: 250, // Wider for better display
+                width: 250,
                 child: Material(
                   elevation: 6,
                   borderRadius: BorderRadius.circular(12),

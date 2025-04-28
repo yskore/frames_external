@@ -81,12 +81,14 @@ exports.getPiecesByOwner = async (req, res) => {
             Frame_name: piece.Frame_name,
             live_status: piece.live_status,
             Piece_likes: piece.Piece_likes,
+            Piece_impressions: piece.Piece_impressions,
             Piece_location: piece.Piece_location,
             Piece_description: piece.Piece_description,
             Piece_creation_date: piece.Piece_creation_date,
             Piece_display: piece.Piece_display,
             Piece_for_sale: piece.Piece_for_sale,
             Piece_price: piece.Piece_price,
+            ownership: piece.ownership,
             payment_details: piece.payment_details,
         }));
 
@@ -197,20 +199,20 @@ exports.updateProfile = async (req, res) => {
 exports.searchUsersByUsername = async (req, res) => {
     try {
         const { query } = req.body;
-        
+
         if (!query) {
-            return res.status(400).json({ 
-                success: false, 
-                message: 'Search query is required' 
+            return res.status(400).json({
+                success: false,
+                message: 'Search query is required'
             });
         }
 
         const searchPattern = new RegExp(query, 'i');
-        
+
         const users = await user_basic.find(
-            { username: searchPattern }, 
+            { username: searchPattern },
             { username: 1, firstName: 1, lastName: 1, _id: 0 }
-        ).limit(20); 
+        ).limit(20);
 
         res.json({
             success: true,
@@ -227,27 +229,27 @@ exports.searchUsersByUsername = async (req, res) => {
 exports.getProfileWithPieces = async (req, res) => {
     try {
         const { username } = req.body;
-        
+
         if (!username) {
-            return res.status(400).json({ 
-                success: false, 
-                message: 'Username is required' 
+            return res.status(400).json({
+                success: false,
+                message: 'Username is required'
             });
         }
 
         // Get user profile
         const userProfile = await UserProfile.findOne({ username });
-        
+
         if (!userProfile) {
-            return res.status(404).json({ 
-                success: false, 
-                message: 'User profile not found' 
+            return res.status(404).json({
+                success: false,
+                message: 'User profile not found'
             });
         }
 
         // Get user's pieces
         const pieces = await Piece.find({ Piece_owner: username });
-        
+
         // Format piece data
         const piecesData = pieces.map(piece => ({
             Piece_Object: piece.Piece_Object,
@@ -257,19 +259,21 @@ exports.getProfileWithPieces = async (req, res) => {
             Frame_name: piece.Frame_name,
             live_status: piece.live_status,
             Piece_likes: piece.Piece_likes,
+            Piece_impressions: piece.Piece_impressions,
             Piece_location: piece.Piece_location,
             Piece_description: piece.Piece_description,
             Piece_creation_date: piece.Piece_creation_date,
             Piece_display: piece.Piece_display,
             Piece_for_sale: piece.Piece_for_sale,
             payment_details: piece.payment_details,
-            Piece_price: piece.Piece_price
+            Piece_price: piece.Piece_price,
+            ownership: piece.ownership,
         }));
 
         res.json({
             success: true,
             message: 'Profile and pieces retrieved successfully',
-            data: { 
+            data: {
                 profile: userProfile,
                 pieces: piecesData
             }

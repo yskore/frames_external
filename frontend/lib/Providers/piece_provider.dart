@@ -53,6 +53,7 @@ class PieceNotifier extends StateNotifier<void> {
     required double piecePrice,
     required File pieceImage,
     required String pieceOwner,
+    required String ownership,
     bool liveStatus = false,
     String pieceDisplay = " "//CHANGES: Changed PieceDisplay to String [URL]
   }) async {
@@ -97,6 +98,8 @@ class PieceNotifier extends StateNotifier<void> {
         pieceDisplay: pieceImageUrl,
         pieceForSale: pieceForSale,
         piecePrice: piecePrice,
+        ownership: ownership,
+
       );
 
       if (response.isSuccess) {
