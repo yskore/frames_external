@@ -20,18 +20,26 @@ class PieceRepository {
     required String pieceDescription,
     required bool pieceForSale,
     required double piecePrice,
+    String? paymentDetails,
   }) async {
     try {
+      final Map<String, dynamic> requestData = {
+        'piece_owner': pieceOwner,
+        'old_piece_title': oldPieceTitle,
+        'new_piece_title': newPieceTitle,
+        'updated_piece_description': pieceDescription,
+        'piece_for_sale': pieceForSale,
+        'piece_price': piecePrice,
+      };
+
+      // Only add payment details if it's provided (not null or empty)
+      if (paymentDetails != null && paymentDetails.isNotEmpty) {
+        requestData['payment_details'] = paymentDetails;
+      }
+
       final response = await _apiService.put(
         'update_piece',
-        data: {
-          'piece_owner': pieceOwner,
-          'old_piece_title': oldPieceTitle,
-          'new_piece_title': newPieceTitle,
-          'updated_piece_description': pieceDescription,
-          'piece_for_sale': pieceForSale,
-          'piece_price': piecePrice,
-        },
+        data: requestData,
       );
 
       return response;
@@ -140,29 +148,37 @@ class PieceRepository {
     required String pieceDisplay,
     required bool pieceForSale,
     required double piecePrice,
+    String? paymentDetails,
   }) async {
     try {
       const uuid = Uuid();
       final pieceId = uuid.v4();
 
+      final Map<String, dynamic> requestData = {
+        'Piece_id': pieceId,
+        'Piece_Object': pieceObject,
+        'Piece_owner': pieceOwner,
+        'Piece_title': pieceTitle,
+        'Frame_name': frameName,
+        'live_status': liveStatus.toString(),
+        'piece_likes': pieceLikes.toString(),
+        'piece_impressions': pieceImpressions.toString(),
+        'Piece_location': pieceLocation,
+        'Piece_description': pieceDescription,
+        'Piece_creation_date': pieceCreationDate,
+        'Piece_display': pieceDisplay.toString(),
+        'Piece_for_sale': pieceForSale.toString(),
+        'Piece_price': piecePrice.toString(),
+      };
+
+      // Add payment details if provided
+      if (paymentDetails != null && paymentDetails.isNotEmpty) {
+        requestData['payment_details'] = paymentDetails;
+      }
+
       final response = await _apiService.post(
         'new_piece',
-        data: {
-          'Piece_id': pieceId,
-          'Piece_Object': pieceObject,
-          'Piece_owner': pieceOwner,
-          'Piece_title': pieceTitle,
-          'Frame_name': frameName,
-          'live_status': liveStatus.toString(),
-          'piece_likes': pieceLikes.toString(),
-          'piece_impressions': pieceImpressions.toString(),
-          'Piece_location': pieceLocation,
-          'Piece_description': pieceDescription,
-          'Piece_creation_date': pieceCreationDate,
-          'Piece_display': pieceDisplay.toString(),
-          'Piece_for_sale': pieceForSale.toString(),
-          'Piece_price': piecePrice.toString(),
-        },
+        data: requestData,
       );
 
       if (kDebugMode) {
@@ -201,92 +217,92 @@ class PieceRepository {
     }
   }
 
-Future<ApiResponse> getPieceById(String pieceId) async {
-  try {
-    final response = await _apiService.get(
-      'piece/$pieceId',
-    );
-    if (kDebugMode) {
-      if (response.isSuccess) {
-        print('TEST: Piece details fetched successfully');
-        print('TEST:Response data: ${response.data}');  // Add this line
-      } else {
-        print('Failed to fetch piece details: ${response.message}');
-      }
-    }
-    return response;
-  } catch (e) {
-    if (kDebugMode) {
-      print('TEST: Get piece by ID error: $e');
-    }
-    return ApiResponse.error('Failed to get piece details: $e');
-  }
-}
-
-Future<ApiResponse> incrementImpressions(String pieceId) async {
-  try {
-    final response = await _apiService.post(
-      'increment_impressions',
-      data: {
-        'pieceId': pieceId,
-      },
-    );
-
-    if (kDebugMode) {
-      if (response.isSuccess) {
-        print('Piece impressions incremented successfully.');
-      } else {
-        print('Failed to increment impressions: ${response.message}');
-      }
-    }
-
-    return response;
-  } catch (e) {
-    if (kDebugMode) {
-      print('Increment impressions error: $e');
-    }
-    return ApiResponse.error('Failed to increment impressions: $e');
-  }
-}
-
-Future<int> getPieceImpressions(String pieceId) async {
-  try {
-    final response = await _apiService.get(
-      'piece_impressions/$pieceId',
-    );
-
-    if (response.isSuccess && response.data != null) {
+  Future<ApiResponse> getPieceById(String pieceId) async {
+    try {
+      final response = await _apiService.get(
+        'piece/$pieceId',
+      );
       if (kDebugMode) {
-        print('[IMP] Impressions response data: ${response.data}');
-      }
-      
-      // Check for multiple possible response formats
-      if (response.data!.containsKey('impressions')) {
-        // Directly available in response data
-        return response.data!['impressions'] as int;
-      } else if (response.data!.containsKey('data') && 
-                response.data!['data'] is Map<String, dynamic> &&
-                response.data!['data'].containsKey('impressions')) {
-        // Nested in 'data' object
-        return response.data!['data']['impressions'] as int;
-      } else {
-        if (kDebugMode) {
-          print('[IMP] Impressions data not found in response: ${response.data}');
+        if (response.isSuccess) {
+          print('TEST: Piece details fetched successfully');
+          print('TEST:Response data: ${response.data}'); // Add this line
+        } else {
+          print('Failed to fetch piece details: ${response.message}');
         }
       }
-    } else {
+      return response;
+    } catch (e) {
       if (kDebugMode) {
-        print('[IMP] Failed to fetch impressions: ${response.message}');
+        print('TEST: Get piece by ID error: $e');
       }
+      return ApiResponse.error('Failed to get piece details: $e');
     }
-    
-    return 0; // Default if we can't get the data
-  } catch (e) {
-    if (kDebugMode) {
-      print('[IMP] Error fetching piece impressions: $e');
-    }
-    return 0;
   }
-}
 
+  Future<ApiResponse> incrementImpressions(String pieceId) async {
+    try {
+      final response = await _apiService.post(
+        'increment_impressions',
+        data: {
+          'pieceId': pieceId,
+        },
+      );
+
+      if (kDebugMode) {
+        if (response.isSuccess) {
+          print('Piece impressions incremented successfully.');
+        } else {
+          print('Failed to increment impressions: ${response.message}');
+        }
+      }
+
+      return response;
+    } catch (e) {
+      if (kDebugMode) {
+        print('Increment impressions error: $e');
+      }
+      return ApiResponse.error('Failed to increment impressions: $e');
+    }
+  }
+
+  Future<int> getPieceImpressions(String pieceId) async {
+    try {
+      final response = await _apiService.get(
+        'piece_impressions/$pieceId',
+      );
+
+      if (response.isSuccess && response.data != null) {
+        if (kDebugMode) {
+          print('[IMP] Impressions response data: ${response.data}');
+        }
+
+        // Check for multiple possible response formats
+        if (response.data!.containsKey('impressions')) {
+          // Directly available in response data
+          return response.data!['impressions'] as int;
+        } else if (response.data!.containsKey('data') &&
+            response.data!['data'] is Map<String, dynamic> &&
+            response.data!['data'].containsKey('impressions')) {
+          // Nested in 'data' object
+          return response.data!['data']['impressions'] as int;
+        } else {
+          if (kDebugMode) {
+            print(
+                '[IMP] Impressions data not found in response: ${response.data}');
+          }
+        }
+      } else {
+        if (kDebugMode) {
+          print('[IMP] Failed to fetch impressions: ${response.message}');
+        }
+      }
+
+      return 0; // Default if we can't get the data
+    } catch (e) {
+      if (kDebugMode) {
+        print('[IMP] Error fetching piece impressions: $e');
+      }
+      return 0;
+    }
+  }
 }

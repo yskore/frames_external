@@ -86,7 +86,8 @@ exports.getPiecesByOwner = async (req, res) => {
             Piece_creation_date: piece.Piece_creation_date,
             Piece_display: piece.Piece_display,
             Piece_for_sale: piece.Piece_for_sale,
-            Piece_price: piece.Piece_price
+            Piece_price: piece.Piece_price,
+            payment_details: piece.payment_details,
         }));
 
         res.json({
@@ -261,6 +262,7 @@ exports.getProfileWithPieces = async (req, res) => {
             Piece_creation_date: piece.Piece_creation_date,
             Piece_display: piece.Piece_display,
             Piece_for_sale: piece.Piece_for_sale,
+            payment_details: piece.payment_details,
             Piece_price: piece.Piece_price
         }));
 

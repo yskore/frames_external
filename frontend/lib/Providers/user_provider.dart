@@ -1,7 +1,9 @@
 import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:frames_app/core/network/api_response.dart';
 import 'package:frames_app/core/repositories/profile_repository.dart';
+import 'package:frames_app/core/services/notification_service.dart';
 import 'package:frames_app/core/services/storage_service.dart';
 import 'package:frames_app/models/anchor_model.dart';
 import 'package:frames_app/models/piece_model.dart';
@@ -54,7 +56,15 @@ class UserNotifier extends StateNotifier<UserModel?> {
     try {
       _loadingNotifier.setLoading(true);
       _errorNotifier.clearError();
-      final response = await _userRepository.login(username, password);
+
+      // Get the push token
+      final pushToken = NotificationService().token;
+
+      final response = await _userRepository.login(
+        username,
+        password,
+        pushToken: pushToken,
+      );
 
       if (response.isSuccess) {
         return await getUserProfile(username);
@@ -410,5 +420,54 @@ class UserNotifier extends StateNotifier<UserModel?> {
   Future<void> logout() async {
     await _userRepository.logout();
     state = null;
+  }
+
+  Future<bool> updatePushToken(String token) async {
+    try {
+      final response = await _userRepository.updatePushToken(token);
+
+      if (!response.isSuccess) {
+        _errorNotifier
+            .setError(response.message ?? 'Failed to update push token');
+        return false;
+      }
+
+      return true;
+    } catch (e) {
+      _errorNotifier.setError('Error updating push token: $e');
+      return false;
+    }
+  }
+
+  Future<ApiResponse> searchUsers(String query) async {
+    try {
+      // _loadingNotifier.setLoading(true);
+      _errorNotifier.clearError();
+
+      final response = await _userRepository.searchUsers(query);
+
+      return response;
+    } catch (e) {
+      _errorNotifier.setError('Error searching users: ${e.toString()}');
+      return ApiResponse.error('Error searching users: ${e.toString()}');
+    } finally {
+      // _loadingNotifier.setLoading(false);
+    }
+  }
+
+  Future<ApiResponse> getProfileWithPieces(String username) async {
+    try {
+      // _loadingNotifier.setLoading(true);
+      // _errorNotifier.clearError();
+
+      final response = await _userRepository.getProfileWithPieces(username);
+
+      return response;
+    } catch (e) {
+      _errorNotifier.setError('Error fetching profile: ${e.toString()}');
+      return ApiResponse.error('Error fetching profile: ${e.toString()}');
+    } finally {
+      // _loadingNotifier.setLoading(false);
+    }
   }
 }

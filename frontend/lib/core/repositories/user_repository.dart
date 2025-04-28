@@ -8,14 +8,22 @@ class UserRepository {
   final ApiService _apiService = ApiService();
   final TokenManager _tokenManager = TokenManager();
 
-  Future<ApiResponse> login(String username, String password) async {
+  Future<ApiResponse> login(String username, String password,
+      {String? pushToken}) async {
     try {
+      final data = {
+        'username': username,
+        'password': password,
+      };
+
+      // Add push token if available
+      if (pushToken != null && pushToken.isNotEmpty) {
+        data['push_token'] = pushToken;
+      }
+
       final response = await _apiService.post(
         'login',
-        data: {
-          'username': username,
-          'password': password,
-        },
+        data: data,
       );
 
       if (response.isSuccess && response.data != null) {
@@ -129,6 +137,53 @@ class UserRepository {
         print('Verify OTP error: $e');
       }
       return ApiResponse.error('Failed to verify code: $e');
+    }
+  }
+
+  Future<ApiResponse> updatePushToken(String pushToken) async {
+    try {
+      final response = await _apiService.post(
+        'update-push-token',
+        data: {
+          'push_token': pushToken,
+        },
+      );
+
+      return response;
+    } catch (e) {
+      return ApiResponse.error('Failed to update push token: $e');
+    }
+  }
+
+  Future<ApiResponse> getProfileWithPieces(String username) async {
+    try {
+      final response = await _apiService.post(
+        'get_profile_with_pieces',
+        data: {'username': username},
+      );
+
+      return response;
+    } catch (e) {
+      if (kDebugMode) {
+        print('Get profile with pieces error: $e');
+      }
+      return ApiResponse.error('Failed to get profile with pieces: $e');
+    }
+  }
+
+  Future<ApiResponse> searchUsers(String query) async {
+    try {
+      final response = await _apiService.post(
+        'search_users',
+        data: {'query': query},
+      );
+
+      return response;
+    } catch (e) {
+      if (kDebugMode) {
+        print('Search users error: $e');
+      }
+      return ApiResponse.error('Failed to search users: $e');
     }
   }
 

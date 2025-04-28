@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "414459921569",
+    "project_id": "frames-8e0e5",
+    "storage_bucket": "frames-8e0e5.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:414459921569:android:060906bc657ff6d4665ce0",
+        "android_client_info": {
+          "package_name": "com.frames.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDHAR4d0JPboBUAxk6O0BpNNCB0G_j3izo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

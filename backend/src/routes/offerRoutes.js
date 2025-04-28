@@ -13,6 +13,8 @@ router.get('/piece-offers/:piece_id', validateToken, offerController.getPieceOff
 router.get('/my-received-offers', validateToken, offerController.getReceivedOffers);
 router.get('/my-made-offers', validateToken, offerController.getMadeOffers);
 router.post('/accept-offer/:offerId', validateToken, offerController.acceptOffer);
+router.post('/decline-offer/:offerId', validateToken, offerController.declineOffer);
+router.post('/cancel-offer/:offerId', validateToken, offerController.cancelOffer);
 router.post('/submit-payment-proof/:offerId', validateToken, (req, res, next) => {
     req.body.folderName = 'payment_proofs'; 
     next();
@@ -23,3 +25,4 @@ router.post('/confirm-payment/:offerId', validateToken, offerController.confirmP
 router.post('/deny-payment/:offerId', validateToken, offerController.denyPayment);
 
 module.exports = router;
+

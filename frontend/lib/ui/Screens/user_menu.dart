@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:frames_app/ui/Screens/home_screen.dart';
-import 'package:frames_app/ui/Screens/user_profile_screen.dart';
+import 'package:frames_app/providers/notification_provider.dart';
 import 'package:frames_app/providers/user_provider.dart';
+import 'package:frames_app/ui/Screens/home_screen.dart';
+import 'package:frames_app/ui/Screens/login_screen.dart'; // Add this import
+import 'package:frames_app/ui/Screens/notification_screen.dart';
+import 'package:frames_app/ui/Screens/offers_screen.dart';
+import 'package:frames_app/ui/Screens/user_profile_screen.dart';
 
 class MenuScreen extends ConsumerWidget {
   const MenuScreen({super.key});
@@ -12,6 +16,7 @@ class MenuScreen extends ConsumerWidget {
     // Get username from user provider
     final user = ref.watch(userProvider);
     final username = user?.username ?? 'User';
+    final unreadCount = ref.watch(unreadNotificationsCountProvider);
 
     return PopScope(
       canPop: false,
@@ -57,7 +62,48 @@ class MenuScreen extends ConsumerWidget {
                 width: double.infinity,
                 child: ElevatedButton(
                   onPressed: () {
-                    // Navigate to My Offers
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const NotificationScreen(),
+                      ),
+                    );
+                  },
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Text('Notifications'),
+                      if (unreadCount > 0)
+                        Container(
+                          margin: const EdgeInsets.only(left: 8),
+                          padding: const EdgeInsets.all(6),
+                          decoration: const BoxDecoration(
+                            color: Colors.red,
+                            shape: BoxShape.circle,
+                          ),
+                          child: Text(
+                            unreadCount > 9 ? '9+' : unreadCount.toString(),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const OffersScreen(),
+                      ),
+                    );
                   },
                   child: const Text('My Offers'),
                 ),
@@ -93,9 +139,45 @@ class MenuScreen extends ConsumerWidget {
                 width: double.infinity,
                 child: ElevatedButton(
                   onPressed: () {
-                    // Navigate to Billing
+                    showDialog(
+                      context: context,
+                      builder: (BuildContext context) {
+                        return AlertDialog(
+                          title: const Text('Logout'),
+                          content:
+                              const Text('Are you sure you want to log out?'),
+                          actions: <Widget>[
+                            TextButton(
+                              onPressed: () => Navigator.of(context).pop(),
+                              child: const Text('Cancel'),
+                            ),
+                            TextButton(
+                              onPressed: () async {
+                                Navigator.of(context).pop();
+
+                                await ref.read(userNotifierProvider).logout();
+
+                                if (context.mounted) {
+                                  Navigator.of(context).pushAndRemoveUntil(
+                                    MaterialPageRoute(
+                                      builder: (context) => const LoginScreen(),
+                                    ),
+                                    (route) => false,
+                                  );
+                                }
+                              },
+                              child: const Text('Log Out'),
+                            ),
+                          ],
+                        );
+                      },
+                    );
                   },
-                  child: const Text('Billing'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.red[100],
+                    foregroundColor: Colors.red[900],
+                  ),
+                  child: const Text('Logout'),
                 ),
               ),
             ],

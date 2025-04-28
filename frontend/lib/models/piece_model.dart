@@ -12,6 +12,8 @@ class Piece {
   final String? pieceDisplay;
   final bool pieceForSale;
   final double piecePrice;
+  final String? paymentDetails;
+  final int pieceImpressions;
 
   Piece({
     required this.pieceid,
@@ -23,6 +25,8 @@ class Piece {
     required this.pieceLikes,
     this.pieceLocation,
     this.pieceDescription,
+    this.paymentDetails,
+    this.pieceImpressions = 0,
     required this.pieceCreationDate,
     this.pieceDisplay,
     required this.pieceForSale,
@@ -35,8 +39,10 @@ class Piece {
       pieceObject: json['Piece_Object'] ?? '',
       pieceOwner: json['Piece_owner'] ?? '',
       pieceTitle: json['Piece_title'] ?? '',
+      paymentDetails: json['payment_details'],
       frameName: json['Frame_name'] ?? 'not_found',
       liveStatus: json['live_status'] ?? false,
+      pieceImpressions: json['Piece_impressions'] ?? 0,
       pieceLikes: json['Piece_likes'] ?? 0,
       pieceLocation: json['Piece_location'],
       pieceDescription: json['Piece_description'],

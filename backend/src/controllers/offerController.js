@@ -5,6 +5,141 @@ const OwnershipHistory = require('../models/ownership_history');
 const config = require('../config');
 const { sendNotification } = require('../utils/notificationUtils');
 
+exports.declineOffer = async (req, res) => {
+    try {
+        const { offerId } = req.params;
+        const seller = req.user.username;
+
+        const offer = await Offer.findOne({
+            _id: offerId,
+            seller: seller,
+            status: 'pending'
+        });
+
+        if (!offer) {
+            return res.status(404).json({
+                success: false,
+                message: 'Offer not found or not in pending status'
+            });
+        }
+
+        offer.status = 'rejected';
+        offer.updated_at = new Date();
+        await offer.save();
+
+        // Send notification to buyer about offer rejection
+        sendNotification({
+            userId: offer.buyer,
+            notificationType: 'offer_declined',
+            data: {
+                id: offer._id.toString(),
+                pieceId: offer.piece_id,
+                pieceTitle: offer.piece_title || 'Untitled',
+                amount: offer.amount,
+                sellerUsername: seller,
+                date: new Date().toISOString(),
+                status: 'rejected'
+            }
+        }).catch(err => console.error('Error sending notification:', err));
+
+        res.status(200).json({
+            success: true,
+            message: 'Offer declined successfully',
+            data: { offer }
+        });
+
+    } catch (error) {
+        console.error('Error declining offer:', error);
+        res.status(500).json({
+            success: false,
+            message: error.message || 'Failed to decline offer'
+        });
+    }
+};
+
+exports.cancelOffer = async (req, res) => {
+    try {
+        const { offerId } = req.params;
+        const username = req.user.username;
+
+        // Find the offer
+        const offer = await Offer.findById(offerId);
+        
+        if (!offer) {
+            return res.status(404).json({
+                success: false,
+                message: 'Offer not found'
+            });
+        }
+
+        // Check if user is the buyer or seller
+        const isBuyer = offer.buyer === username;
+        const isSeller = offer.seller === username;
+        
+        if (!isBuyer && !isSeller) {
+            return res.status(403).json({
+                success: false,
+                message: 'Not authorized to cancel this offer'
+            });
+        }
+
+        // Apply business rules:
+        // - Sellers can only cancel if offer is pending
+        // - Buyers can cancel if offer is pending or accepted
+        if (isSeller && offer.status !== 'pending') {
+            return res.status(400).json({
+                success: false,
+                message: 'Sellers can only cancel pending offers'
+            });
+        }
+        
+        if (isBuyer && !['pending', 'accepted'].includes(offer.status)) {
+            return res.status(400).json({
+                success: false,
+                message: 'Buyers can only cancel pending or accepted offers'
+            });
+        }
+
+        offer.status = 'cancelled';
+        offer.updated_at = new Date();
+        await offer.save();
+
+        // Determine who cancelled the offer for notification
+        const cancelledBy = isBuyer ? 'buyer' : 'seller';
+        const recipientId = isBuyer ? offer.seller : offer.buyer;
+        
+        // Send notification about offer cancellation
+        sendNotification({
+            userId: recipientId,
+            notificationType: 'offer_cancelled',
+            data: {
+                id: offer._id.toString(),
+                pieceId: offer.piece_id,
+                pieceTitle: offer.piece_title || 'Untitled',
+                amount: offer.amount,
+                cancelledBy: cancelledBy,
+                username: username,
+                date: new Date().toISOString(),
+                status: 'cancelled'
+            }
+        }).catch(err => console.error('Error sending notification:', err));
+
+        res.status(200).json({
+            success: true,
+            message: 'Offer cancelled successfully',
+            data: { offer }
+        });
+
+    } catch (error) {
+        console.error('Error cancelling offer:', error);
+        res.status(500).json({
+            success: false,
+            message: error.message || 'Failed to cancel offer'
+        });
+    }
+};
+
+// Update the createOffer function to include piece_title
 exports.createOffer = async (req, res) => {
     const session = await mongoose.startSession();
     session.startTransaction();
@@ -45,12 +180,15 @@ exports.createOffer = async (req, res) => {
             throw new Error('You already have a pending offer for this piece');
         }
 
+        console.log('Creating new offer for piece:', Piece.Piece_title);
+
         // Create new offer
         const newOffer = new Offer({
             piece_id: piece_id,
+            piece_title: piece.Piece_title || 'Untitled', 
             buyer: buyer,
             seller: piece.Piece_owner,
-            amount: piece.Piece_price, // Use piece's listed price
+            amount: piece.Piece_price, 
             status: 'pending',
             piece_status: 'available',
             created_at: new Date()
@@ -356,12 +494,15 @@ exports.submitPaymentProof = async (req, res) => {
 exports.getPaymentProof = async (req, res) => {
     try {
         const { offerId } = req.params;
-        const seller = req.user.username;
+        const username = req.user.username;
 
         const offer = await Offer.findOne({
             _id: offerId,
-            seller: seller,
-            status: { $in: ['payment_submitted', 'completed'] }
+            status: { $in: ['payment_submitted', 'completed'] },
+            $or: [
+                { seller: username },
+                { buyer: username }
+            ]
         });
 
         if (!offer) {
@@ -409,6 +550,13 @@ exports.handleExpiredConfirmations = async () => {
             const now = new Date();
             const seller_grace_deadline = new Date(now.getTime() + config.payment.seller_grace_timeout);
 
+            const piece = await Piece.findOne({ Piece_id: offer.piece_id }).session(session);
+            
+            // Update piece_title if it's missing
+            if (!offer.piece_title && piece) {
+                offer.piece_title = piece.Piece_title || 'Untitled';
+            }
+            
             await Piece.findOneAndUpdate(
                 { Piece_id: offer.piece_id },
                 { 
@@ -497,6 +645,12 @@ exports.confirmPayment = async (req, res) => {
 
         // Get piece details for notification
         const piece = await Piece.findOne({ Piece_id: offer.piece_id }).session(session);
+        
+        // Update piece_title if it's missing
+        if (!offer.piece_title && piece) {
+            offer.piece_title = piece.Piece_title || 'Untitled';
+            await offer.save({ session });
+        }
 
         // Create new ownership history record and update piece ownership
         const ownershipRecord = new OwnershipHistory({
@@ -768,6 +922,42 @@ exports.sendConfirmationReminders = async () => {
         return { 
             success: false, 
             error: error.message 
+        };
+    }
+};
+
+// Add a migration function to update existing records without piece_title
+exports.migrateOfferPieceTitles = async () => {
+    try {
+        const offersWithoutTitle = await Offer.find({ piece_title: { $exists: false } });
+        console.log(`Found ${offersWithoutTitle.length} offers without piece_title`);
+        
+        let updatedCount = 0;
+        
+        for (const offer of offersWithoutTitle) {
+            const piece = await Piece.findOne({ Piece_id: offer.piece_id });
+            if (piece) {
+                offer.piece_title = piece.Piece_title || 'Untitled';
+                await offer.save();
+                updatedCount++;
+            } else {
+                console.warn(`No piece found for offer ${offer._id} with piece_id ${offer.piece_id}`);
+                offer.piece_title = 'Unknown Piece';
+                await offer.save();
+                updatedCount++;
+            }
+        }
+        
+        return {
+            success: true,
+            processedCount: offersWithoutTitle.length,
+            updatedCount
+        };
+    } catch (error) {
+        console.error('Error migrating offer piece titles:', error);
+        return {
+            success: false,
+            error: error.message
         };
     }
 };

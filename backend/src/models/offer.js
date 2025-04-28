@@ -6,6 +6,10 @@ const offerSchema = new mongoose.Schema({
         required: true,
         ref: 'Piece'
     },
+    piece_title: {
+        type: String,
+        default: 'Untitled'  
+    },
     buyer: {
         type: String,
         required: true,
@@ -79,7 +83,7 @@ offerSchema.index({ status: 1, payment_deadline: 1 });
 offerSchema.statics.checkPieceAvailability = async function(piece_id) {
     const activeOffer = await this.findOne({
         piece_id: piece_id,
-        status: 'accepted'
+        status: { $in: ['accepted', 'payment_submitted', 'disputed'] }
     });
     return !activeOffer;
 };
