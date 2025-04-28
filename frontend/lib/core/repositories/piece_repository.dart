@@ -240,7 +240,7 @@ Future<ApiResponse> getPieceById(String pieceId) async {
 Future<ApiResponse> incrementImpressions(String pieceId) async {
   try {
     final response = await _apiService.post(
-      'increment_impressions',
+      'increment_impression',
       data: {
         'pieceId': pieceId,
       },
