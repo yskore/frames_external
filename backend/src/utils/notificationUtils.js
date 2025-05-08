@@ -18,6 +18,26 @@ const initializeFirebaseApp = () => {
 };
 
 /**
+ * Helper function to convert all values in a data object to strings
+ * for Firebase Cloud Messaging requirements
+ */
+const stringifyData = (data) => {
+  const stringifiedData = {};
+  
+  if (data && typeof data === 'object') {
+    Object.keys(data).forEach(key => {
+      if (data[key] !== undefined && data[key] !== null) {
+        stringifiedData[key] = String(
+          typeof data[key] === 'object' ? JSON.stringify(data[key]) : data[key]
+        );
+      }
+    });
+  }
+  
+  return stringifiedData;
+};
+
+/**
  * Send push notification to a user
  * @param {Object} options - Notification options
  * @param {string} options.userId - Username of recipient
@@ -51,12 +71,16 @@ const sendPushNotification = async (options) => {
       return { success: false, message: 'No push token provided' };
     }
 
+    const stringifiedData = stringifyData(options.data || {});
+    
+    console.log('Preparing push notification with data:', JSON.stringify(stringifiedData));
+
     const message = {
       notification: {
         title: options.title || 'Frames App',
         body: options.body,
       },
-      data: options.data || {},
+      data: stringifiedData,
       token: token,
       android: {
         priority: options.priority === 'high' ? 'high' : 'normal',
@@ -194,5 +218,6 @@ const prepareNotificationContent = (type, data) => {
 module.exports = {
   initializeFirebaseApp,
   sendPushNotification,
-  sendNotification
+  sendNotification,
+  stringifyData
 };

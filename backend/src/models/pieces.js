@@ -39,6 +39,7 @@ const PieceSchema = new mongoose.Schema({
   Piece_display: { type: String, required: false },
   Piece_for_sale: { type: Boolean, default: false },
   Piece_price: { type: Number, default: 0.0 },
+  currency: { type: String, default: 'USD' },
   payment_details: { type: String },
   ownership: { 
     type: String, 

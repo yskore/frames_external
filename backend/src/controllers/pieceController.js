@@ -253,7 +253,6 @@ exports.toggleLiveStatus = async (req, res) => {
     }
 };
 
-// Add new method to get owner's pieces
 exports.getOwnerPieces = async (req, res) => {
     try {
         const username = req.user.username;
@@ -341,6 +340,8 @@ exports.getPieceById = async (req, res) => {
             creationDate: piece.Piece_creation_date,
             likes: piece.Piece_likes,
             impressions: piece.Piece_impressions,
+            currency: piece.currency,
+            payment_details: piece.payment_details,
             ownership: piece.ownership || '00', // Include the ownership field
             isLive: piece.live_status,
             forSale: piece.Piece_for_sale,

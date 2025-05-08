@@ -89,6 +89,7 @@ exports.getPiecesByOwner = async (req, res) => {
             Piece_for_sale: piece.Piece_for_sale,
             Piece_price: piece.Piece_price,
             ownership: piece.ownership,
+            currency: piece.currency,
             payment_details: piece.payment_details,
         }));
 
@@ -265,6 +266,7 @@ exports.getProfileWithPieces = async (req, res) => {
             Piece_creation_date: piece.Piece_creation_date,
             Piece_display: piece.Piece_display,
             Piece_for_sale: piece.Piece_for_sale,
+            currency: piece.currency,
             payment_details: piece.payment_details,
             Piece_price: piece.Piece_price,
             ownership: piece.ownership,

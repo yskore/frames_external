@@ -25,6 +25,13 @@ const offerSchema = new mongoose.Schema({
         required: true,
         min: 0
     },
+    currency: {
+        type: String,
+        default: 'USD'
+    },
+    payment_details: {
+        type: String
+    },
     status: {
         type: String,
         enum: ['pending', 'accepted', 'rejected', 'cancelled', 'payment_submitted', 'completed', 'disputed'],

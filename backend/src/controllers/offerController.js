@@ -187,6 +187,8 @@ exports.createOffer = async (req, res) => {
             piece_id: piece_id,
             piece_title: piece.Piece_title || 'Untitled', 
             buyer: buyer,
+            payment_details: piece.payment_details,
+            currency: piece.currency,
             seller: piece.Piece_owner,
             amount: piece.Piece_price, 
             status: 'pending',
@@ -828,7 +830,7 @@ exports.getMadeOffers = async (req, res) => {
     }
 };
 
-// Add a new function to send payment reminders
+
 exports.sendPaymentReminders = async () => {
     try {
         const now = new Date();
@@ -876,7 +878,6 @@ exports.sendPaymentReminders = async () => {
     }
 };
 
-// Add a new function to send confirmation reminders
 exports.sendConfirmationReminders = async () => {
     try {
         const now = new Date();
