@@ -65,6 +65,8 @@ class OfferModel {
   final DateTime? paymentSubmittedAt;
   final String? paymentProof;
   final String? message;
+  final String? paymentDetails;
+  final String? currency;
   final DisputeInfo? dispute;
 
   OfferModel({
@@ -77,6 +79,8 @@ class OfferModel {
     required this.status,
     required this.pieceStatus,
     required this.createdAt,
+    required this.paymentDetails,
+    required this.currency,
     this.paymentDeadline,
     this.sellerConfirmationDeadline,
     this.sellerGraceDeadline,
@@ -103,6 +107,8 @@ class OfferModel {
     String? paymentProof,
     String? message,
     DisputeInfo? dispute,
+    String? paymentDetails,
+    String? currency,
   }) {
     return OfferModel(
       id: id ?? this.id,
@@ -110,6 +116,8 @@ class OfferModel {
       pieceTitle: pieceTitle ?? this.pieceTitle,
       buyer: buyer ?? this.buyer,
       seller: seller ?? this.seller,
+      paymentDetails: paymentDetails ?? this.paymentDetails,
+      currency: currency ?? this.currency,
       amount: amount ?? this.amount,
       status: status ?? this.status,
       pieceStatus: pieceStatus ?? this.pieceStatus,
@@ -128,6 +136,8 @@ class OfferModel {
   factory OfferModel.fromJson(Map<String, dynamic> json) {
     return OfferModel(
       id: json['_id'] ?? '',
+      paymentDetails: json['payment_details'],
+      currency: json['currency'] ?? 'USD',
       pieceId: json['piece_id'] ?? '',
       pieceTitle: json['piece_title'],
       buyer: json['buyer'] ?? '',

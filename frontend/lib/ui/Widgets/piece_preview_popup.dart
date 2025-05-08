@@ -3,6 +3,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:currency_picker/currency_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -14,6 +15,7 @@ import 'package:frames_app/core/repositories/anchor_repository.dart';
 import 'package:frames_app/core/repositories/piece_repository.dart';
 import 'package:frames_app/core/services/map.dart';
 import 'package:frames_app/models/anchor_model.dart';
+import 'package:frames_app/models/piece_model.dart';
 import 'package:frames_app/providers/error_provider.dart';
 import 'package:frames_app/providers/user_provider.dart';
 import 'package:frames_app/ui/Screens/user_profile_screen.dart';
@@ -28,35 +30,17 @@ import 'package:url_launcher/url_launcher.dart';
 //NEW IMPLEMENTATION
 
 class PiecePreviewPopup extends ConsumerStatefulWidget {
-  String pieceName;
+  final Piece piece;
   final String pieceData;
-  bool liveStatus;
-  final String pieceOwner;
-  String? pieceDescription;
-  double piecePrice;
-  int pieceLikes;
-  int impressions;
-  bool pieceForSale;
-  final DateTime pieceCreationDate;
   final Function onPieceUpdated;
-  final bool isReadOnly; // Add this property to control edit permissions
-  String? paymentDetails; // Added field for payment details
+  final bool isReadOnly;
 
-  PiecePreviewPopup({
+  const PiecePreviewPopup({
     super.key,
-    required this.pieceName,
+    required this.piece,
     required this.pieceData,
-    required this.liveStatus,
-    required this.pieceOwner,
-    required this.pieceDescription,
-    required this.piecePrice,
-    required this.pieceLikes,
-    this.impressions = 0,
-    required this.pieceForSale,
-    required this.pieceCreationDate,
     required this.onPieceUpdated,
     this.isReadOnly = false, // Default to false for backward compatibility
-    this.paymentDetails,
   });
 
   @override
@@ -78,10 +62,14 @@ class _PiecePreviewPopupState extends ConsumerState<PiecePreviewPopup> {
   DateTime? _anchorExpireTime;
   bool _isLoadingAnchorDetails = false;
 
+  // Add a mutable piece field to track changes
+  late Piece _piece;
+
   late TextEditingController _nameController;
   late TextEditingController _descriptionController;
   late TextEditingController _priceController;
   late TextEditingController _paymentDetailsController;
+  late TextEditingController _currencyController;
 
   final List<AnchorModel> _anchors = [];
   bool _isFullScreen = false;
@@ -91,18 +79,23 @@ class _PiecePreviewPopupState extends ConsumerState<PiecePreviewPopup> {
   @override
   void initState() {
     super.initState();
-    _nameController = TextEditingController(text: widget.pieceName);
+
+    // Initialize the mutable piece with the widget piece
+    _piece = widget.piece;
+
+    _nameController = TextEditingController(text: _piece.pieceTitle);
     _descriptionController =
-        TextEditingController(text: widget.pieceDescription);
+        TextEditingController(text: _piece.pieceDescription);
     _priceController =
-        TextEditingController(text: widget.piecePrice.toString());
+        TextEditingController(text: _piece.piecePrice.toString());
     _paymentDetailsController =
-        TextEditingController(text: widget.paymentDetails ?? '');
+        TextEditingController(text: _piece.paymentDetails ?? '');
+    _currencyController = TextEditingController(text: _piece.currency ?? 'USD');
 
     // Initialize _isEditing to false and make sure it stays false if isReadOnly is true
     _isEditing = false;
 
-    if (widget.liveStatus) {
+    if (_piece.liveStatus) {
       _fetchAnchorDetails();
     }
     _fetchPieceImpressions();
@@ -123,6 +116,7 @@ class _PiecePreviewPopupState extends ConsumerState<PiecePreviewPopup> {
     _descriptionController.dispose();
     _priceController.dispose();
     _paymentDetailsController.dispose();
+    _currencyController.dispose();
     super.dispose();
   }
 
@@ -155,7 +149,7 @@ class _PiecePreviewPopupState extends ConsumerState<PiecePreviewPopup> {
   }
 
   Widget _buildExpiryTimeInfo() {
-    if (!widget.liveStatus) {
+    if (!_piece.liveStatus) {
       return const SizedBox.shrink(); // Don't show for non-live pieces
     }
 
@@ -374,7 +368,7 @@ class _PiecePreviewPopupState extends ConsumerState<PiecePreviewPopup> {
       final pieceRepository = ref.read(pieceRepositoryProvider);
 
       final response = await pieceRepository.deletePiece(
-          widget.pieceName, widget.pieceOwner);
+          _piece.pieceTitle, _piece.pieceOwner);
 
       if (response.isSuccess && mounted) {
         Navigator.pushReplacement(
@@ -459,7 +453,7 @@ class _PiecePreviewPopupState extends ConsumerState<PiecePreviewPopup> {
                           markerId: const MarkerId('piece_location'),
                           position: LatLng(anchor.location.coordinates[1],
                               anchor.location.coordinates[0]),
-                          infoWindow: InfoWindow(title: widget.pieceName),
+                          infoWindow: InfoWindow(title: _piece.pieceTitle),
                         )
                       },
                       myLocationEnabled: true,
@@ -588,6 +582,30 @@ class _PiecePreviewPopupState extends ConsumerState<PiecePreviewPopup> {
   }
 
   Widget _buildEditableInfoRow(String label, TextEditingController controller) {
+    if (label == 'Currency') {
+      return Row(
+        children: [
+          Text('$label: ', style: const TextStyle(fontWeight: FontWeight.bold)),
+          Expanded(
+            child: GestureDetector(
+              onTap: _isEditing ? _showCurrencyPicker : null,
+              child: AbsorbPointer(
+                child: TextField(
+                  controller: controller,
+                  decoration: InputDecoration(
+                    border: _isEditing ? null : InputBorder.none,
+                    suffixIcon:
+                        _isEditing ? const Icon(Icons.arrow_drop_down) : null,
+                  ),
+                  readOnly: true,
+                ),
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4.0),
       child: Row(
@@ -598,6 +616,8 @@ class _PiecePreviewPopupState extends ConsumerState<PiecePreviewPopup> {
               controller: controller,
               decoration: InputDecoration(
                 border: _isEditing ? null : InputBorder.none,
+                prefixText:
+                    label == 'Price' ? "${_currencyController.text} " : null,
               ),
               readOnly: !_isEditing,
             ),
@@ -637,7 +657,7 @@ class _PiecePreviewPopupState extends ConsumerState<PiecePreviewPopup> {
   }
 
   void liveStatusChange() {
-    if (widget.liveStatus) {
+    if (_piece.liveStatus) {
       // Turn offline
       showDialog(
         context: context,
@@ -667,7 +687,7 @@ class _PiecePreviewPopupState extends ConsumerState<PiecePreviewPopup> {
                         .togglePieceLiveStatus(pieceId, false);
                     if (response.isSuccess) {
                       setState(() {
-                        widget.liveStatus = false;
+                        _piece = _piece.copyWith(liveStatus: false);
                       });
 
                       Navigator.pushReplacement(
@@ -749,30 +769,34 @@ class _PiecePreviewPopupState extends ConsumerState<PiecePreviewPopup> {
       final pieceRepository = ref.read(pieceRepositoryProvider);
 
       String? paymentDetails;
-      if (widget.pieceForSale) {
+      if (_piece.pieceForSale) {
         paymentDetails = _paymentDetailsController.text;
       }
 
       final response = await pieceRepository.updatePieceInfo(
-        pieceOwner: widget.pieceOwner,
-        oldPieceTitle: widget.pieceName,
+        pieceOwner: _piece.pieceOwner,
+        oldPieceTitle: _piece.pieceTitle,
         ownership: "",
         newPieceTitle: _nameController.text,
         pieceDescription: _descriptionController.text,
-        pieceForSale: widget.pieceForSale,
+        pieceForSale: _piece.pieceForSale,
         piecePrice: double.tryParse(_priceController.text) ?? 0.0,
         paymentDetails: paymentDetails,
+        currency: _currencyController.text,
       );
 
       if (response.isSuccess) {
         setState(() {
-          widget.pieceName = _nameController.text;
-          widget.pieceDescription = _descriptionController.text;
-          if (widget.pieceForSale) {
-            widget.piecePrice =
-                double.tryParse(_priceController.text) ?? widget.piecePrice;
-            widget.paymentDetails = _paymentDetailsController.text;
-          }
+          _piece = _piece.copyWith(
+            pieceTitle: _nameController.text,
+            pieceDescription: _descriptionController.text,
+            piecePrice:
+                double.tryParse(_priceController.text) ?? _piece.piecePrice,
+            paymentDetails: _piece.pieceForSale
+                ? _paymentDetailsController.text
+                : _piece.paymentDetails,
+            currency: _currencyController.text,
+          );
           _isEditing = false;
         });
 
@@ -813,8 +837,8 @@ class _PiecePreviewPopupState extends ConsumerState<PiecePreviewPopup> {
 
         if (mounted) {
           setState(() {
-            // This updates the local state to show in the UI
-            widget.impressions = impressions;
+            // Update piece with new impressions using copyWith
+            _piece = _piece.copyWith(pieceImpressions: impressions);
           });
           print('[IMP] Updated impressions count: $impressions');
         }
@@ -848,13 +872,14 @@ class _PiecePreviewPopupState extends ConsumerState<PiecePreviewPopup> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Would you like to make an offer for ${widget.pieceName}?'),
+              Text('Would you like to make an offer for ${_piece.pieceTitle}?'),
               const SizedBox(height: 8),
               Row(
                 children: [
                   const Text('Price: ',
                       style: TextStyle(fontWeight: FontWeight.bold)),
-                  Text('\$${widget.piecePrice.toStringAsFixed(2)}',
+                  Text(
+                      '${_piece.currency ?? 'USD'} ${_piece.piecePrice.toStringAsFixed(2)}',
                       style: const TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 18,
@@ -863,10 +888,8 @@ class _PiecePreviewPopupState extends ConsumerState<PiecePreviewPopup> {
                 ],
               ),
               const SizedBox(height: 16),
-
-              // Display payment details as read-only rich text if available
-              if (widget.paymentDetails != null &&
-                  widget.paymentDetails!.isNotEmpty) ...[
+              if (_piece.paymentDetails != null &&
+                  _piece.paymentDetails!.isNotEmpty) ...[
                 const Text('Payment Details:',
                     style: TextStyle(fontWeight: FontWeight.bold)),
                 const SizedBox(height: 4),
@@ -881,16 +904,16 @@ class _PiecePreviewPopupState extends ConsumerState<PiecePreviewPopup> {
                     controller: _paymentDetailsController,
                     maxLines: null,
                     expands: true,
+                    readOnly: true,
                     textAlignVertical: TextAlignVertical.top,
                     decoration: const InputDecoration(
                       contentPadding: EdgeInsets.all(8),
-                      hintText: 'Enter payment details here...',
+                      hintText: '...',
                       border: InputBorder.none,
                     ),
                   ),
                 ),
               ],
-
               const SizedBox(height: 16),
               const Text(
                 'By clicking "Make Offer", you agree to pay the listed price',
@@ -932,6 +955,20 @@ class _PiecePreviewPopupState extends ConsumerState<PiecePreviewPopup> {
     );
   }
 
+  void _showCurrencyPicker() {
+    showCurrencyPicker(
+      context: context,
+      showFlag: true,
+      showCurrencyName: true,
+      showCurrencyCode: true,
+      onSelect: (Currency currency) {
+        setState(() {
+          _currencyController.text = currency.code;
+        });
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     print('[LOGS] isLoading is" $_isLoading');
@@ -957,7 +994,7 @@ class _PiecePreviewPopupState extends ConsumerState<PiecePreviewPopup> {
           child: Column(
             children: [
               AppBar(
-                title: Text(widget.pieceName),
+                title: Text(_piece.pieceTitle),
                 leading: IconButton(
                     icon: const Icon(Icons.close),
                     onPressed: () {
@@ -974,9 +1011,7 @@ class _PiecePreviewPopupState extends ConsumerState<PiecePreviewPopup> {
                       });
                     },
                   ),
-                  if (!_isFullScreen &&
-                      !widget
-                          .isReadOnly) // Only show these buttons when not in full-screen
+                  if (!_isFullScreen && !widget.isReadOnly)
                     IconButton(
                       icon: Icon(_isEditing ? Icons.save : Icons.edit),
                       onPressed: () {
@@ -989,10 +1024,7 @@ class _PiecePreviewPopupState extends ConsumerState<PiecePreviewPopup> {
                         });
                       },
                     ),
-                  if (!_isFullScreen &&
-                      _isEditing &&
-                      !widget
-                          .isReadOnly) // Only show delete in normal mode and edit mode
+                  if (!_isFullScreen && _isEditing && !widget.isReadOnly)
                     IconButton(
                       icon: const Icon(Icons.delete, color: Colors.red),
                       onPressed: _showDeleteConfirmation,
@@ -1007,15 +1039,38 @@ class _PiecePreviewPopupState extends ConsumerState<PiecePreviewPopup> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         _buildEditableInfoRow('Piece Name', _nameController),
-                        _buildInfoRow('Piece Owner', widget.pieceOwner),
+                        _buildInfoRow('Piece Owner', _piece.pieceOwner),
                         _buildEditableInfoRow(
                             'Description', _descriptionController),
-                        if (widget.pieceForSale) ...[
-                          _buildEditableInfoRow('Price', _priceController),
-
-                          // Payment details section with rich text editor
+                        _buildInfoRow('Likes', _piece.pieceLikes.toString()),
+                        _buildInfoRow('Impressions',
+                            _piece.pieceImpressions.toString() ?? '0'),
+                        _buildInfoRow('Live Status',
+                            _piece.liveStatus ? 'Live' : 'Not Live'),
+                        _buildExpiryTimeInfo(),
+                        Row(
+                          children: [
+                            const Text('For Sale: ',
+                                style: TextStyle(fontWeight: FontWeight.bold)),
+                            Switch(
+                              value: _piece.pieceForSale,
+                              onChanged: _isEditing
+                                  ? (value) {
+                                      setState(() {
+                                        _piece = _piece.copyWith(
+                                            pieceForSale: value);
+                                      });
+                                    }
+                                  : null,
+                            ),
+                          ],
+                        ),
+                        if (_piece.pieceForSale) ...[
                           if (_isEditing) ...[
-                            const SizedBox(height: 10),
+                            // _buildEditableInfoRow('Price', _priceController),
+                            _buildEditableInfoRow(
+                                'Currency', _currencyController),
+                            const SizedBox(height: 5),
                             const Text('Payment Details:',
                                 style: TextStyle(fontWeight: FontWeight.bold)),
                             const SizedBox(height: 4),
@@ -1038,48 +1093,9 @@ class _PiecePreviewPopupState extends ConsumerState<PiecePreviewPopup> {
                                 ),
                               ),
                             ),
-                          ] else if (widget.paymentDetails != null &&
-                              widget.paymentDetails!.isNotEmpty) ...[
-                            Container(
-                              width: double.infinity,
-                              height: 120,
-                              padding: const EdgeInsets.all(8.0),
-                              decoration: BoxDecoration(
-                                color: Colors.grey[50],
-                                borderRadius: BorderRadius.circular(4.0),
-                                border: Border.all(color: Colors.grey[200]!),
-                              ),
-                              child: SingleChildScrollView(
-                                child: Text(
-                                  widget.paymentDetails ?? '',
-                                ),
-                              ),
-                            ),
-                          ],
+                          ]
                         ],
-                        _buildInfoRow('Likes', widget.pieceLikes.toString()),
-                        _buildInfoRow(
-                            'Impressions', widget.impressions.toString()),
-                        _buildInfoRow('Live Status',
-                            widget.liveStatus ? 'Live' : 'Not Live'),
-                        _buildExpiryTimeInfo(),
-                        Row(
-                          children: [
-                            const Text('For Sale: ',
-                                style: TextStyle(fontWeight: FontWeight.bold)),
-                            Switch(
-                              value: widget.pieceForSale,
-                              onChanged: _isEditing
-                                  ? (value) {
-                                      setState(() {
-                                        widget.pieceForSale = value;
-                                      });
-                                    }
-                                  : null,
-                            ),
-                          ],
-                        ),
-                        if (widget.pieceForSale)
+                        if (_piece.pieceForSale)
                           _buildEditableInfoRow('Price', _priceController),
                         if (_isEditing)
                           Row(
@@ -1094,17 +1110,17 @@ class _PiecePreviewPopupState extends ConsumerState<PiecePreviewPopup> {
                                   liveStatusChange();
                                 },
                                 style: ElevatedButton.styleFrom(
-                                  backgroundColor: widget.liveStatus
+                                  backgroundColor: _piece.liveStatus
                                       ? Colors.red
                                       : Colors.green,
                                 ),
-                                child: widget.liveStatus
+                                child: _piece.liveStatus
                                     ? const Text('Turn offline')
                                     : const Text('Turn online'),
                               ),
                             ],
                           ),
-                        if (widget.isReadOnly && widget.pieceForSale) ...[
+                        if (widget.isReadOnly && _piece.pieceForSale) ...[
                           const SizedBox(height: 16),
                           ElevatedButton.icon(
                             icon: const Icon(Icons.local_offer),
@@ -1117,7 +1133,7 @@ class _PiecePreviewPopupState extends ConsumerState<PiecePreviewPopup> {
                             ),
                           ),
                         ],
-                        if (widget.liveStatus)
+                        if (_piece.liveStatus)
                           Padding(
                             padding: const EdgeInsets.only(top: 8.0),
                             child: Row(

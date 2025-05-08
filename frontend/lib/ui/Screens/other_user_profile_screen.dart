@@ -272,19 +272,11 @@ class _OtherUserProfileScreenState
       context: context,
       builder: (BuildContext context) {
         return PiecePreviewPopup(
-          pieceName: piece.pieceTitle,
+          piece: piece,
           pieceData: pieceData,
           onPieceUpdated: () {
             // Handle piece update if needed
           },
-          liveStatus: piece.liveStatus,
-          pieceDescription: piece.pieceDescription,
-          pieceLikes: piece.pieceLikes,
-          impressions: piece.pieceImpressions ?? 0,
-          pieceForSale: piece.pieceForSale,
-          pieceCreationDate: piece.pieceCreationDate,
-          piecePrice: piece.piecePrice,
-          pieceOwner: piece.pieceOwner,
           isReadOnly:
               true, // Set to read-only since it's not the current user's profile
         );

@@ -20,9 +20,9 @@ class PieceRepository {
     required String pieceDescription,
     required bool pieceForSale,
     required double piecePrice,
-    required String ownership, // Added ownership parameter
-
+    required String ownership,
     String? paymentDetails,
+    String? currency,
   }) async {
     try {
       final Map<String, dynamic> requestData = {
@@ -38,6 +38,11 @@ class PieceRepository {
       // Only add payment details if it's provided (not null or empty)
       if (paymentDetails != null && paymentDetails.isNotEmpty) {
         requestData['payment_details'] = paymentDetails;
+      }
+
+      // Add currency if provided
+      if (currency != null && currency.isNotEmpty) {
+        requestData['currency'] = currency;
       }
 
       final response = await _apiService.put(
@@ -163,6 +168,7 @@ class PieceRepository {
     required double piecePrice,
     String? paymentDetails,
     required String ownership,
+    String? currency,
   }) async {
     try {
       const uuid = Uuid();
@@ -189,6 +195,14 @@ class PieceRepository {
       // Add payment details if provided
       if (paymentDetails != null && paymentDetails.isNotEmpty) {
         requestData['payment_details'] = paymentDetails;
+      }
+
+      // Add currency if provided
+      if (currency != null && currency.isNotEmpty) {
+        requestData['currency'] = currency;
+      } else {
+        // Default to USD if not specified
+        requestData['currency'] = 'USD';
       }
 
       final response = await _apiService.post(

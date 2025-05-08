@@ -147,7 +147,7 @@ class OfferCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final formatter = NumberFormat.currency(symbol: '\$');
+    final formatter = NumberFormat.currency(symbol: "${offer.currency} ");
 
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
@@ -478,7 +478,7 @@ class OfferCard extends ConsumerWidget {
   }
 
   void _showOfferDetailsDialog(BuildContext context, WidgetRef ref) {
-    final formatter = NumberFormat.currency(symbol: '\$');
+    final formatter = NumberFormat.currency(symbol: offer.currency);
     final screenSize = MediaQuery.of(context).size;
 
     showDialog(
@@ -508,7 +508,6 @@ class OfferCard extends ConsumerWidget {
                         fontSize: 20, fontWeight: FontWeight.bold),
                   ),
                   const Divider(),
-                  // Dialog content in scrollable area
                   Flexible(
                     child: SingleChildScrollView(
                       child: Column(
@@ -517,8 +516,8 @@ class OfferCard extends ConsumerWidget {
                         children: [
                           _buildDetailRow(
                               'Status', _formatStatus(offer.status)),
-                          _buildDetailRow(
-                              'Amount', formatter.format(offer.amount)),
+                          _buildDetailRow('Amount',
+                              '${offer.currency ?? 'USD'} ${offer.amount.toStringAsFixed(2)}'),
                           _buildDetailRow(
                             isReceived ? 'Buyer' : 'Seller',
                             isReceived ? offer.buyer : offer.seller,
@@ -528,6 +527,70 @@ class OfferCard extends ConsumerWidget {
                             DateFormat('MMM d, y · h:mm a')
                                 .format(offer.createdAt),
                           ),
+                          if (offer.paymentDetails != null &&
+                              offer.paymentDetails!.isNotEmpty)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 16.0),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      const Text(
+                                        'Payment Details:',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.grey,
+                                        ),
+                                      ),
+                                      const Spacer(),
+                                      // Copy button for convenience
+                                      IconButton(
+                                        icon: const Icon(Icons.copy, size: 16),
+                                        tooltip: 'Copy payment details',
+                                        onPressed: () {
+                                          final paymentDetails =
+                                              offer.paymentDetails!;
+                                          ScaffoldMessenger.of(context)
+                                              .showSnackBar(
+                                            const SnackBar(
+                                              content: Text(
+                                                  'Payment details copied to clipboard'),
+                                              duration: Duration(seconds: 2),
+                                            ),
+                                          );
+                                        },
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Container(
+                                    width: double.infinity,
+                                    padding: const EdgeInsets.all(8.0),
+                                    decoration: BoxDecoration(
+                                      color: Colors.grey[50],
+                                      borderRadius: BorderRadius.circular(4.0),
+                                      border:
+                                          Border.all(color: Colors.grey[200]!),
+                                    ),
+                                    constraints: const BoxConstraints(
+                                      minHeight: 60,
+                                      maxHeight: 150,
+                                    ),
+                                    child: SingleChildScrollView(
+                                      child: SelectableText(
+                                        offer.paymentDetails!,
+                                        style: TextStyle(
+                                          height: 1.5,
+                                          color: Colors.grey[800],
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
                           if (offer.paymentDeadline != null)
                             _buildDetailRow(
                               'Payment Due',

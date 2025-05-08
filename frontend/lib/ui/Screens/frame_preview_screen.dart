@@ -412,6 +412,7 @@ class _FramePreviewScreenState extends ConsumerState<FramePreviewScreen> {
           pieceLocation: "no location",
           pieceForSale: false,
           piecePrice: 0,
+          ownership: "",
           pieceImage: _image!,
           pieceOwner: username!);
       if (!res) return false;
