@@ -103,6 +103,52 @@ const sendPushNotification = async (options) => {
 };
 
 /**
+ * Send a test push notification to a specific device token
+ * @param {string} token - FCM device token to send the notification to
+ * @param {Object} testParams - Optional test parameters
+ * @param {string} testParams.title - Custom test title (default: 'Test Notification')
+ * @param {string} testParams.body - Custom test message (default: 'This is a test notification')
+ * @param {Object} testParams.data - Custom test data (will be merged with default test data)
+ * @returns {Promise<Object>} - Result of the push notification attempt
+ */
+const testPushNotification = async (token, testParams = {}) => {
+  if (!token || typeof token !== 'string') {
+    console.error('Invalid token provided for test push notification');
+    return { success: false, message: 'Valid token is required' };
+  }
+
+  try {
+    const defaultData = {
+      id: 'test-' + Date.now(),
+      pieceId: 'test-piece-123',
+      pieceTitle: 'Test Artwork',
+      amount: '100',
+      buyerUsername: 'testbuyer',
+      sellerUsername: 'testseller',
+      date: new Date().toISOString(),
+      status: 'test',
+      testing: true
+    };
+
+    const testData = {
+      ...defaultData,
+      ...(testParams.data || {})
+    };
+
+    return await sendPushNotification({
+      token: token,
+      title: testParams.title || 'Test Notification',
+      body: testParams.body || 'This is a test notification from Frames App',
+      data: testData,
+      priority: testParams.priority || 'high'
+    });
+  } catch (error) {
+    console.error('Error sending test push notification:', error);
+    return { success: false, error: error.message };
+  }
+};
+
+/**
  * Comprehensive notification service that attempts push notification first,
  * then falls back to email if push notification is not possible
  * 
@@ -219,5 +265,6 @@ module.exports = {
   initializeFirebaseApp,
   sendPushNotification,
   sendNotification,
-  stringifyData
+  stringifyData,
+  testPushNotification
 };
