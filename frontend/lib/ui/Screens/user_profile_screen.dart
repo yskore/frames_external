@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:frames_app/Providers/error_provider.dart';
 import 'package:frames_app/models/anchor_model.dart';
 import 'package:frames_app/models/piece_model.dart';
 import 'package:frames_app/models/user_model.dart';
@@ -48,7 +49,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
         }
       });
     }
-    //  _loadUserProfileDataFuture =_loadUserProfileData();
+  //  _loadUserProfileDataFuture =_loadUserProfileData();
   }
 
   Future<void> requestLocationPermission() async {
@@ -83,6 +84,8 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
       await ref
           .read(userNotifierProvider)
           .refreshUserData(showLoading: showLoading);
+          
+
     } else {
       await ref.read(userNotifierProvider).refreshUserData(showLoading: false);
     }
@@ -119,10 +122,9 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
   @override
   Widget build(BuildContext context) {
     final userModel = ref.watch(userProfileProvider);
-    print(
-        '[LOGS] User profile data for : ${userModel!.username}. Has ${userModel.pieces.length} pieces');
+    print('[LOGS] User profile data for : ${userModel!.username}. Has ${userModel.pieces.length} pieces');
     final bool isLoading = _isLoading;
-
+    
     return Scaffold(
       resizeToAvoidBottomInset: false,
       body: SafeArea(
@@ -291,7 +293,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
       context: context,
       builder: (BuildContext context) {
         print(
-            '[TEST] PiecePreviewPopup: Creating fresh piece data for ${piece.pieceTitle}, Frame_name = ${piece.frameName}');
+            'TESTING PiecePreviewPopup: Creating fresh piece data for ${piece.pieceTitle}, Frame_name = ${piece.frameName}, ownership = ${piece.ownership}');
         String freshPieceData = jsonEncode({
           'frameName': piece.frameName,
           'faceName': 'Face',
@@ -302,10 +304,10 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
         print('[IMP] piece.pieceImpressions: ${piece.pieceImpressions}');
 
         return PiecePreviewPopup(
-          pieceData: freshPieceData,
           piece: piece,
+          pieceData: freshPieceData,
           onPieceUpdated: () {
-            // print("Piece updated callback triggered for: ${piece.pieceTitle}");
+           // print("Piece updated callback triggered for: ${piece.pieceTitle}");
             // Do a full refresh to ensure data is updated
             //_refreshProfileData(showLoading: false);
           },
@@ -315,8 +317,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
   }
 
   Widget _buildPieceItem(Piece piece) {
-    print(
-        '[LOGS] Building piece item for: ${piece.pieceTitle} (${piece.pieceid}). The url is: ${piece.pieceDisplay.toString()}');
+    print('[LOGS] Building piece item for: ${piece.pieceTitle} (${piece.pieceid}). The url is: ${piece.pieceDisplay.toString()}');
     return GestureDetector(
       onTap: () => _showPiecePreview(context, piece),
       child: Container(

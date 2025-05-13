@@ -3,18 +3,20 @@ import 'dart:developer';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:frames_app/core/services/unity_scene_service.dart';
 import 'package:frames_app/models/piece_model.dart';
 import 'package:frames_app/models/user_profile_model.dart';
-import 'package:frames_app/providers/user_provider.dart';
+import 'package:frames_app/Providers/user_provider.dart';
+import 'package:frames_app/ui/Screens/home_screen.dart';
 import 'package:frames_app/ui/Widgets/piece_preview_popup.dart';
 
 class OtherUserProfileScreen extends ConsumerStatefulWidget {
   final String username;
 
   const OtherUserProfileScreen({
-    super.key,
+    Key? key,
     required this.username,
-  });
+  }) : super(key: key);
 
   @override
   ConsumerState<OtherUserProfileScreen> createState() =>
@@ -32,6 +34,14 @@ class _OtherUserProfileScreenState
   void initState() {
     super.initState();
     _loadProfileData();
+    
+    // Set Unity scene to preview mode when entering profile screen
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final sceneManager = ref.read(unitySceneManagerProvider);
+      if (sceneManager.isUnityInitialized) {
+        sceneManager.loadScene(UnitySceneType.previewScene);
+      }
+    });
   }
 
   Future<void> _loadProfileData() async {
@@ -66,23 +76,58 @@ class _OtherUserProfileScreenState
     }
   }
 
+  // Method to navigate back to home with scene switching
+  void _navigateBackToHome() {
+    // Pre-load AR scene before navigation
+    final sceneManager = ref.read(unitySceneManagerProvider);
+    if (sceneManager.isUnityInitialized) {
+      // Set the scene back to AR mode first
+      sceneManager.loadScene(UnitySceneType.arScene).then((_) {
+        // Then navigate back to home once the scene is loaded
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const HomeScreen(),
+            settings: const RouteSettings(name: 'HomeScreen'),
+          ),
+        );
+      });
+    } else {
+      // If Unity isn't initialized, just navigate normally
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (context) => const HomeScreen(),
+          settings: const RouteSettings(name: 'HomeScreen'),
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.username),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => Navigator.of(context).pop(),
+    return WillPopScope(
+      // Handle back button press to ensure scene switching
+      onWillPop: () async {
+        _navigateBackToHome();
+        return false; // We're handling navigation manually
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text(widget.username),
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back),
+            onPressed: _navigateBackToHome, // Use custom navigation method
+          ),
         ),
+        body: _buildBody(),
       ),
-      body: _buildBody(),
     );
   }
 
   Widget _buildBody() {
     if (_isLoading) {
-      return const SizedBox();
+      return const Center(child: CircularProgressIndicator());
     } else if (_errorMessage != null) {
       return Center(
         child: Padding(
@@ -98,7 +143,7 @@ class _OtherUserProfileScreenState
               ),
               const SizedBox(height: 16),
               ElevatedButton(
-                onPressed: () => Navigator.of(context).pop(),
+                onPressed: _navigateBackToHome, // Use custom navigation method
                 child: const Text('Go Back'),
               ),
             ],
@@ -278,7 +323,7 @@ class _OtherUserProfileScreenState
             // Handle piece update if needed
           },
           isReadOnly:
-              true, // Set to read-only since it's not the current user's profile
+              true,  // Set to read-only since it's not the current user's profile
         );
       },
     );
