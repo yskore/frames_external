@@ -1,15 +1,60 @@
-// piece_offer_manager.dart
+
+import 'dart:async';
+import 'dart:convert';
+
+import 'package:currency_picker/currency_picker.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+// import 'package:flutter_unity_widget/flutter_unity_widget.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+// Add import for offer_provider
+import 'package:frames_app/Providers/offer_provider.dart';
+import 'package:frames_app/core/repositories/anchor_repository.dart';
+import 'package:frames_app/core/repositories/piece_repository.dart';
+import 'package:frames_app/core/services/map.dart';
+import 'package:frames_app/core/services/unity_scene_service.dart';
+import 'package:frames_app/models/anchor_model.dart';
 import 'package:frames_app/models/piece_model.dart';
+import 'package:frames_app/providers/error_provider.dart';
+import 'package:frames_app/providers/user_provider.dart';
+import 'package:frames_app/ui/Screens/user_profile_screen.dart';
+import 'package:frames_app/ui/Widgets/AR_Piece_placement.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class PieceOfferManager {
+  final WidgetRef ref;
   final Piece piece;
   final TextEditingController paymentDetailsController;
 
   PieceOfferManager({
+    required this.ref,
     required this.piece,
     required this.paymentDetailsController,
   });
+
+ Future<void> _handleClosing(context) async {
+
+    try {
+      // Use the SceneManager to safely dispose the controller
+      final sceneManager = ref.read(unitySceneManagerProvider);
+      if (sceneManager.isUnityInitialized) {
+        await sceneManager.safeDisposeController();
+      }
+
+      // Short delay to ensure everything is cleaned up
+      await Future.delayed(const Duration(milliseconds: 100));
+        Navigator.of(context).pop();
+      
+    } catch (e) {
+      print('Error during closing: $e');
+      
+        Navigator.of(context).pop();
+      
+    }
+  }
+
 
   void showMakeOfferDialog(BuildContext context) {
     showDialog(
@@ -85,9 +130,13 @@ class PieceOfferManager {
             ),
             ElevatedButton(
               onPressed: () {
-                // TODO: Implement make offer functionality
-                Navigator.of(context).pop();
-              },
+                  // Show loading indicator
+                final offerNotifier = ref.read(madeOffersProvider.notifier);
+                offerNotifier.createOffer(
+                  pieceId: piece.pieceid,
+                );
+                _handleClosing(context) ; 
+             },
               child: Text('Make Offer'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.blue,

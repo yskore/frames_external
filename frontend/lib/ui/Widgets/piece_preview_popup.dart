@@ -92,6 +92,7 @@ class _PiecePreviewPopupState extends ConsumerState<PiecePreviewPopup> {
     );
     
     _offerManager = PieceOfferManager(
+      ref: ref,
       piece: _piece,
       paymentDetailsController: _paymentDetailsController,
     );
@@ -114,14 +115,14 @@ class _PiecePreviewPopupState extends ConsumerState<PiecePreviewPopup> {
     
     // Fetch additional data
     if (_piece.liveStatus) {
-      _fetchAnchorDetails();
+      _fetchAnchorDetails(widget.pieceData);
     }
     
     // Start impression refresh timer
-    _fetchPieceImpressions();
+    _fetchPieceImpressions(widget.pieceData);
     _impressionsRefreshTimer = Timer.periodic(
       Duration(seconds: _refreshIntervalSeconds), 
-      (_) => _fetchPieceImpressions()
+      (_) => _fetchPieceImpressions(widget.pieceData)
     );
   }
 
@@ -135,8 +136,8 @@ class _PiecePreviewPopupState extends ConsumerState<PiecePreviewPopup> {
     _currencyController.dispose();
     super.dispose();
   }
-// piece_preview_popup.dart (continued)
-  Future<void> _fetchAnchorDetails() async {
+
+  Future<void> _fetchAnchorDetails(pieceData) async {
     try {
       setState(() {
         _isLoadingAnchorDetails = true;
@@ -162,7 +163,7 @@ class _PiecePreviewPopupState extends ConsumerState<PiecePreviewPopup> {
     }
   }
 
-  Future<void> _fetchPieceImpressions() async {
+  Future<void> _fetchPieceImpressions(pieceData) async {
     try {
       // Parse the piece data to get the piece ID
       var pieceData = jsonDecode(widget.pieceData);
@@ -384,205 +385,235 @@ class _PiecePreviewPopupState extends ConsumerState<PiecePreviewPopup> {
       _showPopup(context);
     }
   }
-
-  @override
-  Widget build(BuildContext context) {
-    return PopScope(
-      canPop: false,
-      onPopInvoked: (didPop) async {
-        if (didPop) return;
-        await _handleClosing();
-      },
-      child: Dialog(
-        insetPadding: _isFullScreen
-            ? const EdgeInsets.all(8) // Minimal padding in full-screen
-            : const EdgeInsets.symmetric(
-                horizontal: 40, vertical: 24), // Default padding
-        child: SizedBox(
-          width: _isFullScreen
-              ? MediaQuery.of(context).size.width * 0.95 // Wider in full-screen
-              : MediaQuery.of(context).size.width * 0.8, // Normal width
-          height: _isFullScreen
-              ? MediaQuery.of(context).size.height * 0.8 // Taller in full-screen
-              : MediaQuery.of(context).size.height * 0.8,
-          child: Column(
-            children: [
-              AppBar(
-                title: Text(_piece.pieceTitle),
-                leading: IconButton(
-                  icon: const Icon(Icons.close),
-                  onPressed: () {
-                    _handleClosing();
-                  }
-                ),
-                actions: [
-                  IconButton(
-                    icon: Icon(_isFullScreen
-                        ? Icons.fullscreen_exit
-                        : Icons.fullscreen),
-                    onPressed: () {
-                      setState(() {
-                        _isFullScreen = !_isFullScreen;
-                      });
-                    },
-                  ),
-                  if (!_isFullScreen && !widget.isReadOnly) // Only show these buttons when not in full-screen
-                    IconButton(
-                      icon: Icon(_isEditing ? Icons.save : Icons.edit),
-                      onPressed: () {
-                        setState(() {
-                          if (_isEditing) {
-                            _editManager.savePieceChanges().then((success) {
-                              if (success) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(content: Text('Piece updated successfully')),
-                                );
-                                widget.onPieceUpdated();
+  
+  
+@override
+Widget build(BuildContext context) {
+  return PopScope(
+    canPop: false,
+    onPopInvoked: (didPop) async {
+      if (didPop) return;
+      await _handleClosing();
+    },
+    child: Dialog(
+      insetPadding: _isFullScreen
+          ? const EdgeInsets.all(8)
+          : const EdgeInsets.symmetric(horizontal: 40, vertical: 24),
+      // Use a scrollable dialog to ensure it doesn't overflow
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          // Use LayoutBuilder to get the max available height
+          final maxHeight = constraints.maxHeight;
+          
+          return SingleChildScrollView(
+            // Make the entire dialog scrollable if needed
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxHeight: _isFullScreen
+                    ? MediaQuery.of(context).size.height * 0.8
+                    : maxHeight.clamp(0.0, MediaQuery.of(context).size.height * 0.8),
+                maxWidth: _isFullScreen
+                    ? MediaQuery.of(context).size.width * 0.95
+                    : MediaQuery.of(context).size.width * 0.8,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min, // This is important to prevent overflow
+                children: [
+                  // AppBar
+                  AppBar(
+                    title: Text(_piece.pieceTitle),
+                    leading: IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: _handleClosing,
+                    ),
+                    actions: [
+                      IconButton(
+                        icon: Icon(_isFullScreen ? Icons.fullscreen_exit : Icons.fullscreen),
+                        onPressed: () {
+                          setState(() {
+                            _isFullScreen = !_isFullScreen;
+                          });
+                        },
+                      ),
+                      if (!_isFullScreen && !widget.isReadOnly)
+                        IconButton(
+                          icon: Icon(_isEditing ? Icons.save : Icons.edit),
+                          onPressed: () {
+                            setState(() {
+                              if (_isEditing) {
+                                _editManager.savePieceChanges().then((success) {
+                                  if (success) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(content: Text('Piece updated successfully')),
+                                    );
+                                    widget.onPieceUpdated();
+                                  }
+                                });
+                              } else {
+                                _isEditing = true;
                               }
                             });
-                          } else {
-                            _isEditing = true;
-                          }
-                        });
-                      },
+                          },
+                        ),
+                      if (!_isFullScreen && _isEditing && !widget.isReadOnly)
+                        IconButton(
+                          icon: const Icon(Icons.delete, color: Colors.red),
+                          onPressed: () => _editManager.showDeleteConfirmation(context, _deletePiece),
+                        ),
+                    ],
+                  ),
+                  
+                  // Error message
+                  if (_errorMessage.isNotEmpty && !_isFullScreen)
+                    Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: Text(
+                        _errorMessage,
+                        style: const TextStyle(color: Colors.red),
+                      ),
                     ),
-                  if (!_isFullScreen && _isEditing && !widget.isReadOnly) // Only show delete in normal mode and edit mode
-                    IconButton(
-                      icon: const Icon(Icons.delete, color: Colors.red),
-                      onPressed: () => _editManager.showDeleteConfirmation(context, _deletePiece),
+
+                  // Unity View component with smaller, adaptive height
+                  Container(
+                    height: _isFullScreen 
+                        ? MediaQuery.of(context).size.height * 0.7
+                        : (maxHeight * 0.3).clamp(150.0, 300.0), // Adaptive height with min/max
+                    child: PieceUnityViewer(
+                      pieceData: widget.pieceData,
+                      isFullScreen: _isFullScreen,
+                      onUnityMessage: _handleUnityMessage,
+                      onErrorMessage: _setErrorMessage,
+                      isLoading: _isLoading,
+                    ),
+                  ),
+                  
+                  // Scrollable details section
+                  if (!_isFullScreen)
+                    Flexible(
+                      // Use Flexible instead of Expanded to avoid overflow
+                      fit: FlexFit.loose, // Allow taking less space if needed
+                      child: Padding(
+                        padding: EdgeInsets.only(
+                          bottom: MediaQuery.of(context).viewInsets.bottom,
+                        ),
+                        child: SingleChildScrollView(
+                          child: PieceInfoSection(
+                            piece: _piece,
+                            isEditing: _isEditing,
+                            nameController: _nameController,
+                            descriptionController: _descriptionController,
+                            priceController: _priceController,
+                            currencyController: _currencyController,
+                            isLoadingAnchorDetails: _isLoadingAnchorDetails,
+                            anchorExpireTime: _anchorExpireTime,
+                            ownership: _ownership,
+                            onOwnershipChanged: _handleOwnershipChanged,
+                            onForSaleChanged: (value) {
+                              setState(() {
+                                _piece = _piece.copyWith(pieceForSale: value);
+                                _editManager.updateForSaleState(value);
+                              });
+                            },
+                            context: context,
+                          ),
+                        ),
+                      ),
+                    ),
+                  
+                  // Action buttons - wrap in container with minimum height
+                  if (!_isFullScreen && _isEditing && !widget.isReadOnly)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: ElevatedButton(
+                              onPressed: () {
+                                _editManager.savePieceChanges().then((success) {
+                                  if (success) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(content: Text('Piece updated successfully')),
+                                    );
+                                    widget.onPieceUpdated();
+                                  }
+                                });
+                              },
+                              child: const Text('Save Changes'),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: ElevatedButton(
+                              onPressed: () {
+                                _liveStatusChange();
+                              },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: _piece.liveStatus
+                                    ? Colors.red
+                                    : Colors.green,
+                              ),
+                              child: _piece.liveStatus
+                                  ? const Text('Turn offline')
+                                  : const Text('Turn online'),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  
+                  // Make offer button with adaptive padding
+                  if (!_isFullScreen && widget.isReadOnly && _piece.pieceForSale)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      child: ElevatedButton.icon(
+                        icon: const Icon(Icons.local_offer),
+                        label: const Text('Make Offer'),
+                        onPressed: () => _offerManager.showMakeOfferDialog(context),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.blue,
+                          foregroundColor: Colors.white,
+                          minimumSize: const Size(double.infinity, 40), // Smaller height
+                        ),
+                      ),
+                    ),
+                  
+                  // Location buttons with adaptive padding
+                  if (!_isFullScreen && _piece.liveStatus)
+                    Container(
+                      padding: const EdgeInsets.only(bottom: 8.0, left: 16.0, right: 16.0),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: ElevatedButton.icon(
+                              icon: const Icon(Icons.location_on, size: 16), // Smaller icon
+                              label: const Text('Locate', style: TextStyle(fontSize: 12)), // Smaller text
+                              onPressed: () => _locationManager.showPieceLocationMap(context),
+                              style: ElevatedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), // Smaller padding
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: ElevatedButton.icon(
+                              icon: const Icon(Icons.share_location, size: 16), // Smaller icon
+                              label: const Text('Share Location', style: TextStyle(fontSize: 12)), // Smaller text
+                              onPressed: () => _locationManager.shareLocation(context),
+                              style: ElevatedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), // Smaller padding
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                 ],
               ),
-              if (_errorMessage.isNotEmpty && !_isFullScreen)
-                Padding(
-                  padding: const EdgeInsets.all(8.0),
-                  child: Text(
-                    _errorMessage,
-                    style: const TextStyle(color: Colors.red),
-                  ),
-                ),
-
-              // Unity View component
-              PieceUnityViewer(
-                pieceData: widget.pieceData,
-                isFullScreen: _isFullScreen,
-                onUnityMessage: _handleUnityMessage,
-                onErrorMessage: _setErrorMessage,
-                isLoading: _isLoading,
-              ),
-              
-              // Details section below Unity view
-   if (!_isFullScreen)
-                Expanded(
-                  child: PieceInfoSection(
-                    piece: _piece,
-                    isEditing: _isEditing,
-                    nameController: _nameController,
-                    descriptionController: _descriptionController,
-                    priceController: _priceController,
-                    currencyController: _currencyController, // Add this
-                    isLoadingAnchorDetails: _isLoadingAnchorDetails,
-                    anchorExpireTime: _anchorExpireTime,
-                    ownership: _ownership,
-                    onOwnershipChanged: _handleOwnershipChanged,
-                    onForSaleChanged: (value) {
-                      setState(() {
-                        _piece = _piece.copyWith(pieceForSale: value);
-                      });
-                    },
-                    context: context,
-                  ),
-                ),
-              
-              // Action buttons section (for editing and sales)
-              if (!_isFullScreen && _isEditing && !widget.isReadOnly)
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  child: Row(
-                    children: [
-                      ElevatedButton(
-                        onPressed: () {
-                          _editManager.savePieceChanges().then((success) {
-                            if (success) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Piece updated successfully')),
-                              );
-                              widget.onPieceUpdated();
-                            }
-                          });
-                        },
-                        child: const Text('Save Changes'),
-                      ),
-                      const SizedBox(width: 8),
-                      ElevatedButton(
-                        onPressed: () {
-                          _liveStatusChange();
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: _piece.liveStatus
-                              ? Colors.red
-                              : Colors.green,
-                        ),
-                        child: _piece.liveStatus
-                            ? const Text('Turn offline')
-                            : const Text('Turn online'),
-                      ),
-                    ],
-                  ),
-                ),
-              
-              // Make offer button (for other users viewing this piece)
-              if (!_isFullScreen && widget.isReadOnly && _piece.pieceForSale)
-                Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: ElevatedButton.icon(
-                    icon: const Icon(Icons.local_offer),
-                    label: const Text('Make Offer'),
-                    onPressed: () => _offerManager.showMakeOfferDialog(context),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.blue,
-                      foregroundColor: Colors.white,
-                      minimumSize: const Size(double.infinity, 48),
-                    ),
-                  ),
-                ),
-              
-              // Location buttons (only for live pieces)
-              if (!_isFullScreen && _piece.liveStatus)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 16.0, left: 16.0, right: 16.0),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: ElevatedButton.icon(
-                          icon: const Icon(Icons.location_on),
-                          label: const Text('Locate'),
-                          onPressed: () => _locationManager.showPieceLocationMap(context),
-                          style: ElevatedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 16, vertical: 8),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: ElevatedButton.icon(
-                          icon: const Icon(Icons.share_location),
-                          label: const Text('Share Location'),
-                          onPressed: () => _locationManager.shareLocation(context),
-                          style: ElevatedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 16, vertical: 8),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-            ],
-          ),
-        ),
+            ),
+          );
+        },
       ),
-    );
-  }
+    ),
+  );
+}
 }
