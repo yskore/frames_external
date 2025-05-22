@@ -91,8 +91,8 @@ class RequestInterceptor extends Interceptor {
     if (kDebugMode) {
       log('REQUEST[${options.method}] => PATH: ${options.path}',
           name: 'DioClient');
-      log('REQUEST HEADERS: ${options.headers}', name: 'DioClient');
-      log('REQUEST BODY: ${options.data}', name: 'DioClient');
+      // log('REQUEST HEADERS: ${options.headers}', name: 'DioClient');
+      // log('REQUEST BODY: ${options.data}', name: 'DioClient');
     }
     return super.onRequest(options, handler);
   }

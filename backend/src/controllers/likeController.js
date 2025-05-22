@@ -1,6 +1,7 @@
 const Like = require('../models/likes');
 const Piece = require('../models/pieces');
 const mongoose = require('mongoose');
+const { createFeedEntry } = require('./feedController');
 
 // Toggle like status (like or unlike)
 exports.toggleLike = async (req, res) => {
@@ -61,6 +62,23 @@ exports.toggleLike = async (req, res) => {
     const updatedPiece = await Piece.findOne({ Piece_id: pieceId }).session(session);
     
     await session.commitTransaction();
+    
+    // If the piece was liked (not unliked), create a feed entry for the piece owner
+    if (isLiked) {
+      await createFeedEntry(
+        piece.Piece_owner,  
+        username,          
+        'liked_piece',
+        pieceId,
+        piece.Piece_title,
+        { 
+          likeCount: updatedPiece.Piece_likes,
+          ownerUsername: piece.Piece_owner,
+          username: username,
+          pieceImage: piece.Piece_display || ''
+        }
+      );
+    }
     
     return res.status(200).json({
       success: true,

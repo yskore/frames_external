@@ -1,3 +1,4 @@
+import 'dart:developer';
 import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -117,20 +118,15 @@ class UserNotifier extends StateNotifier<UserModel?> {
 
       if (response.isSuccess && response.data != null) {
         try {
-          final profileData = response.data!['profile'];
-
-          if (state != null) {
-            state = state!.copyWith(
-              profilePhoto: profileData['Profile_photo'] ?? '',
-              bio: profileData['User_bio'] ?? '',
-              livePieces: profileData['Live_pieces'] ?? 0,
-            );
+          log(state.toString(), name: "Before loading profile");
+          final userProfileData = response.data!['profile'];
+          if (userProfileData != null) {
+            state = state?.copyWithProfileJson(userProfileData);
           }
 
+          log(state.toString(), name: "After loading profile");
+
           await Future.wait([
-            _loadFollowerCount(username),
-            _loadFollowingCount(username),
-            _loadPieceCount(username),
             _loadPieces(username),
             _loadAnchors(username),
           ]);
@@ -150,54 +146,6 @@ class UserNotifier extends StateNotifier<UserModel?> {
       if (showLoading) {
         _loadingNotifier.setLoading(false);
       }
-    }
-  }
-
-  Future<void> _loadFollowerCount(String username) async {
-    try {
-      final response = await _profileRepository.getFollowerCount(username);
-      if (response.isSuccess && response.data != null) {
-        final count = response.data!['followerCount'] ?? 0;
-        if (state != null) {
-          state = state!.copyWith(followerCount: count);
-        }
-        return;
-      }
-      throw response.message ?? 'Failed to load follower count';
-    } catch (e) {
-      rethrow;
-    }
-  }
-
-  Future<void> _loadFollowingCount(String username) async {
-    try {
-      final response = await _profileRepository.getFollowingCount(username);
-      if (response.isSuccess && response.data != null) {
-        final count = response.data!['followingCount'] ?? 0;
-        if (state != null) {
-          state = state!.copyWith(followingCount: count);
-        }
-        return;
-      }
-      throw response.message ?? 'Failed to load following count';
-    } catch (e) {
-      rethrow;
-    }
-  }
-
-  Future<void> _loadPieceCount(String username) async {
-    try {
-      final response = await _profileRepository.getPieceCount(username);
-      if (response.isSuccess && response.data != null) {
-        final count = response.data!['pieceCount'] ?? 0;
-        if (state != null) {
-          state = state!.copyWith(pieceCount: count);
-        }
-        return;
-      }
-      throw response.message ?? 'Failed to load piece count';
-    } catch (e) {
-      rethrow;
     }
   }
 
@@ -401,7 +349,6 @@ class UserNotifier extends StateNotifier<UserModel?> {
       await Future.wait([
         _loadPieces(state!.username),
         _loadAnchors(state!.username),
-        _loadPieceCount(state!.username),
       ]);
 
       if (state != null) {

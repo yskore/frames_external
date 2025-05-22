@@ -2,6 +2,7 @@ const Piece = require('../models/pieces');
 const Anchor = require('../models/anchors');
 const user_profile = require('../models/user_profile');
 const mongoose = require('mongoose');
+const { createFeedEntryForSubscribers } = require('./feedController');
 
 // Create new piece
 exports.createPiece = async (req, res) => {
@@ -32,6 +33,20 @@ exports.createPiece = async (req, res) => {
         }
 
         await newPiece.save();
+        
+        // Create feed entries for subscribers
+        await createFeedEntryForSubscribers(
+            Piece_owner, 
+            'posted_piece',
+            newPiece._id.toString(),
+            Piece_title,
+            { 
+                description: Piece_description,
+                ownerUsername: Piece_owner,
+                pieceImage: Piece_display || ''
+            }
+        );
+        
         res.status(201).json({
             success: true,
             message: 'New piece created successfully',
@@ -229,6 +244,20 @@ exports.toggleLiveStatus = async (req, res) => {
             );
 
             await session.commitTransaction();
+            
+            // Create feed entries for subscribers when a piece goes live
+            await createFeedEntryForSubscribers(
+                piece.Piece_owner,
+                'made_piece_live',
+                piece_id,
+                piece.Piece_title,
+                { 
+                    description: piece.Piece_description,
+                    ownerUsername: piece.Piece_owner,
+                    pieceImage: piece.Piece_display || ''
+                }
+            );
+            
             return res.status(200).json({
                 success: true,
                 message: 'Piece set to active',
@@ -299,6 +328,23 @@ exports.toggleForSale = async (req, res) => {
             },
             { new: true }
         );
+
+        // If the piece is being listed for sale, create feed entries for subscribers
+        if (for_sale) {
+            await createFeedEntryForSubscribers(
+                username,
+                'listed_for_sale',
+                piece_id,
+                piece.Piece_title,
+                { 
+                    price: price,
+                    description: piece.Piece_description,
+                    ownerUsername: username,
+                    pieceImage: piece.Piece_display || '',
+                    currency: 'USD'
+                }
+            );
+        }
 
         res.status(200).json({
             success: true,

@@ -9,8 +9,8 @@ const offerRoutes = require('./offerRoutes');
 const adminRoutes = require('./adminRoutes');
 const likeRoutes = require('./likeRoutes');
 const impressionRoutes = require('./impressionRoutes');
-
-
+const notificationSettingsRoutes = require('./notificationSettingsRoutes');
+const feedRoutes = require('./feedRoutes');
 
 module.exports = {
     userRoutes,
@@ -24,5 +24,6 @@ module.exports = {
     adminRoutes,
     likeRoutes,
     impressionRoutes,
-
+    notificationSettingsRoutes,
+    feedRoutes,
 };

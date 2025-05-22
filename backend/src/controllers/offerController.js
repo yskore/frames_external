@@ -3,7 +3,8 @@ const Offer = require('../models/offer');
 const mongoose = require('mongoose');
 const OwnershipHistory = require('../models/ownership_history');
 const config = require('../config');
-const { sendNotification } = require('../utils/notificationUtils');
+const { sendBothNotifications } = require('../utils/notificationUtils');
+const { createFeedEntry } = require('./feedController');
 
 exports.declineOffer = async (req, res) => {
     try {
@@ -28,7 +29,7 @@ exports.declineOffer = async (req, res) => {
         await offer.save();
 
         // Send notification to buyer about offer rejection
-        sendNotification({
+        sendBothNotifications({
             userId: offer.buyer,
             notificationType: 'offer_declined',
             data: {
@@ -109,7 +110,7 @@ exports.cancelOffer = async (req, res) => {
         const recipientId = isBuyer ? offer.seller : offer.buyer;
         
         // Send notification about offer cancellation
-        sendNotification({
+        sendBothNotifications({
             userId: recipientId,
             notificationType: 'offer_cancelled',
             data: {
@@ -199,7 +200,7 @@ exports.createOffer = async (req, res) => {
         await newOffer.save({ session });
 
         // Send notification to seller about new offer
-        sendNotification({
+        sendBothNotifications({
             userId: piece.Piece_owner,
             notificationType: 'offer_received',
             data: {
@@ -212,8 +213,22 @@ exports.createOffer = async (req, res) => {
                 status: 'pending'
             }
         }).catch(err => console.error('Error sending notification:', err));
-
+        
         await session.commitTransaction();
+        
+        // Create feed entry for the seller
+        await createFeedEntry(
+            piece.Piece_owner,  
+            buyer,              
+            'made_offer',
+            piece_id,
+            piece.Piece_title,
+            { 
+                offerId: newOffer._id.toString(),
+                amount: piece.Piece_price,
+                currency: piece.currency || 'USD' 
+            }
+        );
 
         res.status(201).json({
             success: true,
@@ -353,7 +368,7 @@ exports.acceptOffer = async (req, res) => {
         );
 
         // Send notification to buyer about offer acceptance
-        sendNotification({
+        sendBothNotifications({
             userId: offer.buyer,
             notificationType: 'offer_accepted',
             data: {
@@ -371,6 +386,24 @@ exports.acceptOffer = async (req, res) => {
         }).catch(err => console.error('Error sending notification:', err));
 
         await session.commitTransaction();
+        
+        // Create feed entries for buyers's and seller's subscribers
+        const pieceTitle = piece ? piece.Piece_title : 'Untitled';
+        
+        // For seller's subscribers - piece was sold
+        await createFeedEntry(
+            seller,                 // For the seller
+            offer.buyer,            // From the buyer
+            'made_offer',           // The buyer made an offer
+            offer.piece_id,
+            pieceTitle,
+            { 
+                offerId: offer._id.toString(),
+                status: 'accepted',
+                amount: offer.amount
+            }
+        );
+        
 
         res.status(200).json({
             success: true,
@@ -452,7 +485,7 @@ exports.submitPaymentProof = async (req, res) => {
         }
 
         // Send notification to seller about payment submission
-        sendNotification({
+        sendBothNotifications({
             userId: offer.seller,
             notificationType: 'payment_submitted',
             data: {
@@ -574,6 +607,25 @@ exports.handleExpiredConfirmations = async () => {
 
         // Handle second window expiration - transfer to buyer
         for (const offer of expiredSecondWindow) {
+            // Check if piece is live to update Live_pieces count
+            const piece = await Piece.findOne({ Piece_id: offer.piece_id }).session(session);
+            
+            if (piece && piece.live_status) {
+                // Decrement seller's Live_pieces count
+                await user_profile.findOneAndUpdate(
+                    { username: offer.seller },
+                    { $inc: { Live_pieces: -1 } },
+                    { session }
+                );
+
+                // Increment buyer's Live_pieces count
+                await user_profile.findOneAndUpdate(
+                    { username: offer.buyer },
+                    { $inc: { Live_pieces: 1 } },
+                    { session, upsert: true }
+                );
+            }
+            
             // Create ownership history record
             const ownershipRecord = new OwnershipHistory({
                 piece_id: offer.piece_id,
@@ -654,6 +706,23 @@ exports.confirmPayment = async (req, res) => {
             await offer.save({ session });
         }
 
+        // Handle Live_pieces count update if the piece is live
+        if (piece && piece.live_status) {
+            // Decrement seller's Live_pieces count
+            await user_profile.findOneAndUpdate(
+                { username: seller },
+                { $inc: { Live_pieces: -1 } },
+                { session }
+            );
+
+            // Increment buyer's Live_pieces count
+            await user_profile.findOneAndUpdate(
+                { username: offer.buyer },
+                { $inc: { Live_pieces: 1 } },
+                { session, upsert: true }
+            );
+        }
+
         // Create new ownership history record and update piece ownership
         const ownershipRecord = new OwnershipHistory({
             piece_id: offer.piece_id,
@@ -694,7 +763,7 @@ exports.confirmPayment = async (req, res) => {
         await offer.save({ session });
 
         // Send notification to buyer about payment confirmation
-        sendNotification({
+        sendBothNotifications({
             userId: offer.buyer,
             notificationType: 'payment_confirmed',
             data: {
@@ -709,6 +778,40 @@ exports.confirmPayment = async (req, res) => {
         }).catch(err => console.error('Error sending notification:', err));
 
         await session.commitTransaction();
+        
+        const pieceTitle = piece ? piece.Piece_title : 'Untitled';
+        
+        // Create feed entries for seller's subscribers about the sale
+        await createFeedEntry(
+            seller,              
+            offer.buyer,         
+            'sold_piece',        
+            offer.piece_id,
+            pieceTitle,
+            { 
+                offerId: offer._id.toString(),
+                amount: offer.amount,
+                currency: offer.currency || 'USD',
+                buyerUsername: offer.buyer,
+                sellerUsername: seller
+            }
+        );
+        
+        // Create feed entries for buyer's subscribers about the purchase
+        await createFeedEntry(
+            offer.buyer,         
+            seller,              
+            'purchased_piece',  
+            offer.piece_id,
+            pieceTitle,
+            { 
+                offerId: offer._id.toString(),
+                amount: offer.amount,
+                currency: offer.currency || 'USD',
+                buyerUsername: offer.buyer,
+                sellerUsername: seller
+            }
+        );
         res.status(200).json({
             success: true,
             message: 'Payment confirmed and ownership transferred',
@@ -771,7 +874,7 @@ exports.denyPayment = async (req, res) => {
         );
 
         // Send notification to buyer about payment denial
-        sendNotification({
+        sendBothNotifications({
             userId: offer.buyer,
             notificationType: 'payment_denied',
             data: {
@@ -850,7 +953,7 @@ exports.sendPaymentReminders = async () => {
         for (const offer of offersNeedingReminders) {
             const piece = await Piece.findOne({ Piece_id: offer.piece_id });
             
-            sendNotification({
+            sendBothNotifications({
                 userId: offer.buyer,
                 notificationType: 'payment_reminder',
                 data: {
@@ -898,7 +1001,7 @@ exports.sendConfirmationReminders = async () => {
         for (const offer of offersNeedingReminders) {
             const piece = await Piece.findOne({ Piece_id: offer.piece_id });
             
-            sendNotification({
+            sendBothNotifications({
                 userId: offer.seller,
                 notificationType: 'confirmation_reminder',
                 data: {

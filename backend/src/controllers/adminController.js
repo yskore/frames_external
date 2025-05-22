@@ -1,4 +1,7 @@
 const Offer = require("../models/offer");
+const Piece = require("../models/pieces");
+const OwnershipHistory = require("../models/ownership_history");
+const user_profile = require("../models/user_profile");
 const mongoose = require("mongoose");
 
 exports.getDisputedOffers = async (req, res) => {
@@ -59,6 +62,22 @@ exports.resolveDispute = async (req, res) => {
         offer.status = "completed";
 
         if (transferOwnership) {
+            const piece = await Piece.findOne({ Piece_id: offer.piece_id }).session(session);
+
+            if (piece && piece.live_status) {
+                await user_profile.findOneAndUpdate(
+                    { username: offer.seller },
+                    { $inc: { Live_pieces: -1 } },
+                    { session }
+                );
+
+                await user_profile.findOneAndUpdate(
+                    { username: newOwner },
+                    { $inc: { Live_pieces: 1 } },
+                    { session, upsert: true }
+                );
+            }
+
             // Create ownership record
             const ownershipRecord = new OwnershipHistory({
                 piece_id: offer.piece_id,

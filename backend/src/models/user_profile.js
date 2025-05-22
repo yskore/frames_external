@@ -16,16 +16,16 @@ const connectToDb = async () => {
 // Define user_profile schema
 const user_profileSchema = new mongoose.Schema({
     username: { type: String, required: true },
-    Profile_photo: { type: String }, // store image as a URL or file path
+    Profile_photo: { type: String },
     User_bio: { type: String },
-    Paypal_email: { type: String }, // nullable
+    Paypal_email: { type: String },
     Frame_count: { type: Number },
     Like_count: { type: Number },
-    User_followers: { type: [String] }, // nullable
-    User_following: { type: [String] }, // nullable
+    mySubscribers: { type: [String] }, 
+    mySubscriptions: { type: [String] }, 
     Live_pieces: { type: Number, default: 0 },
     Is_premium: { type: Boolean, default: false },
-    push_token: { type: String }, // Add field for push notification token
+    push_token: { type: String }, 
   });
 
 // Create User model

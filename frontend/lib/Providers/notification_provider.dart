@@ -2,6 +2,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:frames_app/core/repositories/notification_repository.dart';
 import 'package:frames_app/models/notification_model.dart';
+import 'package:frames_app/models/notification_settings_model.dart' as NS;
 
 // Provider for notification repository
 final notificationRepositoryProvider = Provider<NotificationRepository>((ref) {
@@ -18,6 +19,12 @@ final notificationsProvider =
 final unreadNotificationsCountProvider = Provider<int>((ref) {
   final notifications = ref.watch(notificationsProvider);
   return notifications.where((notification) => !notification.isRead).length;
+});
+
+// Provider for notification settings
+final notificationSettingsProvider = StateNotifierProvider<
+    NotificationSettingsNotifier, AsyncValue<NS.NotificationSettings?>>((ref) {
+  return NotificationSettingsNotifier(ref.read(notificationRepositoryProvider));
 });
 
 class NotificationNotifier extends StateNotifier<List<NotificationModel>> {
@@ -78,8 +85,55 @@ class NotificationNotifier extends StateNotifier<List<NotificationModel>> {
     final notification =
         await _notificationRepository.processReceivedNotification(message);
 
-    // Mark as read since it was clicked
     await markAsRead(notification.id);
     await loadNotifications();
+  }
+}
+
+class NotificationSettingsNotifier
+    extends StateNotifier<AsyncValue<NS.NotificationSettings?>> {
+  final NotificationRepository _notificationRepository;
+
+  NotificationSettingsNotifier(this._notificationRepository)
+      : super(const AsyncValue.loading());
+
+  Future<void> loadSettings(String username) async {
+    state = const AsyncValue.loading();
+    try {
+      final localSettings =
+          await _notificationRepository.getLocalNotificationSettings(username);
+      if (localSettings != null) {
+        state = AsyncValue.data(localSettings);
+      }
+
+      final serverSettings =
+          await _notificationRepository.getNotificationSettings(username);
+      if (serverSettings != null) {
+        state = AsyncValue.data(serverSettings);
+      }
+    } catch (e, stackTrace) {
+      state = AsyncValue.error(e, stackTrace);
+    }
+  }
+
+  Future<void> updateSettings(NS.NotificationSettings settings) async {
+    try {
+      state = AsyncValue.data(settings);
+
+      await _notificationRepository.updateNotificationSettings(settings);
+    } catch (e, stackTrace) {
+      print('Error updating settings: $e');
+    }
+  }
+
+  Future<void> toggleSetting(String key) async {
+    final currentSettings = state.value;
+    if (currentSettings != null) {
+      final newSettings = Map<String, bool>.from(currentSettings.settings);
+      newSettings[key] = !(newSettings[key] ?? true);
+
+      final updatedSettings = currentSettings.copyWith(settings: newSettings);
+      await updateSettings(updatedSettings);
+    }
   }
 }

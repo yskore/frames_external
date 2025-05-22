@@ -3,12 +3,12 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:frames_app/Providers/error_provider.dart';
 import 'package:frames_app/models/anchor_model.dart';
 import 'package:frames_app/models/piece_model.dart';
 import 'package:frames_app/models/user_model.dart';
 import 'package:frames_app/providers/user_provider.dart';
-import 'package:frames_app/ui/Screens/user_menu.dart';
+import 'package:frames_app/ui/Screens/subscribers_screen.dart';
+import 'package:frames_app/ui/Screens/subscriptions_screen.dart';
 import 'package:frames_app/ui/Widgets/piece_preview_popup.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -27,10 +27,9 @@ class UserProfileScreen extends ConsumerStatefulWidget {
 
 class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
   bool _showGallery = true;
-  final bool _isLoading = false;
+  bool _manualRefreshInProgress = false;
   Completer<GoogleMapController> _mapController = Completer();
   LatLng? _currentUserLocation;
-  Future<void>? _loadUserProfileDataFuture;
 
   @override
   void initState() {
@@ -45,11 +44,14 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
         if (mounted) {
           ScaffoldMessenger.of(context)
               .showSnackBar(SnackBar(content: Text(widget.successMessage!)));
-          _refreshProfileData();
         }
       });
     }
-  //  _loadUserProfileDataFuture =_loadUserProfileData();
+
+    // Silent refresh when entering the screen without showing loading indicator
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _silentRefresh();
+    });
   }
 
   Future<void> requestLocationPermission() async {
@@ -84,8 +86,6 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
       await ref
           .read(userNotifierProvider)
           .refreshUserData(showLoading: showLoading);
-          
-
     } else {
       await ref.read(userNotifierProvider).refreshUserData(showLoading: false);
     }
@@ -119,117 +119,145 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
   }
   */
 
+  // Silent refresh without showing loading overlay
+  Future<void> _silentRefresh() async {
+    if (mounted) {
+      await ref.read(userNotifierProvider).refreshUserData(showLoading: false);
+      setState(() {});
+    }
+  }
+
+  // Manual refresh with loading indicator (triggered by button)
+  void _manualRefresh() async {
+    setState(() {
+      _manualRefreshInProgress = true;
+    });
+
+    await ref.read(userNotifierProvider).refreshUserData(showLoading: true);
+
+    if (mounted) {
+      setState(() {
+        _manualRefreshInProgress = false;
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final userModel = ref.watch(userProfileProvider);
-    print('[LOGS] User profile data for : ${userModel!.username}. Has ${userModel.pieces.length} pieces');
-    final bool isLoading = _isLoading;
-    
+    print(
+        '[LOGS] User profile data for : ${userModel!.username}. Has ${userModel.pieces.length} pieces');
+
     return Scaffold(
       resizeToAvoidBottomInset: false,
-      body: SafeArea(
-        child: isLoading
-            ? const Center(child: CircularProgressIndicator())
-            : Stack(
-                children: [
-                  Column(
-                    children: [
-                      const SizedBox(height: 56),
-                      _buildProfileInfoRow(userModel),
-                      const SizedBox(height: 16),
-                      _buildToggleRow(),
-                      Expanded(
-                        child: _showGallery
-                            ? _buildGalleryView(userModel.pieces)
-                            : _buildMapView(
-                                userModel.anchors, userModel.pieces),
-                      ),
-                    ],
-                  ),
-                  Positioned(
-                    top: 0,
-                    left: 0,
-                    child: IconButton(
-                      icon: const Icon(Icons.arrow_back),
-                      onPressed: () {
-                        Navigator.of(context).pushReplacement(
-                          MaterialPageRoute(
-                              builder: (context) => const MenuScreen()),
-                        );
-                      },
-                    ),
-                  ),
-                  Positioned(
-                    top: 0,
-                    right: 0,
-                    child: IconButton(
-                      icon: const Icon(Icons.refresh),
-                      onPressed: _refreshProfileData,
-                    ),
-                  ),
-                ],
-              ),
-      ),
-    );
-  }
-
-  Widget _buildProfileInfoRow(UserModel userProfile) {
-    return Stack(
-      children: [
-        Padding(
-          padding: const EdgeInsets.only(top: 16, left: 16, right: 16),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  GestureDetector(
-                    onTap: () {
-                      // TODO: Implement profile picture change
-                    },
-                    child: CircleAvatar(
-                      radius: 40,
-                      backgroundImage: userProfile.profilePhoto.isNotEmpty
-                          ? NetworkImage(userProfile.profilePhoto)
-                          : const NetworkImage(
-                              'https://dummyimage.com/250/ffffff'),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(userProfile.username,
-                      style: const TextStyle(fontWeight: FontWeight.bold)),
-                  Text(userProfile.bio, textAlign: TextAlign.center),
-                ],
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: [
-                    _buildCountColumn(
-                        'Followers', userProfile.followerCount.toString()),
-                    _buildCountColumn(
-                        'Following', userProfile.followingCount.toString()),
-                    _buildCountColumn(
-                        'Live Pieces', userProfile.livePieces.toString()),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-        Positioned(
-          top: 0,
-          right: 0,
-          child: IconButton(
+      appBar: AppBar(
+        actions: [
+          IconButton(
             icon: const Icon(Icons.edit),
             onPressed: () {
               // TODO: Implement edit functionality
             },
           ),
+          IconButton(
+            icon: _manualRefreshInProgress
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2))
+                : const Icon(Icons.refresh),
+            onPressed: _manualRefreshInProgress ? null : _manualRefresh,
+          ),
+        ],
+      ),
+      body: SafeArea(
+        top: false,
+        child: Column(
+          children: [
+            _buildProfileInfoRow(userModel),
+            const SizedBox(height: 16),
+            _buildToggleRow(),
+            Expanded(
+              child: _showGallery
+                  ? _buildGalleryView(userModel.pieces)
+                  : _buildMapView(userModel.anchors, userModel.pieces),
+            ),
+          ],
         ),
-      ],
+      ),
+    );
+  }
+
+  Widget _buildProfileInfoRow(UserModel userProfile) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 16, right: 16),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              GestureDetector(
+                onTap: () {
+                  // TODO: Implement profile picture change
+                },
+                child: CircleAvatar(
+                  radius: 40,
+                  backgroundImage: userProfile.profilePhoto.isNotEmpty
+                      ? NetworkImage(userProfile.profilePhoto)
+                      : const NetworkImage('https://dummyimage.com/250/ffffff'),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(userProfile.username,
+                  style: const TextStyle(fontWeight: FontWeight.bold)),
+              Text(userProfile.bio, textAlign: TextAlign.center),
+            ],
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8.0),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: [
+                      _buildCountColumn(
+                          'Subscribers', userProfile.subscriberCount.toString(),
+                          () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (context) => const SubscribersScreen(),
+                          ),
+                        );
+                      }),
+                      _buildCountColumn('Subscriptions',
+                          userProfile.subscriptionCount.toString(), () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (context) => const SubscriptionsScreen(),
+                          ),
+                        );
+                      }),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: [
+                      _buildCountColumn('Impressions',
+                          userProfile.totalImpressions.toString(), null),
+                      _buildCountColumn('Live Pieces',
+                          userProfile.livePieces.toString(), null),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -250,13 +278,16 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
     );
   }
 
-  Widget _buildCountColumn(String label, String count) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(count, style: const TextStyle(fontWeight: FontWeight.bold)),
-        Text(label, style: const TextStyle(fontSize: 12)),
-      ],
+  Widget _buildCountColumn(String label, String count, VoidCallback? onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(count, style: const TextStyle(fontWeight: FontWeight.bold)),
+          Text(label, style: const TextStyle(fontSize: 12)),
+        ],
+      ),
     );
   }
 
@@ -307,7 +338,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
           piece: piece,
           pieceData: freshPieceData,
           onPieceUpdated: () {
-           // print("Piece updated callback triggered for: ${piece.pieceTitle}");
+            // print("Piece updated callback triggered for: ${piece.pieceTitle}");
             // Do a full refresh to ensure data is updated
             //_refreshProfileData(showLoading: false);
           },
@@ -317,7 +348,8 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
   }
 
   Widget _buildPieceItem(Piece piece) {
-    print('[LOGS] Building piece item for: ${piece.pieceTitle} (${piece.pieceid}). The url is: ${piece.pieceDisplay.toString()}');
+    print(
+        '[LOGS] Building piece item for: ${piece.pieceTitle} (${piece.pieceid}). The url is: ${piece.pieceDisplay.toString()}');
     return GestureDetector(
       onTap: () => _showPiecePreview(context, piece),
       child: Container(

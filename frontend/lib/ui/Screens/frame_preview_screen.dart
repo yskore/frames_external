@@ -1,19 +1,18 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:frames_app/Providers/error_provider.dart';
+import 'package:frames_app/Providers/piece_provider.dart';
+import 'package:frames_app/core/services/unity_scene_service.dart';
 import 'package:frames_app/providers/user_provider.dart';
 import 'package:frames_app/ui/Screens/home_screen.dart';
 import 'package:frames_app/ui/Screens/user_profile_screen.dart';
 import 'package:frames_app/ui/Widgets/ownership_selection.dart';
-import 'package:frames_app/ui/Widgets/unified_unity_view.dart';
-import 'package:frames_app/core/services/unity_scene_service.dart';
-import 'package:intl/intl.dart';
-import 'package:flutter/material.dart';
-import 'package:flutter_unity_widget/flutter_unity_widget.dart';
+// import 'package:flutter_unity_widget/flutter_unity_widget.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:frames_app/Providers/error_provider.dart';
-import 'package:frames_app/Providers/piece_provider.dart';
 
 class FramePreviewScreen extends ConsumerStatefulWidget {
   final String frameName;
@@ -52,7 +51,7 @@ class _FramePreviewScreenState extends ConsumerState<FramePreviewScreen> {
     super.initState();
     _loadUserData();
     prepareDataForUnity();
-    
+
     // Load the Unity scene when the widget is built
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadPreviewScene();
@@ -70,20 +69,24 @@ class _FramePreviewScreenState extends ConsumerState<FramePreviewScreen> {
     try {
       final user = ref.read(userProvider);
       if (user?.username == null) {
-        ref.read(errorProvider.notifier).setError('[LOGS] Failed to load user data.');
+        ref
+            .read(errorProvider.notifier)
+            .setError('[LOGS] Failed to load user data.');
         setState(() {
           _isLoading = false;
         });
         return;
       }
     } catch (e) {
-      ref.read(errorProvider.notifier).setError('[LOGS] Error loading user data: $e');
+      ref
+          .read(errorProvider.notifier)
+          .setError('[LOGS] Error loading user data: $e');
       setState(() {
         _isLoading = false;
       });
     }
   }
-  
+
   void prepareDataForUnity() {
     try {
       _preparedJsonMessage = jsonEncode({
@@ -99,7 +102,7 @@ class _FramePreviewScreenState extends ConsumerState<FramePreviewScreen> {
       setErrorMessage('Error preparing data for Unity: $e');
     }
   }
-  
+
   // Unity Scene Management with SceneManager
   void _loadPreviewScene() async {
     setState(() {
@@ -108,20 +111,21 @@ class _FramePreviewScreenState extends ConsumerState<FramePreviewScreen> {
 
     try {
       final sceneManager = ref.read(unitySceneManagerProvider);
-      
+
       if (sceneManager.isUnityInitialized) {
         // Check if already in preview scene
         if (sceneManager.currentScene != UnitySceneType.previewScene) {
           print('[LOGS] Loading preview scene from SceneManager');
-          
+
           // Load the preview scene
-          final success = await sceneManager.loadScene(UnitySceneType.previewScene);
-          
+          final success =
+              await sceneManager.loadScene(UnitySceneType.previewScene);
+
           if (success) {
             setState(() {
               _isLoading = false;
             });
-            
+
             // Send piece data to Unity after a slight delay
             Future.delayed(const Duration(milliseconds: 500), () {
               _sendPieceDataToUnity();
@@ -134,11 +138,12 @@ class _FramePreviewScreenState extends ConsumerState<FramePreviewScreen> {
           setState(() {
             _isLoading = false;
           });
-          
+
           _sendPieceDataToUnity();
         }
       } else {
-        print('[LOGS] Unity not initialized yet, will wait for UnityWidget creation');
+        print(
+            '[LOGS] Unity not initialized yet, will wait for UnityWidget creation');
       }
     } catch (e) {
       setErrorMessage('Error loading preview scene: $e');
@@ -148,19 +153,19 @@ class _FramePreviewScreenState extends ConsumerState<FramePreviewScreen> {
   void _sendPieceDataToUnity() {
     try {
       final sceneManager = ref.read(unitySceneManagerProvider);
-      
+
       if (sceneManager.isUnityInitialized) {
         final controller = sceneManager.getController();
-        
+
         if (controller != null) {
           print('[LOGS] Sending piece data to Unity for piece preview');
-          
+
           controller.postMessage(
             'GameManager',
             'ReceiveDataFromFlutter',
             _preparedJsonMessage!,
           );
-          
+
           print('[LOGS] Piece data sent to Unity successfully');
         } else {
           print('[LOGS] Unity controller is null');
@@ -172,7 +177,7 @@ class _FramePreviewScreenState extends ConsumerState<FramePreviewScreen> {
       setErrorMessage('Error sending data to Unity: $e');
     }
   }
-  
+
   // Handle Unity messages from UnifiedUnityView
   void _handleUnityMessage(String message) {
     print('Received message from Unity: $message');
@@ -199,11 +204,12 @@ class _FramePreviewScreenState extends ConsumerState<FramePreviewScreen> {
               _isLoading = false;
             });
             print('Current scene loaded: $activeScene');
-            
+
             // Send piece data after scene is loaded
             _sendPieceDataToUnity();
           } else {
-            print('Wrong scene loaded: $activeScene - switching to frames_test');
+            print(
+                'Wrong scene loaded: $activeScene - switching to frames_test');
             _switchToFramesTestScene();
           }
         } else if (message == 'SCENE_SWITCHED') {
@@ -211,7 +217,7 @@ class _FramePreviewScreenState extends ConsumerState<FramePreviewScreen> {
             _isLoading = false;
           });
           print('Scene switched to frames_test');
-          
+
           // Send piece data after scene is switched
           _sendPieceDataToUnity();
         }
@@ -220,7 +226,7 @@ class _FramePreviewScreenState extends ConsumerState<FramePreviewScreen> {
 
   void _switchToFramesTestScene() {
     final sceneManager = ref.read(unitySceneManagerProvider);
-    
+
     if (sceneManager.isUnityInitialized) {
       sceneManager.loadScene(UnitySceneType.previewScene);
       print('_switchToFramesTestScene called using SceneManager');
@@ -237,10 +243,10 @@ class _FramePreviewScreenState extends ConsumerState<FramePreviewScreen> {
       }
     });
   }
-  
+
   Future<void> _handleClosing() async {
-    if (_isClosing) return;  // Prevent multiple closing attempts
-    
+    if (_isClosing) return; // Prevent multiple closing attempts
+
     setState(() {
       _isClosing = true;
     });
@@ -251,10 +257,10 @@ class _FramePreviewScreenState extends ConsumerState<FramePreviewScreen> {
       if (sceneManager.isUnityInitialized) {
         await sceneManager.safeDisposeController();
       }
-      
+
       // Short delay to ensure everything is cleaned up
       await Future.delayed(const Duration(milliseconds: 100));
-      
+
       if (mounted) {
         Navigator.push(
           context,
@@ -287,8 +293,9 @@ class _FramePreviewScreenState extends ConsumerState<FramePreviewScreen> {
       _formKey.currentState!.save();
 
       if (_image == null) {
-        ref.read(errorProvider.notifier)
-           .setError('Please select a display picture');
+        ref
+            .read(errorProvider.notifier)
+            .setError('Please select a display picture');
         return false;
       }
 
@@ -320,7 +327,7 @@ class _FramePreviewScreenState extends ConsumerState<FramePreviewScreen> {
   @override
   Widget build(BuildContext context) {
     final user = ref.watch(userProvider);
-    
+
     return PopScope(
       canPop: false, // Prevent automatic popping
       onPopInvoked: (didPop) async {
@@ -345,28 +352,28 @@ class _FramePreviewScreenState extends ConsumerState<FramePreviewScreen> {
                   style: const TextStyle(color: Colors.red),
                 ),
               ),
-            
+
             // Unity View
             SizedBox(
               height: 300, // Fixed height for Unity view
               child: Stack(
                 children: [
                   // Using UnifiedUnityView here
-                  UnifiedUnityView(
-                    initialScene: UnitySceneType.previewScene,
-                    onUnityMessage: _handleUnityMessage,
-                    onUnitySceneLoaded: (scene) {
-                      if (scene?.name == UnitySceneType.previewScene.sceneName) {
-                        setState(() {
-                          _isLoading = false;
-                        });
-                        
-                        // Send piece data once scene is loaded
-                        _sendPieceDataToUnity();
-                      }
-                    },
-                  ),
-                  
+                  // UnifiedUnityView(
+                  //   initialScene: UnitySceneType.previewScene,
+                  //   onUnityMessage: _handleUnityMessage,
+                  //   onUnitySceneLoaded: (scene) {
+                  //     if (scene?.name == UnitySceneType.previewScene.sceneName) {
+                  //       setState(() {
+                  //         _isLoading = false;
+                  //       });
+
+                  //       // Send piece data once scene is loaded
+                  //       _sendPieceDataToUnity();
+                  //     }
+                  //   },
+                  // ),
+
                   // Loading overlay
                   if (_isLoading)
                     Container(
@@ -378,7 +385,7 @@ class _FramePreviewScreenState extends ConsumerState<FramePreviewScreen> {
                 ],
               ),
             ),
-            
+
             // Form section
             Expanded(
               child: SingleChildScrollView(
@@ -390,7 +397,8 @@ class _FramePreviewScreenState extends ConsumerState<FramePreviewScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         TextFormField(
-                          decoration: const InputDecoration(labelText: 'Piece Name'),
+                          decoration:
+                              const InputDecoration(labelText: 'Piece Name'),
                           validator: (value) {
                             if (value == null || value.isEmpty) {
                               return 'Please enter a name for the piece';
@@ -402,7 +410,8 @@ class _FramePreviewScreenState extends ConsumerState<FramePreviewScreen> {
                           },
                         ),
                         TextFormField(
-                          decoration: const InputDecoration(labelText: 'Description'),
+                          decoration:
+                              const InputDecoration(labelText: 'Description'),
                           maxLines: 3,
                           validator: (value) {
                             if (value == null || value.isEmpty) {
@@ -415,7 +424,7 @@ class _FramePreviewScreenState extends ConsumerState<FramePreviewScreen> {
                           },
                         ),
                         const SizedBox(height: 20),
-                        
+
                         // Ownership Selection Widget
                         OwnershipSelectionWidget(
                           initialValue: _ownership,
@@ -423,7 +432,7 @@ class _FramePreviewScreenState extends ConsumerState<FramePreviewScreen> {
                           isEditing: true,
                         ),
                         const SizedBox(height: 20),
-                        
+
                         const Text('Piece Display Picture'),
                         const SizedBox(height: 10),
                         _image == null
@@ -440,25 +449,28 @@ class _FramePreviewScreenState extends ConsumerState<FramePreviewScreen> {
                               setState(() {
                                 _isLoading = true;
                               });
-                              
+
                               final success = await _savePiece();
-                              
+
                               if (success) {
                                 // First safely dispose the Unity controller
-                                final sceneManager = ref.read(unitySceneManagerProvider);
+                                final sceneManager =
+                                    ref.read(unitySceneManagerProvider);
                                 if (sceneManager.isUnityInitialized) {
                                   try {
                                     await sceneManager.safeDisposeController();
                                   } catch (e) {
-                                    print('Error disposing Unity controller: $e');
+                                    print(
+                                        'Error disposing Unity controller: $e');
                                   }
                                 }
-                                
+
                                 // Navigate to profile after Unity is fully disposed
                                 if (mounted) {
                                   Navigator.of(context).pushReplacement(
                                     MaterialPageRoute(
-                                      builder: (context) => const UserProfileScreen(),
+                                      builder: (context) =>
+                                          const UserProfileScreen(),
                                     ),
                                   );
                                 }

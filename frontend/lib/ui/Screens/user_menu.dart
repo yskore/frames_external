@@ -29,15 +29,6 @@ class MenuScreen extends ConsumerWidget {
       child: Scaffold(
         appBar: AppBar(
           title: Text('Menu for $username'),
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back),
-            onPressed: () {
-              // Handle back button press in AppBar
-              Navigator.of(context).pushReplacement(
-                MaterialPageRoute(builder: (context) => const HomeScreen()),
-              );
-            },
-          ),
         ),
         body: Padding(
           padding: const EdgeInsets.all(8.0),
@@ -65,7 +56,9 @@ class MenuScreen extends ConsumerWidget {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (context) => const NotificationScreen(),
+                        builder: (context) => NotificationScreen(
+                          username: username,
+                        ),
                       ),
                     );
                   },

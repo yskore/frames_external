@@ -42,6 +42,7 @@ class ErrorNotifier extends StateNotifier<String?> {
   ErrorNotifier() : super(null);
 
   void setError(String? errorMessage) {
+    print("xxxxx");
     state = errorMessage;
   }
 

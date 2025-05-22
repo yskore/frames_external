@@ -8,9 +8,8 @@ class ProfileRepository {
 
   Future<ApiResponse> getUserProfile(String username) async {
     try {
-      final response = await _apiService.post(
-        'getProfile',
-        data: {'username': username},
+      final response = await _apiService.get(
+        'profile',
       );
 
       if (response.isSuccess && response.data != null) {
@@ -23,38 +22,6 @@ class ProfileRepository {
         print('Get user profile error: $e');
       }
       return ApiResponse.error('Failed to get user profile: $e');
-    }
-  }
-
-  Future<ApiResponse> getFollowerCount(String username) async {
-    try {
-      final response = await _apiService.post(
-        'getfollowercount',
-        data: {'username': username},
-      );
-
-      return response;
-    } catch (e) {
-      if (kDebugMode) {
-        print('Get follower count error: $e');
-      }
-      return ApiResponse.error('Failed to get follower count: $e');
-    }
-  }
-
-  Future<ApiResponse> getFollowingCount(String username) async {
-    try {
-      final response = await _apiService.post(
-        'getfollowingcount',
-        data: {'username': username},
-      );
-
-      return response;
-    } catch (e) {
-      if (kDebugMode) {
-        print('Get following count error: $e');
-      }
-      return ApiResponse.error('Failed to get following count: $e');
     }
   }
 
@@ -74,27 +41,10 @@ class ProfileRepository {
     }
   }
 
-  Future<ApiResponse> getPieceCount(String username) async {
-    try {
-      final response = await _apiService.post(
-        'getPieceCount',
-        data: {'username': username},
-      );
-
-      return response;
-    } catch (e) {
-      if (kDebugMode) {
-        print('Get piece count error: $e');
-      }
-      return ApiResponse.error('Failed to get piece count: $e');
-    }
-  }
-
   Future<ApiResponse> getPiecesByOwner(String username) async {
     try {
-      final response = await _apiService.post(
-        'getpiecesbyowner',
-        data: {'username': username},
+      final response = await _apiService.get(
+        'pieces',
       );
 
       return response;

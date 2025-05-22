@@ -5,12 +5,14 @@ import 'package:flutter/foundation.dart';
 import 'package:frames_app/core/network/api_response.dart';
 import 'package:frames_app/core/network/api_service.dart';
 import 'package:frames_app/models/notification_model.dart';
+import 'package:frames_app/models/notification_settings_model.dart' as NS;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 
 class NotificationRepository {
   final ApiService _apiService = ApiService();
   static const String _notificationsKey = 'user_notifications';
+  static const String _notificationSettingsKey = 'user_notification_settings';
   final uuid = const Uuid();
 
   // Get all notifications from storage
@@ -190,6 +192,92 @@ class NotificationRepository {
         print('Error updating push token: $e');
       }
       return ApiResponse.error('Failed to update push token: $e');
+    }
+  }
+
+  // Get notification settings from server
+  Future<NS.NotificationSettings?> getNotificationSettings(
+      String username) async {
+    try {
+      final response = await _apiService.get('notification-settings');
+
+      if (response.success &&
+          response.data != null &&
+          response.data?['settings'] != null) {
+        final settings =
+            NS.NotificationSettings.fromJson(response.data!['settings']);
+        // Save settings locally
+        await _saveNotificationSettingsLocally(settings);
+        return settings;
+      }
+      return null;
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error getting notification settings: $e');
+      }
+      return await getLocalNotificationSettings(username);
+    }
+  }
+
+  // Update notification settings on server
+  Future<ApiResponse> updateNotificationSettings(
+      NS.NotificationSettings settings) async {
+    try {
+      final response = await _apiService.put(
+        'notification-settings',
+        data: {
+          'settings': settings.settings,
+        },
+      );
+
+      if (response.success) {
+        // Save settings locally after successful update
+        await _saveNotificationSettingsLocally(settings);
+      }
+
+      return response;
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error updating notification settings: $e');
+      }
+      // Save locally even if server update fails
+      await _saveNotificationSettingsLocally(settings);
+      return ApiResponse.error('Failed to update notification settings: $e');
+    }
+  }
+
+  // Save notification settings locally
+  Future<void> _saveNotificationSettingsLocally(
+      NS.NotificationSettings settings) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(
+          _notificationSettingsKey, jsonEncode(settings.toJson()));
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error saving notification settings locally: $e');
+      }
+    }
+  }
+
+  // Get notification settings from local storage
+  Future<NS.NotificationSettings?> getLocalNotificationSettings(
+      String username) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final settingsJson = prefs.getString(_notificationSettingsKey);
+
+      if (settingsJson != null) {
+        return NS.NotificationSettings.fromJson(jsonDecode(settingsJson));
+      } else {
+        // Return default settings if not found
+        return NS.NotificationSettings.defaultSettings(username);
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error getting local notification settings: $e');
+      }
+      return NS.NotificationSettings.defaultSettings(username);
     }
   }
 }

@@ -11,15 +11,19 @@ router.use(validateApiKey);
 router.post('/set_profile', profileController.setProfile);
 router.post('/update_profile', validateToken, profileController.updateProfile);
 
-// Public profile routes
-router.post('/getfollowercount', profileController.getFollowerCount);
-router.post('/getfollowingcount', profileController.getFollowingCount);
-router.post('/getPieceCount', profileController.getPieceCount);
-router.post('/getpiecesbyowner', profileController.getPiecesByOwner);
-router.post('/getProfile', profileController.getProfile);
+// Subscription management routes (require authentication)
+router.post('/subscribe', validateToken, profileController.subscribeToUser);
+router.post('/unsubscribe', validateToken, profileController.unsubscribeFromUser);
+router.get('/my-subscribers', validateToken, profileController.getMySubscribers);
+router.get('/my-subscriptions', validateToken, profileController.getMySubscriptions);
+router.post('/check-subscription', validateToken, profileController.checkSubscriptionStatus);
 
-// New routes
+router.get('/subscribers/:username', profileController.getSubscribersByUsername);
+
+router.get('/profile', validateToken, profileController.getProfile);
+router.get('/pieces', validateToken, profileController.getPiecesByOwner);
+
 router.post('/search_users', profileController.searchUsersByUsername);
-router.post('/get_profile_with_pieces', profileController.getProfileWithPieces);
+router.get('/profile_with_pieces/:username', validateToken, profileController.getProfileWithPieces);
 
 module.exports = router;

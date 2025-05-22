@@ -1,0 +1,130 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:frames_app/core/repositories/feed_repository.dart';
+import 'package:frames_app/models/feed_entry_model.dart';
+import 'package:frames_app/providers/error_provider.dart';
+import 'package:frames_app/providers/loading_provider.dart';
+
+final feedRepositoryProvider = Provider<FeedRepository>((ref) {
+  return FeedRepository();
+});
+
+final feedProvider =
+    StateNotifierProvider<FeedNotifier, List<FeedEntry>>((ref) {
+  final feedRepository = ref.read(feedRepositoryProvider);
+  final loadingNotifier = ref.read(loadingProvider.notifier);
+  final errorNotifier = ref.read(errorProvider.notifier);
+
+  return FeedNotifier(feedRepository, loadingNotifier, errorNotifier);
+});
+
+final unreadFeedCountProvider = Provider<int>((ref) {
+  final feedEntries = ref.watch(feedProvider);
+  return feedEntries.where((entry) => !entry.read).length;
+});
+
+class FeedNotifier extends StateNotifier<List<FeedEntry>> {
+  final FeedRepository _feedRepository;
+  final LoadingNotifier _loadingNotifier;
+  final ErrorNotifier _errorNotifier;
+
+  bool _isLoading = false;
+  int _currentOffset = 0;
+  final int _limit = 20;
+  bool _hasMore = true;
+  bool _isInitialized = false;
+
+  FeedNotifier(this._feedRepository, this._loadingNotifier, this._errorNotifier)
+      : super([]);
+
+  bool get isInitialized => _isInitialized;
+
+  Future<void> loadFeed({bool refresh = false}) async {
+    if (_isLoading) return;
+
+    try {
+      _isLoading = true;
+      if (refresh) {
+        _loadingNotifier.setLoading(true);
+        _currentOffset = 0;
+        _hasMore = true;
+      }
+
+      if (!_hasMore && !refresh) return;
+
+      final feedEntries = await _feedRepository.getFeed(
+        offset: _currentOffset,
+        limit: _limit,
+      );
+
+      if (feedEntries.isEmpty) {
+        _hasMore = false;
+      } else {
+        _currentOffset += feedEntries.length;
+
+        if (refresh) {
+          state = feedEntries;
+        } else {
+          state = [...state, ...feedEntries];
+        }
+      }
+
+      _isInitialized = true;
+    } catch (e) {
+      _errorNotifier.setError('Failed to load feed: $e');
+    } finally {
+      _isLoading = false;
+      _loadingNotifier.setLoading(false);
+    }
+  }
+
+  Future<void> markAsRead(String entryId) async {
+    try {
+      final response = await _feedRepository.markAsRead([entryId]);
+
+      if (response.success) {
+        state = [
+          for (final entry in state)
+            if (entry.id == entryId) entry.copyWith(read: true) else entry,
+        ];
+      } else {
+        _errorNotifier.setError(response.message ?? 'Failed to mark as read');
+      }
+    } catch (e) {
+      _errorNotifier.setError('Error marking as read: $e');
+    }
+  }
+
+  Future<void> markAllAsRead() async {
+    try {
+      _loadingNotifier.setLoading(true);
+
+      final response = await _feedRepository.markAllAsRead();
+
+      if (response.success) {
+        state = state.map((entry) => entry.copyWith(read: true)).toList();
+      } else {
+        _errorNotifier
+            .setError(response.message ?? 'Failed to mark all as read');
+      }
+    } catch (e) {
+      _errorNotifier.setError('Error marking all as read: $e');
+    } finally {
+      _loadingNotifier.setLoading(false);
+    }
+  }
+
+  Future<void> deleteFeedEntry(String entryId) async {
+    try {
+      final response = await _feedRepository.deleteFeedEntry(entryId);
+
+      if (response.success) {
+        state = state.where((entry) => entry.id != entryId).toList();
+      } else {
+        _errorNotifier
+            .setError(response.message ?? 'Failed to delete feed entry');
+      }
+    } catch (e) {
+      _errorNotifier.setError('Error deleting feed entry: $e');
+    }
+  }
+}

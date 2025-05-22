@@ -4,12 +4,14 @@ class SearchBarCustom extends StatelessWidget {
   final TextEditingController controller;
   final Function(String)? onChanged;
   final Function(String)? onSubmitted;
+  final String hintText;
 
   const SearchBarCustom({
     super.key,
     required this.controller,
     this.onChanged,
     this.onSubmitted,
+    this.hintText = 'Search users...',
   });
 
   @override
@@ -22,10 +24,11 @@ class SearchBarCustom extends StatelessWidget {
       ),
       child: TextField(
         controller: controller,
-        decoration: const InputDecoration(
-          hintText: 'Search users...',
-          contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 0),
-          prefixIcon: Icon(Icons.search, size: 20),
+        decoration: InputDecoration(
+          hintText: hintText,
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
+          prefixIcon: const Icon(Icons.search, size: 20),
           border: InputBorder.none,
         ),
         onChanged: onChanged,

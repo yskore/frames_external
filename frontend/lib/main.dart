@@ -24,8 +24,6 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   // Process and store the notification
   final repository = NotificationRepository();
   await repository.processReceivedNotification(message);
-
-  print("Handling a background message: ${message.messageId}");
 }
 
 void main() async {
@@ -47,7 +45,6 @@ void main() async {
 
     runApp(const ProviderScope(child: MainApp()));
   } catch (e) {
-    debugPrint('Error during initialization: $e');
     runApp(const SizedBox());
   }
 }

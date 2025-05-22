@@ -3,20 +3,22 @@ import 'dart:developer';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:frames_app/Providers/error_provider.dart';
+import 'package:frames_app/Providers/user_provider.dart';
 import 'package:frames_app/core/services/unity_scene_service.dart';
 import 'package:frames_app/models/piece_model.dart';
 import 'package:frames_app/models/user_profile_model.dart';
-import 'package:frames_app/Providers/user_provider.dart';
-import 'package:frames_app/ui/Screens/home_screen.dart';
+import 'package:frames_app/providers/subscription_provider.dart';
+import 'package:frames_app/ui/Screens/user_subscribers_screen.dart';
 import 'package:frames_app/ui/Widgets/piece_preview_popup.dart';
 
 class OtherUserProfileScreen extends ConsumerStatefulWidget {
   final String username;
 
   const OtherUserProfileScreen({
-    Key? key,
+    super.key,
     required this.username,
-  }) : super(key: key);
+  });
 
   @override
   ConsumerState<OtherUserProfileScreen> createState() =>
@@ -29,12 +31,14 @@ class _OtherUserProfileScreenState
   UserProfileModel? _userProfile;
   List<Piece>? _pieces;
   String? _errorMessage;
+  bool _isSubscribed = false;
+  bool _isSubscribeButtonLoading = false;
 
   @override
   void initState() {
     super.initState();
     _loadProfileData();
-    
+
     // Set Unity scene to preview mode when entering profile screen
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final sceneManager = ref.read(unitySceneManagerProvider);
@@ -58,6 +62,7 @@ class _OtherUserProfileScreenState
           _pieces = (response.data!['pieces'] as List)
               .map((piece) => Piece.fromJson(piece))
               .toList();
+          _isSubscribed = response.data!['isSubscribed'] ?? false;
           _isLoading = false;
         });
       } else {
@@ -83,41 +88,29 @@ class _OtherUserProfileScreenState
     if (sceneManager.isUnityInitialized) {
       // Set the scene back to AR mode first
       sceneManager.loadScene(UnitySceneType.arScene).then((_) {
-        // Then navigate back to home once the scene is loaded
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (context) => const HomeScreen(),
-            settings: const RouteSettings(name: 'HomeScreen'),
-          ),
-        );
+        if (!mounted) return;
+        Navigator.of(context).pop();
       });
     } else {
-      // If Unity isn't initialized, just navigate normally
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (context) => const HomeScreen(),
-          settings: const RouteSettings(name: 'HomeScreen'),
-        ),
-      );
+      Navigator.of(context).pop();
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return WillPopScope(
-      // Handle back button press to ensure scene switching
       onWillPop: () async {
         _navigateBackToHome();
-        return false; // We're handling navigation manually
+        return false;
       },
       child: Scaffold(
         appBar: AppBar(
           title: Text(widget.username),
           leading: IconButton(
-            icon: const Icon(Icons.arrow_back),
-            onPressed: _navigateBackToHome, // Use custom navigation method
+            icon: const BackButtonIcon(),
+            onPressed: () {
+              _navigateBackToHome();
+            },
           ),
         ),
         body: _buildBody(),
@@ -143,7 +136,7 @@ class _OtherUserProfileScreenState
               ),
               const SizedBox(height: 16),
               ElevatedButton(
-                onPressed: _navigateBackToHome, // Use custom navigation method
+                onPressed: _navigateBackToHome,
                 child: const Text('Go Back'),
               ),
             ],
@@ -172,36 +165,51 @@ class _OtherUserProfileScreenState
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          CircleAvatar(
-            radius: 40,
-            backgroundImage: userProfile.Profile_photo.isNotEmpty
-                ? NetworkImage(userProfile.Profile_photo)
-                : const NetworkImage('https://dummyimage.com/250/ffffff'),
-          ),
-          const SizedBox(width: 16),
           Expanded(
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
+                CircleAvatar(
+                  radius: 40,
+                  backgroundImage: userProfile.Profile_photo.isNotEmpty
+                      ? NetworkImage(userProfile.Profile_photo)
+                      : const NetworkImage('https://dummyimage.com/250/ffffff'),
+                ),
                 Text(
                   userProfile.username,
                   style: const TextStyle(
                       fontWeight: FontWeight.bold, fontSize: 18),
                 ),
                 const SizedBox(height: 4),
-                Text(userProfile.bio),
+                Text(
+                  userProfile.bio,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(fontSize: 13),
+                ),
                 const SizedBox(height: 8),
+              ],
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            flex: 2,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.start,
+              children: [
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
                     _buildCountColumn(
-                        'Followers', userProfile.followerCount.toString()),
+                        'Subscribers', userProfile.subscriberCount.toString()),
                     _buildCountColumn(
-                        'Following', userProfile.followingCount.toString()),
+                        'Impressions', userProfile.totalImpressions.toString()),
                     _buildCountColumn(
                         'Live Pieces', userProfile.live_pieces.toString()),
                   ],
                 ),
+                const SizedBox(height: 12),
+                _buildSubscribeButton(userProfile.username),
               ],
             ),
           ),
@@ -210,13 +218,114 @@ class _OtherUserProfileScreenState
     );
   }
 
+  Widget _buildSubscribeButton(String username) {
+    return ElevatedButton(
+      onPressed: _isSubscribeButtonLoading
+          ? null
+          : () => _toggleSubscription(username),
+      style: ElevatedButton.styleFrom(
+        backgroundColor:
+            _isSubscribed ? Colors.grey[300] : Theme.of(context).primaryColor,
+        foregroundColor: _isSubscribed ? Colors.black : Colors.white,
+        minimumSize: const Size(double.infinity, 40),
+      ),
+      child: _isSubscribeButtonLoading
+          ? const SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          : Text(_isSubscribed ? 'Unsubscribe' : 'Subscribe'),
+    );
+  }
+
+  Future<void> _toggleSubscription(String username) async {
+    final subscriptionsNotifier = ref.read(subscriptionsProvider.notifier);
+    final messageNotifier = ref.read(messageProvider.notifier);
+    bool success;
+
+    setState(() {
+      _isSubscribeButtonLoading = true;
+    });
+
+    if (_isSubscribed) {
+      // Unsubscribe
+      success = await subscriptionsNotifier.unsubscribeFromUser(username);
+      if (success) {
+        setState(() {
+          _isSubscribed = false;
+          _userProfile = _userProfile?.copyWith(
+            subscriberCount: _userProfile!.subscriberCount - 1,
+          );
+        });
+      }
+    } else {
+      // Subscribe
+      success = await subscriptionsNotifier.subscribeToUser(username);
+      if (success) {
+        setState(() {
+          _isSubscribed = true;
+          _userProfile = _userProfile?.copyWith(
+            subscriberCount: _userProfile!.subscriberCount + 1,
+          );
+        });
+      }
+    }
+
+    setState(() {
+      _isSubscribeButtonLoading = false;
+    });
+
+    if (success) {
+      messageNotifier.setInfo(
+        _isSubscribed
+            ? 'Subscribed to $username'
+            : 'Unsubscribed from $username',
+      );
+    }
+  }
+
   Widget _buildCountColumn(String label, String count) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(count, style: const TextStyle(fontWeight: FontWeight.bold)),
-        Text(label, style: const TextStyle(fontSize: 12)),
-      ],
+    final bool isSubscribers = label == 'Subscribers';
+
+    return GestureDetector(
+      onTap: isSubscribers && int.parse(count) > 0
+          ? () => _navigateToSubscribers()
+          : null,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            count,
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              color: isSubscribers && int.parse(count) > 0
+                  ? Theme.of(context).primaryColor
+                  : null,
+            ),
+          ),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              color: isSubscribers && int.parse(count) > 0
+                  ? Theme.of(context).primaryColor
+                  : null,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _navigateToSubscribers() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => UserSubscribersScreen(
+          username: widget.username,
+          displayName: _userProfile!.username,
+        ),
+      ),
     );
   }
 
@@ -317,14 +426,10 @@ class _OtherUserProfileScreenState
       context: context,
       builder: (BuildContext context) {
         return PiecePreviewPopup(
-          piece: piece,
-          pieceData: pieceData,
-          onPieceUpdated: () {
-            // Handle piece update if needed
-          },
-          isReadOnly:
-              true,  // Set to read-only since it's not the current user's profile
-        );
+            piece: piece,
+            pieceData: pieceData,
+            onPieceUpdated: () {},
+            isReadOnly: true);
       },
     );
   }

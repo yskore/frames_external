@@ -230,28 +230,6 @@
 					}
 				},
 				{
-					"name": "Get Profile",
-					"request": {
-						"method": "POST",
-						"url": "http://localhost:8080/getProfile",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							},
-							{
-								"key": "X-API-Key",
-								"value": "{{api_key}}"
-							}
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\"username\":\"testuser1\"}"
-						},
-						"description": "Gets the user's profile information"
-					}
-				},
-				{
 					"name": "Set Profile",
 					"request": {
 						"method": "POST",
@@ -274,7 +252,7 @@
 							"mode": "raw",
 							"raw": "{}"
 						},
-						"description": "Creates or retrieves a user profile (Requires authentication)"
+						"description": "Creates or retrieves a user profile"
 					}
 				},
 				{
@@ -298,9 +276,179 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\"username\":\"testuser1\",\"Bio\":\"New bio\",\"imageUrl\":\"http://example.com/image.jpg\"}"
+							"raw": "{\"Bio\":\"New bio\",\"imageUrl\":\"http://example.com/image.jpg\"}"
 						},
 						"description": "Updates user profile information (Requires authentication)"
+					}
+				},
+				{
+					"name": "Get Profile",
+					"request": {
+						"method": "GET",
+						"url": "http://localhost:8080/profile",
+						"header": [
+							{
+								"key": "X-API-Key",
+								"value": "{{api_key}}"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"description": "Gets the authenticated user's profile information including mySubscribers and mySubscriptions counts from the profile data. (Requires authentication)"
+					}
+				},
+				{
+					"name": "Get My Pieces",
+					"request": {
+						"method": "GET",
+						"url": "http://localhost:8080/pieces",
+						"header": [
+							{
+								"key": "X-API-Key",
+								"value": "{{api_key}}"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"description": "Gets all pieces owned by the authenticated user (Requires authentication)"
+					}
+				},
+				{
+					"name": "Subscribe to User",
+					"request": {
+						"method": "POST",
+						"url": "http://localhost:8080/subscribe",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "X-API-Key",
+								"value": "{{api_key}}"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\"targetUsername\":\"testuser2\"}"
+						},
+						"description": "Subscribe to another user. The authenticated user will follow the target user. (Requires authentication)"
+					}
+				},
+				{
+					"name": "Unsubscribe from User",
+					"request": {
+						"method": "POST",
+						"url": "http://localhost:8080/unsubscribe",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "X-API-Key",
+								"value": "{{api_key}}"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\"targetUsername\":\"testuser2\"}"
+						},
+						"description": "Unsubscribe from another user. The authenticated user will stop following the target user. (Requires authentication)"
+					}
+				},
+				{
+					"name": "Get My Subscribers",
+					"request": {
+						"method": "GET",
+						"url": "http://localhost:8080/my-subscribers",
+						"header": [
+							{
+								"key": "X-API-Key",
+								"value": "{{api_key}}"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"description": "Retrieves all users who are subscribed to the authenticated user. (Requires authentication)"
+					}
+				},
+				{
+					"name": "Get Subscribers By Username",
+					"request": {
+						"method": "GET",
+						"url": "http://localhost:8080/subscribers/:username",
+						"header": [
+							{
+								"key": "X-API-Key",
+								"value": "{{api_key}}"
+							}
+						],
+						"variable": [
+							{
+								"key": "username",
+								"value": "testuser1"
+							}
+						],
+						"description": "Retrieves all users who are subscribed to the specified username. Returns subscriber details and count."
+					}
+				},
+				{
+					"name": "Get My Subscriptions",
+					"request": {
+						"method": "GET",
+						"url": "http://localhost:8080/my-subscriptions",
+						"header": [
+							{
+								"key": "X-API-Key",
+								"value": "{{api_key}}"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"description": "Retrieves all users that the authenticated user is subscribed to. (Requires authentication)"
+					}
+				},
+				{
+					"name": "Check Subscription Status",
+					"request": {
+						"method": "POST",
+						"url": "http://localhost:8080/check-subscription",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "X-API-Key",
+								"value": "{{api_key}}"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\"targetUsername\":\"testuser2\"}"
+						},
+						"description": "Checks if the authenticated user is subscribed to the target user. (Requires authentication)"
 					}
 				}
 			]
@@ -1034,6 +1182,210 @@
 							"raw": "{\"resolution\":\"Payment verified through bank statement\",\"transferOwnership\":true,\"newOwner\":\"buyer_username\"}"
 						},
 						"description": "Resolves a disputed offer. Can optionally transfer piece ownership as part of resolution. Creates dispute resolution record in ownership history. (Requires admin authentication)"
+					}
+				}
+			]
+		},
+		{
+			"name": "Notification Settings Management",
+			"item": [
+				{
+					"name": "Get Notification Settings",
+					"request": {
+						"method": "GET",
+						"url": "http://localhost:8080/notification-settings",
+						"header": [
+							{
+								"key": "X-API-Key",
+								"value": "{{api_key}}"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"description": "Gets the authenticated user's notification preferences for different notification types"
+					}
+				},
+				{
+					"name": "Update Notification Settings",
+					"request": {
+						"method": "PUT",
+						"url": "http://localhost:8080/notification-settings",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "X-API-Key",
+								"value": "{{api_key}}"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\"settings\":{\"user_posted_piece\":true,\"user_made_piece_live\":true,\"user_listed_piece_for_sale\":true,\"user_made_offer\":true,\"user_liked_piece\":false,\"user_subscribed\":true}}"
+						},
+						"description": "Updates the authenticated user's notification preferences for specific notification types"
+					}
+				},
+				{
+					"name": "Toggle All Notifications",
+					"request": {
+						"method": "POST",
+						"url": "http://localhost:8080/notification-settings/toggle-all",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "X-API-Key",
+								"value": "{{api_key}}"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\"enabled\":true}"
+						},
+						"description": "Enables or disables all notification types for the authenticated user at once"
+					}
+				}
+			]
+		},
+		{
+			"name": "Feed Management",
+			"item": [
+				{
+					"name": "Get Feed",
+					"request": {
+						"method": "GET",
+						"url": "http://localhost:8080/feed",
+						"header": [
+							{
+								"key": "X-API-Key",
+								"value": "{{api_key}}"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"query": [
+							{
+								"key": "limit",
+								"value": "20"
+							},
+							{
+								"key": "offset",
+								"value": "0"
+							},
+							{
+								"key": "filter",
+								"value": "posted_piece,made_piece_live,listed_for_sale",
+								"disabled": true
+							},
+							{
+								"key": "unreadOnly",
+								"value": "true",
+								"disabled": true
+							}
+						],
+						"description": "Get the authenticated user's feed with subscribed activities (optional filtering and pagination)"
+					}
+				},
+				{
+					"name": "Get Unread Count",
+					"request": {
+						"method": "GET",
+						"url": "http://localhost:8080/feed/unread-count",
+						"header": [
+							{
+								"key": "X-API-Key",
+								"value": "{{api_key}}"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"description": "Get count of unread feed entries for the authenticated user"
+					}
+				},
+				{
+					"name": "Mark Entries as Read",
+					"request": {
+						"method": "POST",
+						"url": "http://localhost:8080/feed/mark-read",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "X-API-Key",
+								"value": "{{api_key}}"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\"entryIds\":[\"60f8a1d9e6d5b6001c3f2a1b\",\"60f8a1d9e6d5b6001c3f2a1c\"]}"
+						},
+						"description": "Marks specific feed entries as read for the authenticated user"
+					}
+				},
+				{
+					"name": "Mark All as Read",
+					"request": {
+						"method": "POST",
+						"url": "http://localhost:8080/feed/mark-all-read",
+						"header": [
+							{
+								"key": "X-API-Key",
+								"value": "{{api_key}}"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"description": "Marks all feed entries as read for the authenticated user"
+					}
+				},
+				{
+					"name": "Delete Feed Entry",
+					"request": {
+						"method": "DELETE",
+						"url": "http://localhost:8080/feed/:entryId",
+						"header": [
+							{
+								"key": "X-API-Key",
+								"value": "{{api_key}}"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"variable": [
+							{
+								"key": "entryId",
+								"value": "60f8a1d9e6d5b6001c3f2a1b"
+							}
+						],
+						"description": "Deletes a specific feed entry for the authenticated user"
 					}
 				}
 			]

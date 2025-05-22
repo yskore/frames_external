@@ -157,9 +157,8 @@ class UserRepository {
 
   Future<ApiResponse> getProfileWithPieces(String username) async {
     try {
-      final response = await _apiService.post(
-        'get_profile_with_pieces',
-        data: {'username': username},
+      final response = await _apiService.get(
+        'profile_with_pieces/$username',
       );
 
       return response;
