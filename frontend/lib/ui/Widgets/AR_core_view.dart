@@ -1,78 +1,77 @@
-import 'package:flutter/material.dart';
-import 'package:flutter_unity_widget/flutter_unity_widget.dart';
-import 'package:frames_app/Providers/piece_provider.dart';
-import 'package:frames_app/core/repositories/piece_repository.dart';
-import 'package:frames_app/models/anchor_model.dart';
-import 'package:frames_app/core/services/unity_scene_service.dart';
-import 'package:frames_app/ui/Widgets/enhanced_piece_details_sheet.dart';
-import 'package:frames_app/ui/Widgets/piece_interaction_widget.dart';
-import 'package:frames_app/ui/Widgets/unified_unity_view.dart';
-import 'package:permission_handler/permission_handler.dart';
-import 'package:geolocator/geolocator.dart';
 import 'dart:async';
 import 'dart:convert';
+
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:frames_app/Providers/error_provider.dart';
-import 'package:frames_app/core/services/location.dart';
+// import 'package:flutter_unity_widget/flutter_unity_widget.dart';
+import 'package:frames_app/Providers/piece_provider.dart';
 import 'package:frames_app/core/repositories/anchor_repository.dart';
+import 'package:frames_app/core/repositories/piece_repository.dart';
+import 'package:frames_app/core/services/location.dart';
+import 'package:frames_app/core/services/unity_scene_service.dart';
+import 'package:frames_app/models/anchor_model.dart';
+import 'package:frames_app/ui/Widgets/enhanced_piece_details_sheet.dart';
+import 'package:frames_app/ui/Widgets/piece_interaction_widget.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 // A Custom implementation of the UnifiedUnityView with improved sizing
 class SizedUnifiedUnityView extends ConsumerStatefulWidget {
   final UnitySceneType initialScene;
   final Function(String)? onUnityMessage;
-  final Function(SceneLoaded?)? onUnitySceneLoaded;
-  
+  // final Function(SceneLoaded?)? onUnitySceneLoaded;
+
   const SizedUnifiedUnityView({
-    Key? key,
+    super.key,
     required this.initialScene,
     this.onUnityMessage,
-    this.onUnitySceneLoaded,
-  }) : super(key: key);
-  
+    // this.onUnitySceneLoaded,
+  });
+
   @override
-  ConsumerState<SizedUnifiedUnityView> createState() => _SizedUnifiedUnityViewState();
+  ConsumerState<SizedUnifiedUnityView> createState() =>
+      _SizedUnifiedUnityViewState();
 }
 
 class _SizedUnifiedUnityViewState extends ConsumerState<SizedUnifiedUnityView> {
-  bool _isLoading = true;
-  
+  final bool _isLoading = true;
+
   @override
   Widget build(BuildContext context) {
     return Stack(
       children: [
         // This positions the Unity widget to leave space for UI elements
-        ClipRect(
-          child: Align(
-            alignment: Alignment.center,
-            child: UnityWidget(
-              onUnityCreated: (controller) {
-                final manager = ref.read(unitySceneManagerProvider);
-                manager.setController(controller);
-                
-                setState(() {
-                  _isLoading = false;
-                });
-                
-                // Load the initial scene
-                manager.loadScene(widget.initialScene).then((success) {
-                  if (success) {
-                    print('Initial scene loaded successfully: ${widget.initialScene.sceneName}');
-                  } else {
-                    print('Failed to load initial scene: ${widget.initialScene.sceneName}');
-                  }
-                });
-              },
-              onUnityMessage: (message) {
-                if (widget.onUnityMessage != null) {
-                  widget.onUnityMessage!(message.toString());
-                }
-              },
-              onUnitySceneLoaded: widget.onUnitySceneLoaded,
-              fullscreen: false,
-              useAndroidViewSurface: true,
-            ),
-          ),
-        ),
+        // ClipRect(
+        //   child: Align(
+        //     alignment: Alignment.center,
+        //     child: UnityWidget(
+        //       onUnityCreated: (controller) {
+        //         final manager = ref.read(unitySceneManagerProvider);
+        //         manager.setController(controller);
+
+        //         setState(() {
+        //           _isLoading = false;
+        //         });
+
+        //         // Load the initial scene
+        //         manager.loadScene(widget.initialScene).then((success) {
+        //           if (success) {
+        //             print('Initial scene loaded successfully: ${widget.initialScene.sceneName}');
+        //           } else {
+        //             print('Failed to load initial scene: ${widget.initialScene.sceneName}');
+        //           }
+        //         });
+        //       },
+        //       onUnityMessage: (message) {
+        //         if (widget.onUnityMessage != null) {
+        //           widget.onUnityMessage!(message.toString());
+        //         }
+        //       },
+        //       onUnitySceneLoaded: widget.onUnitySceneLoaded,
+        //       fullscreen: false,
+        //       useAndroidViewSurface: true,
+        //     ),
+        //   ),
+        // ),
         if (_isLoading)
           const Center(
             child: CircularProgressIndicator(),
@@ -89,7 +88,8 @@ class UnityARView extends ConsumerStatefulWidget {
   UnityARViewState createState() => UnityARViewState();
 }
 
-class UnityARViewState extends ConsumerState<UnityARView> with WidgetsBindingObserver {
+class UnityARViewState extends ConsumerState<UnityARView>
+    with WidgetsBindingObserver {
   // State flags
   bool _isLoading = true;
   bool _hasCameraPermission = false;
@@ -107,11 +107,11 @@ class UnityARViewState extends ConsumerState<UnityARView> with WidgetsBindingObs
   String _calibrationStatus = '';
   bool _calibrationCompleted = false;
   String _currentViewType = 'not set';
-  
+
   // Calibration UX variables
   bool _userHasCompletedCalibration = false;
   String _calibrationQuality = 'Unknown';
-  
+
   // Piece selection variables
   String? _selectedPieceData;
 
@@ -125,7 +125,7 @@ class UnityARViewState extends ConsumerState<UnityARView> with WidgetsBindingObs
     WidgetsBinding.instance.addObserver(this);
     _requestPermissions();
     _startLocationUpdates();
-    
+
     // Auto-set user has completed calibration to true
     // This will allow loading pieces without waiting for calibration
     _userHasCompletedCalibration = true;
@@ -135,7 +135,7 @@ class UnityARViewState extends ConsumerState<UnityARView> with WidgetsBindingObs
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
-    
+
     if (state == AppLifecycleState.resumed) {
       // When app comes to foreground, ensure we're on the AR scene
       final sceneManager = ref.read(unitySceneManagerProvider);
@@ -144,15 +144,15 @@ class UnityARViewState extends ConsumerState<UnityARView> with WidgetsBindingObs
           // Load AR scene if we're not already on it
           sceneManager.loadScene(UnitySceneType.arScene);
         }
-        
+
         // Small delay before setting view type
-        Future.delayed(Duration(milliseconds: 500), () {
+        Future.delayed(const Duration(milliseconds: 500), () {
           sceneManager.setARViewType('general');
         });
       }
     }
   }
-  
+
   Future<void> _requestPermissions() async {
     Map<Permission, PermissionStatus> statuses = await [
       Permission.camera,
@@ -161,7 +161,8 @@ class UnityARViewState extends ConsumerState<UnityARView> with WidgetsBindingObs
 
     setState(() {
       _hasCameraPermission = statuses[Permission.camera]?.isGranted ?? false;
-      _hasLocationPermission = statuses[Permission.location]?.isGranted ?? false;
+      _hasLocationPermission =
+          statuses[Permission.location]?.isGranted ?? false;
     });
 
     if (!_hasCameraPermission || !_hasLocationPermission) {
@@ -200,7 +201,7 @@ class UnityARViewState extends ConsumerState<UnityARView> with WidgetsBindingObs
 
   void _handleUnityMessage(String message) {
     print('Unity message received: $message');
-    
+
     // Handle standard AR session messages
     if (message == 'AR_COMPONENTS_INITIALIZED') {
       setState(() {
@@ -227,7 +228,7 @@ class UnityARViewState extends ConsumerState<UnityARView> with WidgetsBindingObs
       setState(() {
         _currentViewType = viewType;
       });
-      
+
       // If we receive a view type that isn't 'general', set it to general
       if (viewType != 'general') {
         final sceneManager = ref.read(unitySceneManagerProvider);
@@ -235,12 +236,12 @@ class UnityARViewState extends ConsumerState<UnityARView> with WidgetsBindingObs
           sceneManager.setARViewType('general');
         }
       }
-    } 
+    }
     // Handle piece selection
     else if (message.startsWith('PIECE_SELECTED:')) {
       final pieceData = message.toString().substring('PIECE_SELECTED:'.length);
       print('Piece selected: $pieceData');
-      
+
       if (mounted) {
         setState(() {
           _selectedPieceData = pieceData;
@@ -252,7 +253,7 @@ class UnityARViewState extends ConsumerState<UnityARView> with WidgetsBindingObs
     else if (message.startsWith('PIECE_LOADED:')) {
       final pieceId = message.toString().substring('PIECE_LOADED:'.length);
       print('[IMP] Piece loaded: $pieceId');
-      
+
       // Track and increment impressions when a piece is loaded
       _trackImpression(pieceId);
     }
@@ -277,7 +278,7 @@ class UnityARViewState extends ConsumerState<UnityARView> with WidgetsBindingObs
         final total = int.parse(parts[2]);
         final confidence = double.parse(parts[3].replaceAll('%', ''));
         final status = parts[4];
-        
+
         setState(() {
           _calibrationProgress = ((current / total) * 100).round();
           _calibrationStatus = '$status (${confidence.toStringAsFixed(1)}%)';
@@ -337,7 +338,7 @@ class UnityARViewState extends ConsumerState<UnityARView> with WidgetsBindingObs
           setState(() {
             _isCalibrating = false;
             _calibrationStatus = 'Prerequisites not met';
-            
+
             // Even if prerequisites are missing, allow the user to continue
             _userHasCompletedCalibration = true;
             _calibrationCompleted = true;
@@ -355,7 +356,7 @@ class UnityARViewState extends ConsumerState<UnityARView> with WidgetsBindingObs
             List<String> counts = summary.split(',');
             int vpsCount = 0;
             int gpsCount = 0;
-            
+
             for (var count in counts) {
               if (count.startsWith('VPS=')) {
                 vpsCount = int.parse(count.substring(4));
@@ -363,7 +364,7 @@ class UnityARViewState extends ConsumerState<UnityARView> with WidgetsBindingObs
                 gpsCount = int.parse(count.substring(4));
               }
             }
-            
+
             _showPiecesLoadedSummary(vpsCount, gpsCount);
           } else {
             print('Unhandled calibration message: $message');
@@ -379,7 +380,7 @@ class UnityARViewState extends ConsumerState<UnityARView> with WidgetsBindingObs
           'Pieces loaded: $vpsCount via VPS, $gpsCount via GPS',
           textAlign: TextAlign.center,
         ),
-        duration: Duration(seconds: 3),
+        duration: const Duration(seconds: 3),
       ),
     );
   }
@@ -389,21 +390,20 @@ class UnityARViewState extends ConsumerState<UnityARView> with WidgetsBindingObs
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: Text('Permissions Required'),
-          content: Text(
-            'Camera and location permissions are required to use AR features. '
-            'Please enable them in your device settings.'
-          ),
+          title: const Text('Permissions Required'),
+          content: const Text(
+              'Camera and location permissions are required to use AR features. '
+              'Please enable them in your device settings.'),
           actions: <Widget>[
             TextButton(
-              child: Text('Open Settings'),
+              child: const Text('Open Settings'),
               onPressed: () {
                 openAppSettings();
                 Navigator.of(context).pop();
               },
             ),
             TextButton(
-              child: Text('Cancel'),
+              child: const Text('Cancel'),
               onPressed: () {
                 Navigator.of(context).pop();
               },
@@ -422,32 +422,34 @@ class UnityARViewState extends ConsumerState<UnityARView> with WidgetsBindingObs
           children: [
             // This is a key change: We're using a Container to position the Unity view
             // specifically to make room for UI elements
-            if (_hasCameraPermission && _hasLocationPermission)
-              Positioned.fill(
-                // Leave space at bottom for buttons
-                bottom: 80, 
-                child: SizedUnifiedUnityView(
-                  initialScene: UnitySceneType.arScene,
-                  onUnityMessage: _handleUnityMessage,
-                  onUnitySceneLoaded: (scene) {
-                    // When AR scene is loaded, ensure we're in general view type
-                    if (scene != null && scene.name == UnitySceneType.arScene.sceneName) {
-                      final manager = ref.read(unitySceneManagerProvider);
-                      Future.delayed(Duration(milliseconds: 500), () {
-                        manager.setARViewType('general');
-                        
-                        // Request current view type to update state
-                        Future.delayed(Duration(milliseconds: 200), () {
-                          manager.requestCurrentViewType();
-                        });
-                      });
-                    }
-                  },
-                ),
-              )
-            else
-              Center(child: Text('Camera and Location permission is required for AR.')),
-            
+            // if (_hasCameraPermission && _hasLocationPermission)
+            // Positioned.fill(
+            //   // Leave space at bottom for buttons
+            //   bottom: 80,
+            //   child: SizedUnifiedUnityView(
+            //     initialScene: UnitySceneType.arScene,
+            //     onUnityMessage: _handleUnityMessage,
+            //     onUnitySceneLoaded: (scene) {
+            //       // When AR scene is loaded, ensure we're in general view type
+            //       if (scene != null && scene.name == UnitySceneType.arScene.sceneName) {
+            //         final manager = ref.read(unitySceneManagerProvider);
+            //         Future.delayed(Duration(milliseconds: 500), () {
+            //           manager.setARViewType('general');
+
+            //           // Request current view type to update state
+            //           Future.delayed(Duration(milliseconds: 200), () {
+            //             manager.requestCurrentViewType();
+            //           });
+            //         });
+            //       }
+            //     },
+            //   ),
+            // )
+            // else
+            const Center(
+                child:
+                    Text('Camera and Location permission is required for AR.')),
+
             // Semi-transparent layer over Unity to enable interaction with Flutter widgets
             // This is a critical part of the solution
             Positioned.fill(
@@ -457,39 +459,52 @@ class UnityARViewState extends ConsumerState<UnityARView> with WidgetsBindingObs
                 ),
               ),
             ),
-            
+
             // Loading indicator
-            if (_isLoading)
-              Center(child: CircularProgressIndicator()),
-            
+            if (_isLoading) const Center(child: CircularProgressIndicator()),
+
             // Status panel - now should be visible above Unity
             Positioned(
               top: 20,
               left: 20,
               child: Container(
-                padding: EdgeInsets.all(8),
+                padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.7), // More opaque to ensure visibility
+                  color: Colors.black
+                      .withOpacity(0.7), // More opaque to ensure visibility
                   borderRadius: BorderRadius.circular(8),
                   boxShadow: [
                     BoxShadow(
                       color: Colors.black.withOpacity(0.3),
                       blurRadius: 5,
-                      offset: Offset(0, 2),
+                      offset: const Offset(0, 2),
                     ),
                   ],
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Frame Loaded: ${_isFrameLoaded ? "Yes" : "No"}', 
-                         style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
-                    Text('GPS Calibrated: ${_calibrationCompleted ? "Yes" : "No"}', 
-                         style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
-                    Text('GPS Accuracy: ${_gpsAccuracy.toStringAsFixed(1)}%', 
-                         style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
-                    Text('View type: $_currentViewType', 
-                         style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
+                    Text('Frame Loaded: ${_isFrameLoaded ? "Yes" : "No"}',
+                        style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold)),
+                    Text(
+                        'GPS Calibrated: ${_calibrationCompleted ? "Yes" : "No"}',
+                        style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold)),
+                    Text('GPS Accuracy: ${_gpsAccuracy.toStringAsFixed(1)}%',
+                        style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold)),
+                    Text('View type: $_currentViewType',
+                        style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold)),
                   ],
                 ),
               ),
@@ -501,19 +516,22 @@ class UnityARViewState extends ConsumerState<UnityARView> with WidgetsBindingObs
               left: 20,
               right: 20,
               child: Container(
-                padding: EdgeInsets.symmetric(horizontal: 16),
+                padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: ElevatedButton(
                   onPressed: () {
                     _loadNearbyPiecesEnhanced();
                   },
                   style: ElevatedButton.styleFrom(
-                    padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 24, vertical: 12),
                     backgroundColor: Colors.blue,
                     foregroundColor: Colors.white,
                     elevation: 8, // Higher elevation to stand out
                     shadowColor: Colors.black.withOpacity(0.5),
                   ),
-                  child: Text('Load Pieces', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  child: const Text('Load Pieces',
+                      style:
+                          TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                 ),
               ),
             ),
@@ -526,66 +544,66 @@ class UnityARViewState extends ConsumerState<UnityARView> with WidgetsBindingObs
   void _loadNearbyPiecesEnhanced() async {
     try {
       final location = await LocationService.getCurrentLocation();
-      if (location != null) {
-        setState(() {
-          _isLoading = true;
-        });
-        
-        print('Location Retrieved: ${location.latitude}, ${location.longitude}');
-        print('Fetching Nearby Anchors');
-        final anchorRepository = ref.read(anchorRepositoryProvider);
+      setState(() {
+        _isLoading = true;
+      });
 
-        final anchorResponse = await anchorRepository.fetchNearbyAnchors(100.0);
-        
-        if (anchorResponse.error != null || anchorResponse.data == null) {
-          throw Exception(anchorResponse.error ?? "Failed to fetch anchors");
-        }
-        
-        // Convert anchors to the exact format expected by EnhancedPieceLoader
-        final piecesData = {
-          'pieces': anchorResponse.data!.map((anchor) => {
-            'pieceid': anchor.pieceId,           // Change pieceId to pieceid
-            'anchorId': anchor.anchorId,
-            'frameName': anchor.frameName,
-            'faceName': anchor.faceName,
-            'imageUrl': anchor.imageUrl,
-            'latitude': anchor.location.coordinates[1],
-            'longitude': anchor.location.coordinates[0],
-            'arPosition': anchor.arPosition.toJson(),
-            'arRotation': anchor.arRotation.toJson(), 
-            'localScale': anchor.localScale.toJson(),
-            'heightAboveCamera': anchor.heightAboveCamera,
-            'cloudAnchorId': anchor.cloudAnchorId ?? '',
-          }).toList(),
-        };
-        
-        final jsonData = jsonEncode(piecesData);
-        print('[LOGS] Cloud Sending formatted data to EnhancedPieceLoader');
-        
-        // Send properly formatted data to EnhancedPieceLoader using SceneManager
-        final sceneManager = ref.read(unitySceneManagerProvider);
-        if (sceneManager.isUnityInitialized) {
-          final controller = sceneManager.getController();
-          if (controller != null) {
-            controller.postMessage(
-              'EnhancedPieceLoader',
-              'LoadNearbyPieces',
-              jsonData,
-            );
-          }
-        }
-        
-        setState(() {
-          _isLoading = false;
-        });
+      print('Location Retrieved: ${location.latitude}, ${location.longitude}');
+      print('Fetching Nearby Anchors');
+      final anchorRepository = ref.read(anchorRepositoryProvider);
+
+      final anchorResponse = await anchorRepository.fetchNearbyAnchors(100.0);
+
+      if (anchorResponse.error != null || anchorResponse.data == null) {
+        throw Exception(anchorResponse.error ?? "Failed to fetch anchors");
       }
+
+      // Convert anchors to the exact format expected by EnhancedPieceLoader
+      final piecesData = {
+        'pieces': anchorResponse.data!
+            .map((anchor) => {
+                  'pieceid': anchor.pieceId, // Change pieceId to pieceid
+                  'anchorId': anchor.anchorId,
+                  'frameName': anchor.frameName,
+                  'faceName': anchor.faceName,
+                  'imageUrl': anchor.imageUrl,
+                  'latitude': anchor.location.coordinates[1],
+                  'longitude': anchor.location.coordinates[0],
+                  'arPosition': anchor.arPosition.toJson(),
+                  'arRotation': anchor.arRotation.toJson(),
+                  'localScale': anchor.localScale.toJson(),
+                  'heightAboveCamera': anchor.heightAboveCamera,
+                  'cloudAnchorId': anchor.cloudAnchorId ?? '',
+                })
+            .toList(),
+      };
+
+      final jsonData = jsonEncode(piecesData);
+      print('[LOGS] Cloud Sending formatted data to EnhancedPieceLoader');
+
+      // Send properly formatted data to EnhancedPieceLoader using SceneManager
+      final sceneManager = ref.read(unitySceneManagerProvider);
+      if (sceneManager.isUnityInitialized) {
+        final controller = sceneManager.getController();
+        if (controller != null) {
+          controller.postMessage(
+            'EnhancedPieceLoader',
+            'LoadNearbyPieces',
+            jsonData,
+          );
+        }
+      }
+
+      setState(() {
+        _isLoading = false;
+      });
     } catch (e, stackTrace) {
       setState(() {
         _isLoading = false;
       });
       print('Error loading nearby pieces: $e');
       print('Stack trace: $stackTrace');
-      
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Failed to load pieces: ${e.toString()}')),
       );
@@ -594,16 +612,16 @@ class UnityARViewState extends ConsumerState<UnityARView> with WidgetsBindingObs
 
   void _showPieceInfo() {
     if (_selectedPieceData == null) return;
-    
+
     // Store the data locally so it can't be changed during the modal display
     final pieceData = _selectedPieceData!;
-    
+
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
-      isDismissible: true,  // Ensure it's dismissible
-      enableDrag: true,     // Allow dragging to dismiss
+      isDismissible: true, // Ensure it's dismissible
+      enableDrag: true, // Allow dragging to dismiss
       builder: (context) => PieceInteractionWidget(
         pieceData: pieceData,
         onClose: () {
@@ -647,37 +665,43 @@ class UnityARViewState extends ConsumerState<UnityARView> with WidgetsBindingObs
       if (_selectedPieceData == null) return;
       final pieceJson = jsonDecode(_selectedPieceData!);
       final pieceId = pieceJson['pieceid'];
-      
+
       if (pieceId != null) {
         setState(() {
           _isLoading = true;
         });
-        
+
         // Run these two requests in parallel for efficiency
-        final piecesFuture = ref.read(pieceProvider.notifier).getPieceDetails(pieceId);
-        final anchorFuture = ref.read(anchorRepositoryProvider).getAnchorByPieceId(pieceId);
-        
+        final piecesFuture =
+            ref.read(pieceProvider.notifier).getPieceDetails(pieceId);
+        final anchorFuture =
+            ref.read(anchorRepositoryProvider).getAnchorByPieceId(pieceId);
+
         // Wait for both to complete
         final results = await Future.wait([piecesFuture, anchorFuture]);
         final pieceDetails = results[0];
-        final anchorResponse = results[1] as ({String? error, AnchorModel? data});
-        
+        final anchorResponse =
+            results[1] as ({String? error, AnchorModel? data});
+
         setState(() {
           _isLoading = false;
         });
-        
+
         if (pieceDetails != null && mounted) {
           print('TEST: Passing piece details to sheet: $pieceDetails');
-          
+
           // Create the expected structure for the details sheet
           final formattedDetails = {
-            'piece': pieceDetails,  // Wrap the piece details in a 'piece' object
-            'anchor': anchorResponse.data != null ? {
-              'expireTime': anchorResponse.data!.expireTime?.toIso8601String(),
-              'cloudAnchorId': anchorResponse.data!.cloudAnchorId
-            } : null
+            'piece': pieceDetails, // Wrap the piece details in a 'piece' object
+            'anchor': anchorResponse.data != null
+                ? {
+                    'expireTime':
+                        anchorResponse.data!.expireTime?.toIso8601String(),
+                    'cloudAnchorId': anchorResponse.data!.cloudAnchorId
+                  }
+                : null
           };
-          
+
           // Show enhanced bottom sheet with the complete piece details
           showModalBottomSheet(
             context: context,
@@ -685,7 +709,7 @@ class UnityARViewState extends ConsumerState<UnityARView> with WidgetsBindingObs
             isScrollControlled: true,
             builder: (context) => EnhancedPieceDetailsSheet(
               arPieceData: pieceJson,
-              databaseDetails: formattedDetails,  // Pass the formatted data
+              databaseDetails: formattedDetails, // Pass the formatted data
             ),
           );
         } else {
@@ -715,12 +739,12 @@ class UnityARViewState extends ConsumerState<UnityARView> with WidgetsBindingObs
     if (!_recentlyImpressedPieces.contains(pieceId)) {
       // Record the impression
       ref.read(pieceRepositoryProvider).incrementImpressions(pieceId);
-      
+
       // Add to recently impressed set
       _recentlyImpressedPieces.add(pieceId);
-      
+
       // Set a timer to remove from the set after 5 minutes
-      _impressionTimers[pieceId] = Timer(Duration(minutes: 5), () {
+      _impressionTimers[pieceId] = Timer(const Duration(minutes: 5), () {
         _recentlyImpressedPieces.remove(pieceId);
         _impressionTimers.remove(pieceId);
       });

@@ -183,6 +183,7 @@ const testPushNotification = async (token, testParams = {}) => {
  * @param {string} options.userId - Username of recipient
  * @param {string} options.notificationType - Type of notification (offer_received, offer_accepted, etc.)
  * @param {Object} options.data - Data relevant to the notification
+ * @param {boolean} options.sendEmail - send Email if push failes
  * @param {string} options.priority - Priority of the notification (high, normal)
  */
 const sendNotification = async (options) => {
@@ -219,7 +220,7 @@ const sendNotification = async (options) => {
       });
     }
     
-    if (!pushResult.success && userBasic && userBasic.email) {
+    if (!pushResult.success && userBasic && userBasic.email && options.sendEmail) {
       const emailResult = await sendTransactionEmail({
         email: userBasic.email,
         subject: content.title,

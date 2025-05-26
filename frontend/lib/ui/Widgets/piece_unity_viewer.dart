@@ -2,7 +2,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:frames_app/core/services/unity_scene_service.dart';
-import 'package:frames_app/ui/Widgets/unified_unity_view.dart';
 
 class PieceUnityViewer extends ConsumerStatefulWidget {
   final String pieceData;
@@ -12,13 +11,13 @@ class PieceUnityViewer extends ConsumerStatefulWidget {
   final bool isLoading;
 
   const PieceUnityViewer({
-    Key? key,
+    super.key,
     required this.pieceData,
     required this.isFullScreen,
     required this.onUnityMessage,
     required this.onErrorMessage,
     this.isLoading = true,
-  }) : super(key: key);
+  });
 
   @override
   ConsumerState<PieceUnityViewer> createState() => _PieceUnityViewerState();
@@ -30,9 +29,6 @@ class _PieceUnityViewerState extends ConsumerState<PieceUnityViewer> {
   bool _isWaitingForCorrectScene = false;
   bool _isLoading = true;
   String _errorMessage = '';
-
-  
-
 
   void _handleLocalUnityMessage(String message) {
     widget.onUnityMessage(message);
@@ -64,11 +60,12 @@ class _PieceUnityViewerState extends ConsumerState<PieceUnityViewer> {
               _isLoading = false;
             });
             print('Current scene loaded: $activeScene');
-            
+
             // Send piece data after scene is loaded
             _sendPieceDataToUnity();
           } else {
-            print('Wrong scene loaded: $activeScene - switching to frames_test');
+            print(
+                'Wrong scene loaded: $activeScene - switching to frames_test');
             _switchToFramesTestScene();
           }
         } else if (message == 'SCENE_SWITCHED') {
@@ -78,14 +75,15 @@ class _PieceUnityViewerState extends ConsumerState<PieceUnityViewer> {
             _isLoading = false;
           });
           print('Scene switched to frames_test');
-          
+
           // Send piece data after scene is switched
           _sendPieceDataToUnity();
         }
         break;
     }
   }
-void setErrorMessage(String message) {
+
+  void setErrorMessage(String message) {
     setState(() {
       _errorMessage = message;
       _isLoading = false;
@@ -95,7 +93,7 @@ void setErrorMessage(String message) {
 
   void _switchToFramesTestScene() {
     final sceneManager = ref.read(unitySceneManagerProvider);
-    
+
     if (sceneManager.isUnityInitialized) {
       sceneManager.loadScene(UnitySceneType.previewScene);
       print('_switchToFramesTestScene called using SceneManager');
@@ -133,23 +131,23 @@ void setErrorMessage(String message) {
       child: Stack(
         children: [
           // Always show the UnifiedUnityView
-          Positioned.fill(
-            child: UnifiedUnityView(
-              initialScene: UnitySceneType.previewScene,
-              onUnityMessage: _handleLocalUnityMessage,
-              onUnitySceneLoaded: (sceneInfo) {
-                if (sceneInfo?.name == UnitySceneType.previewScene.sceneName) {
-                  setState(() {
-                    _isSceneReady = true;
-                  });
-                  _sendPieceDataToUnity();
-                }
-              },
-            ),
-          ),
-          
+          // Positioned.fill(
+          //   child: UnifiedUnityView(
+          //     initialScene: UnitySceneType.previewScene,
+          //     onUnityMessage: _handleLocalUnityMessage,
+          //     onUnitySceneLoaded: (sceneInfo) {
+          //       if (sceneInfo?.name == UnitySceneType.previewScene.sceneName) {
+          //         setState(() {
+          //           _isSceneReady = true;
+          //         });
+          //         _sendPieceDataToUnity();
+          //       }
+          //     },
+          //   ),
+          // ),
+
           // Loading overlay
-          if ( !isTextureCompleted) //widget.isLoading || !_isSceneReady ||
+          if (!isTextureCompleted) //widget.isLoading || !_isSceneReady ||
             Container(
               color: Colors.white,
               child: const Center(

@@ -432,6 +432,21 @@ exports.subscribeToUser = async (req, res) => {
             }
         );
 
+         // Also create a feed entry for the subscribing user themselves
+        await createFeedEntry(
+            subscriber, 
+            subscriber, 
+            'subscribed',
+            targetUsername,
+            null,
+            { 
+                subscriberUsername: subscriber,
+                subscriberName: `${req.user.firstName || ''} ${req.user.lastName || ''}`.trim(),
+                targetUsername: targetUsername,
+                targetName: `${targetUser.firstName || ''} ${targetUser.lastName || ''}`.trim()
+            }
+        );
+
         res.status(200).json({
             success: true,
             message: `Successfully subscribed to ${targetUsername}`,

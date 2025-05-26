@@ -91,7 +91,7 @@ feedEntrySchema.statics.createForSubscribers = async function(actionUser, action
     // Create a feed entry for each subscriber
     const feedEntries = userProfile.mySubscribers.map(subscriber => ({
       for_username: subscriber,
-      from_username: actionUser,
+    from_username: actionUser,
       action_type: actionType,
       reference_id: referenceId || null,
       piece_title: pieceTitle || null,

@@ -208,6 +208,7 @@ exports.createFeedEntry = async (forUsername, fromUsername, actionType, referenc
         if (forUsername !== fromUsername) {
             sendNotification({
                 userId: forUsername,
+                sendEmail:false,
                 notificationType: notificationType,
                 data: {
                     fromUsername: fromUsername,
@@ -258,6 +259,7 @@ exports.createFeedEntryForSubscribers = async (fromUsername, actionType, referen
                 sendNotification({
                     userId: subscriber,
                     notificationType: notificationType,
+                                    sendEmail:false,
                     data: {
                         fromUsername: fromUsername,
                         pieceId: referenceId,
