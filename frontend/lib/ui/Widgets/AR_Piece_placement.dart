@@ -7,6 +7,7 @@ import 'package:frames_app/Functions/piece_anchoring.dart';
 import 'package:frames_app/Functions/toggle_live_status.dart';
 import 'package:frames_app/ui/Widgets/placementErrorWidget.dart';
 import 'package:frames_app/ui/Widgets/unified_unity_view.dart';
+import 'package:frames_app/utils/permissions_utils.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:frames_app/Providers/error_provider.dart';
 import 'package:frames_app/core/repositories/anchor_repository.dart';
@@ -17,13 +18,13 @@ import 'package:flutter_unity_widget/flutter_unity_widget.dart';
 class UnityARViewPlacement extends ConsumerStatefulWidget {
   final String pieceData;
   final String username;
-  
+
   const UnityARViewPlacement({
-    Key? key, 
-    required this.pieceData, 
-    required this.username
+    Key? key,
+    required this.pieceData,
+    required this.username,
   }) : super(key: key);
-  
+
   @override
   UnityARViewPlacementState createState() => UnityARViewPlacementState();
 }
@@ -32,68 +33,159 @@ class UnityARViewPlacementState extends ConsumerState<UnityARViewPlacement> {
   // State variables
   bool _isARSceneLoaded = false;
   bool _isLoading = true;
-  bool _hasCameraPermission = false;
+  bool _isUnityInitialized = false;
+  bool _isSceneReady = false;
   String _arSessionState = "Unknown";
   bool _surfaceDetected = false;
   bool _isFrameLoaded = false;
+  String _currentScene = 'not set';
   String _currentViewType = 'not set';
+  bool _hasPermissions = true;
+  String _errorMessage = '';
 
   // State variables for posting process
   bool _isPosting = false;
   bool _anchorDataReceived = false;
   bool _anchorSuccessfullySaved = false;
   String? _anchorError;
-  
+
   // Cloud anchor status
   String _cloudAnchorStatus = "";
   int _cloudAnchorWaitTime = 0;
   String? _cloudAnchorId;
-  String _cloudAnchorSubStatus = ""; 
+  String _cloudAnchorSubStatus = "";
   int _cloudAnchorSubProgress = 0;
   int _cloudAnchorSubTotal = 0;
 
   @override
   void initState() {
     super.initState();
-    _requestCameraPermission();
-  }
+    //_checkPermissionsAndProceed();
 
-  Future<void> _requestCameraPermission() async {
-    final status = await Permission.camera.request();
-    setState(() {
-      _hasCameraPermission = status.isGranted;
+    // Load the Unity AR scene when widget is built - similar to FramePreviewScreen
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadARScene();
     });
   }
-    
-  // Method for unified cleanup and navigation
- Future<void> _cleanupAndNavigate() async {
-  final sceneManager = ref.read(unitySceneManagerProvider);
-  
-  try {
-    if (sceneManager.isUnityInitialized) {
-      await sceneManager.safeDisposeController();
-    }
-    
-    if (mounted) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (context) => const UserProfileScreen(),
-        ),
-      );
-    }
-  } catch (e) {
-    print('Error during navigation: $e');
-    if (mounted) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (context) => const UserProfileScreen(),
-        ),
-      );
+
+  // Unity Scene Management with SceneManager - similar to FramePreviewScreen
+  void _loadARScene() async {
+    setState(() {
+      _isLoading = true;
+      _isUnityInitialized = false;
+    });
+
+    try {
+      final sceneManager = ref.read(unitySceneManagerProvider);
+
+      if (sceneManager.isUnityInitialized) {
+        // Check if already in AR scene
+        if (sceneManager.currentScene != UnitySceneType.arScene) {
+          print('[LOGS] Loading AR scene from SceneManager');
+
+          // Load the AR scene
+          final success = await sceneManager.loadScene(UnitySceneType.arScene);
+
+          if (success) {
+            setState(() {
+              _isUnityInitialized = true;
+              _isSceneReady = true;
+              _isLoading = false;
+            });
+
+            // Set AR view type to placement after scene loads
+            Future.delayed(const Duration(milliseconds: 500), () {
+              _setPlacementViewType();
+            });
+          } else {
+            setErrorMessage('Failed to load AR scene');
+          }
+        } else {
+          // Already in AR scene, just set view type
+          setState(() {
+            _isUnityInitialized = true;
+            _isSceneReady = true;
+            _isLoading = false;
+          });
+
+          _setPlacementViewType();
+        }
+      } else {
+        print('[LOGS] Unity not initialized yet, will wait for UnityWidget creation');
+      }
+    } catch (e) {
+      setErrorMessage('Error loading AR scene: $e');
     }
   }
-}
+
+  void _setPlacementViewType() {
+    final sceneManager = ref.read(unitySceneManagerProvider);
+
+    if (sceneManager.isUnityInitialized) {
+      sceneManager.setARViewType('placement');
+
+      // Request current view type to update state
+      Future.delayed(const Duration(milliseconds: 200), () {
+        sceneManager.requestCurrentViewType();
+      });
+    }
+  }
+
+  void setErrorMessage(String message) {
+    setState(() {
+      _errorMessage = message;
+      _isLoading = false;
+    });
+    print('Error: $message');
+  }
+
+  Future<void> _checkPermissionsAndProceed() async {
+    // Quick check - no dialog needed if already granted
+    if (await PermissionsUtils.hasRequiredPermissions()) {
+      // Permissions are good
+    } else {
+      // This should rarely happen if HomeScreen worked properly
+      _handleMissingPermissions();
+    }
+  }
+
+  void _handleMissingPermissions() {
+    // Show error or redirect back to home
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Permissions required. Please restart the app.')),
+    );
+    Navigator.pop(context);
+  }
+
+  // Method for unified cleanup and navigation
+  Future<void> _cleanupAndNavigate() async {
+    final sceneManager = ref.read(unitySceneManagerProvider);
+
+    try {
+      if (sceneManager.isUnityInitialized) {
+        await sceneManager.safeDisposeController();
+      }
+
+      if (mounted) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const UserProfileScreen(),
+          ),
+        );
+      }
+    } catch (e) {
+      print('Error during navigation: $e');
+      if (mounted) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const UserProfileScreen(),
+          ),
+        );
+      }
+    }
+  }
 
   @override
   void dispose() {
@@ -102,7 +194,7 @@ class UnityARViewPlacementState extends ConsumerState<UnityARViewPlacement> {
 
   Future<void> _handleUnityMessage(String message) async {
     print('Unity message: $message');
-    
+
     if (message == 'AR_COMPONENTS_INITIALIZED') {
       setState(() {
         _isARSceneLoaded = true;
@@ -128,12 +220,41 @@ class UnityARViewPlacementState extends ConsumerState<UnityARViewPlacement> {
       setState(() {
         _currentViewType = viewType;
       });
-    } 
+    }
+    // Handle scene messages - similar to FramePreviewScreen
+    else if (message.startsWith('ACTIVE_SCENE:')) {
+      String activeScene = message.split(':')[1];
+      setState(() {
+        _currentScene = activeScene;
+      });
+      if (activeScene == 'frames_ar') {
+        setState(() {
+          _isARSceneLoaded = true;
+          _isLoading = false;
+        });
+        print('Current AR scene loaded: $activeScene');
+
+        // Set placement view type after scene is confirmed loaded
+        _setPlacementViewType();
+      } else {
+        print('Wrong scene loaded: $activeScene - switching to frames_ar');
+        _switchToARScene();
+      }
+    } else if (message == 'SCENE_SWITCHED') {
+      setState(() {
+        _isARSceneLoaded = true;
+        _isLoading = false;
+      });
+      print('Scene switched to frames_ar');
+
+      // Set placement view type after scene switch
+      _setPlacementViewType();
+    }
     // Handle cloud anchor warnings
     else if (message.startsWith('CLOUD_ANCHOR_WARNING:')) {
       final warningMessage = message.split(':')[1];
       print('Cloud anchor warning: $warningMessage');
-      
+
       setState(() {
         _cloudAnchorStatus = "WARNING";
       });
@@ -145,7 +266,7 @@ class UnityARViewPlacementState extends ConsumerState<UnityARViewPlacement> {
         try {
           final current = double.parse(parts[1]);
           final total = double.parse(parts[2]);
-          
+
           setState(() {
             _cloudAnchorSubStatus = "SCANNING";
             _cloudAnchorSubProgress = current.round();
@@ -163,7 +284,7 @@ class UnityARViewPlacementState extends ConsumerState<UnityARViewPlacement> {
         try {
           final current = int.parse(parts[2]);
           final total = int.parse(parts[3]);
-          
+
           setState(() {
             _cloudAnchorSubStatus = "STABILIZING";
             _cloudAnchorSubProgress = current;
@@ -178,43 +299,43 @@ class UnityARViewPlacementState extends ConsumerState<UnityARViewPlacement> {
     else if (message.startsWith('CLOUD_ANCHOR_STATUS:')) {
       final parts = message.split(':');
       final status = parts[1];
-      
+
       setState(() {
         _cloudAnchorStatus = status;
-        
+
         // Reset substatus when main status changes
         if (status != "SCANNING" && status != "STABILIZING") {
           _cloudAnchorSubStatus = "";
         }
-        
+
         if (status == "WAITING" && parts.length > 2) {
           _cloudAnchorWaitTime = int.tryParse(parts[2]) ?? 0;
         } else if (status == "SUCCESS" && parts.length > 2) {
           _cloudAnchorId = parts[2];
         }
       });
-    } 
+    }
     // Handle cloud anchor errors
     else if (message.startsWith('CLOUD_ANCHOR_ERROR:')) {
       final errorMessage = message.split(':')[1];
       print('Cloud anchor error: $errorMessage');
-      
+
       setState(() {
         _cloudAnchorStatus = "ERROR:$errorMessage";
         _cloudAnchorSubStatus = "";
       });
-    } 
+    }
     // Handle frame post data
     else if (message.startsWith('FRAME_POST_DATA:')) {
       try {
         // Extract the JSON data from the message
         final jsonData = message.toString().substring('FRAME_POST_DATA:'.length);
         print('Received anchor data from Unity: $jsonData');
-        
+
         setState(() {
           _anchorDataReceived = true;
         });
-        
+
         final unityJson = jsonDecode(jsonData);
         final latitude = unityJson['latitude'] as double;
         print('[LOGS]Latitude: $latitude');
@@ -224,7 +345,7 @@ class UnityARViewPlacementState extends ConsumerState<UnityARViewPlacement> {
         // Validate anchor placement
         final anchorRepository = ref.read(anchorRepositoryProvider);
         final validationResponse = await anchorRepository.validateAnchorPlacement(
-          latitude, longitude, 10.0);
+            latitude, longitude, 10.0);
 
         if (!validationResponse.isSuccess) {
           setState(() {
@@ -247,12 +368,12 @@ class UnityARViewPlacementState extends ConsumerState<UnityARViewPlacement> {
           }
           return;
         }
-        
+
         // Try to use provider repository if available, otherwise fall back to direct functions
         try {
           final anchorRepository = ref.read(anchorRepositoryProvider);
           final response = await anchorRepository.saveAnchor(
-            jsonData, widget.pieceData, widget.username);
+              jsonData, widget.pieceData, widget.username);
 
           if (!response.isSuccess) {
             setState(() {
@@ -262,7 +383,7 @@ class UnityARViewPlacementState extends ConsumerState<UnityARViewPlacement> {
             ref.read(errorProvider.notifier).setError(response.message);
             return;
           }
-          
+
           setState(() {
             _anchorSuccessfullySaved = true;
           });
@@ -273,20 +394,20 @@ class UnityARViewPlacementState extends ConsumerState<UnityARViewPlacement> {
           print('New anchor created: $newAnchor');
           await sendAnchorToServer(newAnchor);
           print('Anchor successfully sent to server');
-          
+
           setState(() {
             _anchorSuccessfullySaved = true;
           });
         }
-        
+
         // Update piece status - try to use repository first
         var decodedData = jsonDecode(widget.pieceData);
         String pieceId = decodedData['PieceID'];
-        
+
         try {
           final pieceRepository = ref.read(pieceRepositoryProvider);
           final response = await pieceRepository.togglePieceLiveStatus(pieceId, true);
-          
+
           if (!response.isSuccess) {
             setState(() {
               _anchorError = response.message;
@@ -300,38 +421,38 @@ class UnityARViewPlacementState extends ConsumerState<UnityARViewPlacement> {
           print('Using fallback piece status update method: $e');
           await togglePieceLiveStatus(pieceId, true);
         }
-        
+
         print('Piece live status updated to TRUE');
-        
+
         // Hide the loading overlay
         setState(() {
           _isPosting = false;
         });
-        
+
         // Clean up Unity before navigating
         final sceneManager = ref.read(unitySceneManagerProvider);
         if (sceneManager.isUnityInitialized) {
           final controller = sceneManager.getController();
           if (controller != null) {
             await controller.postMessage(
-              'GameManager',
-              'ResetUnityScene',
-              'reset'
+                'GameManager',
+                'ResetUnityScene',
+                'reset'
             );
           }
           await Future.delayed(const Duration(milliseconds: 500));
         }
-        
+
         // Navigate with success message that includes cloud anchor status
         if (mounted) {
           String successMessage = 'Piece successfully posted!';
-          
+
           if (_cloudAnchorStatus == "SUCCESS") {
             successMessage = 'Piece successfully posted with cloud anchor!';
           } else if (_cloudAnchorStatus == "TIMEOUT" || _cloudAnchorStatus.startsWith("ERROR")) {
             successMessage = 'Piece posted with GPS location only';
           }
-          
+
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(
@@ -343,13 +464,13 @@ class UnityARViewPlacementState extends ConsumerState<UnityARViewPlacement> {
         }
       } catch (e) {
         print('Error processing anchor data: $e');
-        
+
         // Hide the loading overlay on error too
         setState(() {
           _isPosting = false;
           _anchorError = e.toString();
         });
-        
+
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -366,20 +487,30 @@ class UnityARViewPlacementState extends ConsumerState<UnityARViewPlacement> {
 
   void _handleSceneLoaded(SceneLoaded? scene) {
     print('Unity Scene loaded: ${scene?.name}');
-    
+    setState(() {
+      _currentScene = scene?.name ?? 'not set';
+    });
+    print('Current scene set to: $_currentScene');
+
     if (scene != null && scene.name == UnitySceneType.arScene.sceneName) {
-      // Set view type to placement 
-      final manager = ref.read(unitySceneManagerProvider);
-      
-      // Small delay to ensure Unity has time to initialize the AR components
-      Future.delayed(const Duration(milliseconds: 500), () {
-        manager.setARViewType('placement');
-        
-        // Request current view type to update state
-        Future.delayed(const Duration(milliseconds: 500), () {
-          manager.requestCurrentViewType();
-        });
+      setState(() {
+        _isARSceneLoaded = true;
+        _isLoading = false;
       });
+
+      // Set view type to placement
+      Future.delayed(const Duration(milliseconds: 500), () {
+        _setPlacementViewType();
+      });
+    }
+  }
+
+  void _switchToARScene() {
+    final sceneManager = ref.read(unitySceneManagerProvider);
+
+    if (sceneManager.isUnityInitialized) {
+      sceneManager.loadScene(UnitySceneType.arScene);
+      print('_switchToARScene called using SceneManager');
     }
   }
 
@@ -405,7 +536,7 @@ class UnityARViewPlacementState extends ConsumerState<UnityARViewPlacement> {
       return "Anchoring your piece in space";
     }
   }
-  
+
   // Updated helper method to build cloud anchor status widget
   Widget _buildCloudAnchorStatusWidget() {
     if (_cloudAnchorSubStatus == "SCANNING") {
@@ -418,8 +549,8 @@ class UnityARViewPlacementState extends ConsumerState<UnityARViewPlacement> {
           ),
           const SizedBox(height: 8),
           LinearProgressIndicator(
-            value: _cloudAnchorSubProgress > 0 && _cloudAnchorSubTotal > 0 
-                ? _cloudAnchorSubProgress / _cloudAnchorSubTotal 
+            value: _cloudAnchorSubProgress > 0 && _cloudAnchorSubTotal > 0
+                ? _cloudAnchorSubProgress / _cloudAnchorSubTotal
                 : null, // Indeterminate if no progress values
           ),
         ],
@@ -434,8 +565,8 @@ class UnityARViewPlacementState extends ConsumerState<UnityARViewPlacement> {
           ),
           const SizedBox(height: 8),
           LinearProgressIndicator(
-            value: _cloudAnchorSubProgress > 0 && _cloudAnchorSubTotal > 0 
-                ? _cloudAnchorSubProgress / _cloudAnchorSubTotal 
+            value: _cloudAnchorSubProgress > 0 && _cloudAnchorSubTotal > 0
+                ? _cloudAnchorSubProgress / _cloudAnchorSubTotal
                 : null,
           ),
         ],
@@ -485,92 +616,119 @@ class UnityARViewPlacementState extends ConsumerState<UnityARViewPlacement> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: SafeArea(
-        child: Stack(
-          children: [
-            Container(
-              decoration: BoxDecoration(
-                border: Border.all(color: Colors.black),
-              ),
-              child: Column(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    child: Row(
-                      children: [
-                        IconButton(
-                          icon: const Icon(Icons.arrow_back),
-                          onPressed: () async {
-                            await _cleanupAndNavigate();
-                          },
-                        ),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text('Frame Loaded: ${_isFrameLoaded ? "Yes" : "No"}'),
-                              Text('Current view: $_currentViewType'),
-                            ],
+    return PopScope(
+      canPop: false,
+      onPopInvoked: (didPop) async {
+        if (didPop) return;
+        await _cleanupAndNavigate();
+      },
+      child: Scaffold(
+        body: SafeArea(
+          child: Stack(
+            children: [
+              Container(
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.black),
+                ),
+                child: Column(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      child: Row(
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.arrow_back),
+                            onPressed: () async {
+                              await _cleanupAndNavigate();
+                            },
                           ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  
-                  Expanded(
-                    child: Container(
-                      margin: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        border: Border.all(color: Colors.black),
-                        borderRadius: BorderRadius.circular(8),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('Frame Loaded: ${_isFrameLoaded ? "Yes" : "No"}'),
+                                Text('Current view: $_currentViewType'),
+                                Text('Scene: $_currentScene'),
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: Stack(
-                          children: [
-                            if (_hasCameraPermission)
+                    ),
+
+                    // Error message display
+                    if (_errorMessage.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.all(8.0),
+                        child: Text(
+                          _errorMessage,
+                          style: const TextStyle(color: Colors.red),
+                        ),
+                      ),
+
+                    Expanded(
+                      child: Container(
+                        margin: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Colors.black),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: Stack(
+                            children: [
                               Positioned.fill(
                                 child: UnifiedUnityView(
                                   initialScene: UnitySceneType.arScene,
                                   onUnityMessage: _handleUnityMessage,
                                   onUnitySceneLoaded: _handleSceneLoaded,
                                 ),
-                              )
-                            else
-                              const Center(child: Text('Camera permission is required for AR.')),
-                            if (_isLoading)
-                              const Center(child: CircularProgressIndicator())
-                            else if (!_isARSceneLoaded)
-                              const Center(child: Text('AR Scene not loaded. Please wait or retry.')),
-                          ],
+                              ),
+
+                              // Loading overlay
+                              if (_isLoading || !_isSceneReady)
+                                Container(
+                                  color: Colors.white,
+                                  child: const Center(
+                                    child: CircularProgressIndicator(),
+                                  ),
+                                ),
+
+                              if (_currentScene != 'frames_ar' && !_isLoading)
+                                const Center(
+                                  child: Text('Loading AR Scene...'),
+                                )
+                              else if (!_isARSceneLoaded && !_isLoading)
+                                const Center(
+                                  child: Text('AR Scene not loaded. Please wait or retry.'),
+                                ),
+                            ],
+                          ),
                         ),
                       ),
                     ),
-                  ),
 
-                  if (_isARSceneLoaded)
                     Padding(
                       padding: const EdgeInsets.all(16),
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           ElevatedButton(
-                            onPressed: _isFrameLoaded 
-                              ? null
-                              : () {
-                                  final sceneManager = ref.read(unitySceneManagerProvider);
-                                  if (sceneManager.isUnityInitialized) {
-                                    final controller = sceneManager.getController();
-                                    if (controller != null) {
-                                      controller.postMessage(
-                                        'ARManager',
-                                        'LoadFrameInAR',
-                                        widget.pieceData
-                                      );
+                            onPressed: _isFrameLoaded
+                                ? null
+                                : () {
+                                    final sceneManager = ref.read(unitySceneManagerProvider);
+                                    if (sceneManager.isUnityInitialized) {
+                                      final controller = sceneManager.getController();
+                                      if (controller != null) {
+                                        controller.postMessage(
+                                          'ARManager',
+                                          'LoadFrameInAR',
+                                          widget.pieceData,
+                                        );
+                                      }
                                     }
-                                  }
-                                },
+                                  },
                             style: ElevatedButton.styleFrom(
                               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                               backgroundColor: Colors.blue,
@@ -592,79 +750,79 @@ class UnityARViewPlacementState extends ConsumerState<UnityARViewPlacement> {
                                   ),
                                   const SizedBox(height: 8),
                                   ElevatedButton(
-                                    onPressed: (_isFrameLoaded && !_isPosting) 
-                                      ? () {
-                                          showDialog(
-                                            context: context,
-                                            builder: (BuildContext context) {
-                                              return AlertDialog(
-                                                title: const Text('Confirmation'),
-                                                content: const Text('Are you sure you want to post this piece in this location?'),
-                                                actions: [
-                                                  TextButton(
-                                                    onPressed: () {
-                                                      Navigator.of(context).pop();
-                                                    },
-                                                    child: const Text('No'),
-                                                  ),
-                                                  TextButton(
-                                                    onPressed: () async {
-                                                      // Close the confirmation dialog
-                                                      Navigator.of(context).pop();
-                                                      
-                                                      // Start the posting process with state
-                                                      setState(() {
-                                                        _isPosting = true;
-                                                        _anchorDataReceived = false;
-                                                        _anchorSuccessfullySaved = false;
-                                                        _anchorError = null;
-                                                        _cloudAnchorStatus = "";
-                                                        _cloudAnchorWaitTime = 0;
-                                                        _cloudAnchorId = null;
-                                                        _cloudAnchorSubStatus = "";
-                                                        _cloudAnchorSubProgress = 0;
-                                                        _cloudAnchorSubTotal = 0;
-                                                      });
-                                                      
-                                                      // Tell Unity to post the piece using SceneManager
-                                                      final sceneManager = ref.read(unitySceneManagerProvider);
-                                                      if (sceneManager.isUnityInitialized) {
-                                                        final controller = sceneManager.getController();
-                                                        if (controller != null) {
-                                                          controller.postMessage(
-                                                            'ARManager',
-                                                            'PostPiece',
-                                                            '',
-                                                          );
-                                                          print('Posting piece data to Unity');
+                                    onPressed: (_isFrameLoaded && !_isPosting)
+                                        ? () {
+                                            showDialog(
+                                              context: context,
+                                              builder: (BuildContext context) {
+                                                return AlertDialog(
+                                                  title: const Text('Confirmation'),
+                                                  content: const Text('Are you sure you want to post this piece in this location?'),
+                                                  actions: [
+                                                    TextButton(
+                                                      onPressed: () {
+                                                        Navigator.of(context).pop();
+                                                      },
+                                                      child: const Text('No'),
+                                                    ),
+                                                    TextButton(
+                                                      onPressed: () async {
+                                                        // Close the confirmation dialog
+                                                        Navigator.of(context).pop();
+
+                                                        // Start the posting process with state
+                                                        setState(() {
+                                                          _isPosting = true;
+                                                          _anchorDataReceived = false;
+                                                          _anchorSuccessfullySaved = false;
+                                                          _anchorError = null;
+                                                          _cloudAnchorStatus = "";
+                                                          _cloudAnchorWaitTime = 0;
+                                                          _cloudAnchorId = null;
+                                                          _cloudAnchorSubStatus = "";
+                                                          _cloudAnchorSubProgress = 0;
+                                                          _cloudAnchorSubTotal = 0;
+                                                        });
+
+                                                        // Tell Unity to post the piece using SceneManager
+                                                        final sceneManager = ref.read(unitySceneManagerProvider);
+                                                        if (sceneManager.isUnityInitialized) {
+                                                          final controller = sceneManager.getController();
+                                                          if (controller != null) {
+                                                            controller.postMessage(
+                                                              'ARManager',
+                                                              'PostPiece',
+                                                              '',
+                                                            );
+                                                            print('Posting piece data to Unity');
+                                                          }
                                                         }
-                                                      }
-                                                      
-                                                      // Set an extended timeout (40 seconds to match Unity's timeout)
-                                                      Future.delayed(const Duration(seconds: 40), () {
-                                                        if (mounted && _isPosting && !_anchorDataReceived) {
-                                                          setState(() {
-                                                            _isPosting = false;
-                                                            _anchorError = "Posting timed out after 40 seconds";
-                                                          });
-                                                          
-                                                          ScaffoldMessenger.of(context).showSnackBar(
-                                                            const SnackBar(
-                                                              content: Text('Posting timed out. Please try again.'),
-                                                              duration: Duration(seconds: 3),
-                                                            ),
-                                                          );
-                                                        }
-                                                      });
-                                                    },
-                                                    child: const Text('Yes'),
-                                                  ),
-                                                ],
-                                              );
-                                            },
-                                          );
-                                        }
-                                      : null,
+
+                                                        // Set an extended timeout (40 seconds to match Unity's timeout)
+                                                        Future.delayed(const Duration(seconds: 40), () {
+                                                          if (mounted && _isPosting && !_anchorDataReceived) {
+                                                            setState(() {
+                                                              _isPosting = false;
+                                                              _anchorError = "Posting timed out after 40 seconds";
+                                                            });
+
+                                                            ScaffoldMessenger.of(context).showSnackBar(
+                                                              const SnackBar(
+                                                                content: Text('Posting timed out. Please try again.'),
+                                                                duration: Duration(seconds: 3),
+                                                              ),
+                                                            );
+                                                          }
+                                                        });
+                                                      },
+                                                      child: const Text('Yes'),
+                                                    ),
+                                                  ],
+                                                );
+                                              },
+                                            );
+                                          }
+                                        : null,
                                     style: ElevatedButton.styleFrom(
                                       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                                       backgroundColor: Colors.green,
@@ -684,46 +842,47 @@ class UnityARViewPlacementState extends ConsumerState<UnityARViewPlacement> {
                         ],
                       ),
                     ),
-                ],
+                  ],
+                ),
               ),
-            ),
-            
-            // Overlay loading indicator that appears only when _isPosting is true
-            if (_isPosting)
-              Container(
-                color: Colors.black54,
-                child: Center(
-                  child: Card(
-                    margin: const EdgeInsets.all(16),
-                    child: Padding(
-                      padding: const EdgeInsets.all(24),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const CircularProgressIndicator(),
-                          const SizedBox(height: 16),
-                          Text(
-                            _getPostingStatusMessage(),
-                            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                            textAlign: TextAlign.center,
-                          ),
-                          const SizedBox(height: 8),
-                          _buildCloudAnchorStatusWidget(),
-                          if (_anchorError != null)
-                            Padding(
-                              padding: const EdgeInsets.only(top: 8),
-                              child: Text(
-                                'Error: $_anchorError',
-                                style: const TextStyle(color: Colors.red),
-                              ),
+
+              // Overlay loading indicator that appears only when _isPosting is true
+              if (_isPosting)
+                Container(
+                  color: Colors.black54,
+                  child: Center(
+                    child: Card(
+                      margin: const EdgeInsets.all(16),
+                      child: Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const CircularProgressIndicator(),
+                            const SizedBox(height: 16),
+                            Text(
+                              _getPostingStatusMessage(),
+                              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                              textAlign: TextAlign.center,
                             ),
-                        ],
+                            const SizedBox(height: 8),
+                            _buildCloudAnchorStatusWidget(),
+                            if (_anchorError != null)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 8),
+                                child: Text(
+                                  'Error: $_anchorError',
+                                  style: const TextStyle(color: Colors.red),
+                                ),
+                              ),
+                          ],
+                        ),
                       ),
                     ),
                   ),
                 ),
-              ),
-          ],
+            ],
+          ),
         ),
       ),
     );
