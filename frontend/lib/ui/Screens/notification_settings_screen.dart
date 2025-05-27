@@ -13,7 +13,18 @@ class NotificationSettingsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    print('NotificationSettingsScreen.build: Started for user $username');
+
+    // Ensure settings are loaded when the screen initializes
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      print(
+          'NotificationSettingsScreen: Triggering loadSettings for $username');
+      ref.read(notificationSettingsProvider.notifier).loadSettings(username);
+    });
+
     final settingsAsync = ref.watch(notificationSettingsProvider);
+    print(
+        'NotificationSettingsScreen.build: Current state is ${settingsAsync.toString()}');
 
     return Scaffold(
       appBar: AppBar(
@@ -21,41 +32,54 @@ class NotificationSettingsScreen extends ConsumerWidget {
       ),
       body: settingsAsync.when(
         data: (settings) {
+          print(
+              'NotificationSettingsScreen: Received settings data: ${settings?.toString() ?? "null"}');
           if (settings == null) {
             return const Center(child: Text('No settings found'));
           }
           return _buildSettingsList(context, ref, settings);
         },
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, stack) => Center(
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.error_outline, size: 48, color: Colors.red),
-                const SizedBox(height: 16),
-                Text(
-                  'Error loading settings: $error',
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 16),
-                ElevatedButton(
-                  onPressed: () => ref
-                      .read(notificationSettingsProvider.notifier)
-                      .loadSettings(username),
-                  child: const Text('Try Again'),
-                ),
-              ],
+        loading: () {
+          print('NotificationSettingsScreen: In loading state');
+          return const Center(child: CircularProgressIndicator());
+        },
+        error: (error, stack) {
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.error_outline, size: 48, color: Colors.red),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Error loading settings: $error',
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 16),
+                  ElevatedButton(
+                    onPressed: () {
+                      print(
+                          'NotificationSettingsScreen: Retry button pressed for $username');
+                      ref
+                          .read(notificationSettingsProvider.notifier)
+                          .loadSettings(username);
+                    },
+                    child: const Text('Try Again'),
+                  ),
+                ],
+              ),
             ),
-          ),
-        ),
+          );
+        },
       ),
     );
   }
 
   Widget _buildSettingsList(
       BuildContext context, WidgetRef ref, NotificationSettings settings) {
+    print(
+        'NotificationSettingsScreen._buildSettingsList: Building settings UI');
     final settingsMap = {
       'user_posted_piece': 'When users post a new piece',
       'user_made_piece_live': 'When users make a piece available',
