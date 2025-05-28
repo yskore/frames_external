@@ -127,4 +127,12 @@ class FeedNotifier extends StateNotifier<List<FeedEntry>> {
       _errorNotifier.setError('Error deleting feed entry: $e');
     }
   }
+
+  void clearFeed() {
+    state = [];
+    _isInitialized = false;
+    _currentOffset = 0;
+    _hasMore = true;
+    _isLoading = false;
+  }
 }

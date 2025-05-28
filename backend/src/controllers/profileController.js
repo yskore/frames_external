@@ -52,19 +52,19 @@ exports.getProfile = async (req, res) => {
     try {
         // Get username from token instead of params
         const username = req.user.username;
-        
+
         // Get user profile
         const userProfile = await UserProfile.findOne({ username });
         if (!userProfile) {
-            return res.status(404).json({ 
-                success: false, 
-                message: 'User profile not found' 
+            return res.status(404).json({
+                success: false,
+                message: 'User profile not found'
             });
         }
 
         const userPieces = await Piece.find({ Piece_owner: username });
-    
-        
+
+
         // Calculate counts
         const subscriberCount = userProfile.mySubscribers ? userProfile.mySubscribers.length : 0;
         const subscriptionCount = userProfile.mySubscriptions ? userProfile.mySubscriptions.length : 0;
@@ -75,7 +75,7 @@ exports.getProfile = async (req, res) => {
         profileWithCounts.subscriptionCount = subscriptionCount;
         profileWithCounts.totalImpressions = totalImpressions;
         profileWithCounts.pieceCount = userPieces.length;
-        
+
         // Remove array fields from response
         delete profileWithCounts.mySubscribers;
         delete profileWithCounts.mySubscriptions;
@@ -178,13 +178,13 @@ exports.searchUsersByUsername = async (req, res) => {
             { username: searchPattern },
             { username: 1, firstName: 1, lastName: 1, _id: 0 }
         ).limit(20);
-        
+
         const enhancedUsers = await Promise.all(
             basicUsers.map(async (user) => {
                 const userProfile = await UserProfile.findOne({ username: user.username });
                 const subscriberCount = userProfile?.mySubscribers?.length || 0;
                 const livePiecesCount = userProfile?.Live_pieces || 0;
-                
+
                 return {
                     ...user.toObject(),
                     subscriberCount,
@@ -271,7 +271,7 @@ exports.getProfileWithPieces = async (req, res) => {
         const pieces = await Piece.find({ Piece_owner: username });
 
 
-            // Calculate counts
+        // Calculate counts
         const subscriberCount = userProfile.mySubscribers ? userProfile.mySubscribers.length : 0;
         const subscriptionCount = userProfile.mySubscriptions ? userProfile.mySubscriptions.length : 0;
         const totalImpressions = pieces.reduce((sum, piece) => sum + (piece.Piece_impressions || 0), 0);
@@ -281,20 +281,20 @@ exports.getProfileWithPieces = async (req, res) => {
         profileWithCounts.subscriptionCount = subscriptionCount;
         profileWithCounts.totalImpressions = totalImpressions;
         profileWithCounts.pieceCount = pieces.length;
-        
+
         let isSubscribed = false;
         if (currentUser && currentUser !== username) {
-            const followingDoc = await Following.findOne({ 
+            const followingDoc = await Following.findOne({
                 username: currentUser,
-                chunkIndex: 0 
+                chunkIndex: 0
             });
-            
-            isSubscribed = followingDoc ? 
-                followingDoc.following.includes(username) : 
+
+            isSubscribed = followingDoc ?
+                followingDoc.following.includes(username) :
                 false;
         }
-        
-        
+
+
         // Remove array fields from response
         delete profileWithCounts.mySubscribers;
         delete profileWithCounts.mySubscriptions;
@@ -321,7 +321,7 @@ exports.getProfileWithPieces = async (req, res) => {
             Piece_price: piece.Piece_price,
             ownership: piece.ownership,
         }));
-        
+
 
         res.json({
             success: true,
@@ -369,9 +369,9 @@ exports.subscribeToUser = async (req, res) => {
         }
 
         // Add target user to subscriber's following list
-        let followingDoc = await Following.findOne({ 
+        let followingDoc = await Following.findOne({
             username: subscriber,
-            chunkIndex: 0 
+            chunkIndex: 0
         });
 
         if (!followingDoc) {
@@ -391,9 +391,9 @@ exports.subscribeToUser = async (req, res) => {
         await followingDoc.save();
 
         // Add subscriber to target user's followers list
-        let followersDoc = await Followers.findOne({ 
+        let followersDoc = await Followers.findOne({
             username: targetUsername,
-            chunkIndex: 0 
+            chunkIndex: 0
         });
 
         if (!followersDoc) {
@@ -422,9 +422,9 @@ exports.subscribeToUser = async (req, res) => {
         await createFeedEntryForSubscribers(
             subscriber,
             'subscribed',
-            targetUsername,  
-            null,            
-            { 
+            targetUsername,
+            null,
+            {
                 subscriberUsername: subscriber,
                 subscriberName: `${req.user.firstName || ''} ${req.user.lastName || ''}`.trim(),
                 targetUsername: targetUsername,
@@ -432,20 +432,21 @@ exports.subscribeToUser = async (req, res) => {
             }
         );
 
-         // Also create a feed entry for the subscribing user themselves
-        await createFeedEntry(
-            subscriber, 
-            subscriber, 
-            'subscribed',
-            targetUsername,
-            null,
-            { 
-                subscriberUsername: subscriber,
-                subscriberName: `${req.user.firstName || ''} ${req.user.lastName || ''}`.trim(),
-                targetUsername: targetUsername,
-                targetName: `${targetUser.firstName || ''} ${targetUser.lastName || ''}`.trim()
-            }
-        );
+        // Also create a feed entry for the subscribing user themselves
+        //TODO: redundant
+        // await createFeedEntry(
+        //     subscriber, 
+        //     subscriber, 
+        //     'subscribed',
+        //     targetUsername,
+        //     null,
+        //     { 
+        //         subscriberUsername: subscriber,
+        //         subscriberName: `${req.user.firstName || ''} ${req.user.lastName || ''}`.trim(),
+        //         targetUsername: targetUsername,
+        //         targetName: `${targetUser.firstName || ''} ${targetUser.lastName || ''}`.trim()
+        //     }
+        // );
 
         res.status(200).json({
             success: true,
@@ -472,9 +473,9 @@ exports.unsubscribeFromUser = async (req, res) => {
         }
 
         // Remove target from subscriber's following list
-        const followingDoc = await Following.findOne({ 
+        const followingDoc = await Following.findOne({
             username: subscriber,
-            chunkIndex: 0 
+            chunkIndex: 0
         });
 
         if (!followingDoc || !followingDoc.following.includes(targetUsername)) {
@@ -488,16 +489,16 @@ exports.unsubscribeFromUser = async (req, res) => {
         await followingDoc.save();
 
         // Remove subscriber from target's followers list
-        const followersDoc = await Followers.findOne({ 
+        const followersDoc = await Followers.findOne({
             username: targetUsername,
-            chunkIndex: 0 
+            chunkIndex: 0
         });
 
         if (followersDoc && followersDoc.followers.includes(subscriber)) {
             followersDoc.followers = followersDoc.followers.filter(username => username !== subscriber);
             await followersDoc.save();
         }
-        
+
         // Update subscription counts in user profiles
         await UserProfile.findOneAndUpdate(
             { username: subscriber },
@@ -524,9 +525,9 @@ exports.unsubscribeFromUser = async (req, res) => {
 exports.getMySubscribers = async (req, res) => {
     try {
         const username = req.user.username;
-        
+
         const followerDocs = await Followers.find({ username });
-        
+
         const subscriberUsernames = [];
         followerDocs.forEach(doc => {
             subscriberUsernames.push(...doc.followers);
@@ -540,9 +541,9 @@ exports.getMySubscribers = async (req, res) => {
         res.status(200).json({
             success: true,
             message: 'Subscribers retrieved successfully',
-            data: { 
-                subscribers: subscribersWithDetails, 
-                count: subscribersWithDetails.length 
+            data: {
+                subscribers: subscribersWithDetails,
+                count: subscribersWithDetails.length
             }
         });
     } catch (error) {
@@ -555,9 +556,9 @@ exports.getMySubscribers = async (req, res) => {
 exports.getMySubscriptions = async (req, res) => {
     try {
         const username = req.user.username;
-        
+
         const followingDocs = await Following.find({ username });
-        
+
         const subscriptionUsernames = [];
         followingDocs.forEach(doc => {
             subscriptionUsernames.push(...doc.following);
@@ -571,9 +572,9 @@ exports.getMySubscriptions = async (req, res) => {
         res.status(200).json({
             success: true,
             message: 'Subscriptions retrieved successfully',
-            data: { 
-                subscriptions: subscriptionsWithDetails, 
-                count: subscriptionsWithDetails.length 
+            data: {
+                subscriptions: subscriptionsWithDetails,
+                count: subscriptionsWithDetails.length
             }
         });
     } catch (error) {
@@ -595,13 +596,13 @@ exports.checkSubscriptionStatus = async (req, res) => {
             });
         }
 
-        const followingDoc = await Following.findOne({ 
+        const followingDoc = await Following.findOne({
             username: subscriber,
-            chunkIndex: 0 
+            chunkIndex: 0
         });
 
-        const isSubscribed = followingDoc ? 
-            followingDoc.following.includes(targetUsername) : 
+        const isSubscribed = followingDoc ?
+            followingDoc.following.includes(targetUsername) :
             false;
 
         res.status(200).json({
@@ -618,14 +619,14 @@ exports.checkSubscriptionStatus = async (req, res) => {
 exports.getSubscribersByUsername = async (req, res) => {
     try {
         const { username } = req.params;
-        
+
         if (!username) {
             return res.status(400).json({
                 success: false,
                 message: 'Username is required'
             });
         }
-        
+
         // Check if user exists
         const userExists = await user_basic.findOne({ username });
         if (!userExists) {
@@ -634,9 +635,9 @@ exports.getSubscribersByUsername = async (req, res) => {
                 message: 'User not found'
             });
         }
-        
+
         const followerDocs = await Followers.find({ username });
-        
+
         const subscriberUsernames = [];
         followerDocs.forEach(doc => {
             subscriberUsernames.push(...doc.followers);
@@ -650,9 +651,9 @@ exports.getSubscribersByUsername = async (req, res) => {
         res.status(200).json({
             success: true,
             message: 'Subscribers retrieved successfully',
-            data: { 
-                subscribers: subscribersWithDetails, 
-                count: subscribersWithDetails.length 
+            data: {
+                subscribers: subscribersWithDetails,
+                count: subscribersWithDetails.length
             }
         });
     } catch (error) {
