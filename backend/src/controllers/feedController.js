@@ -1,6 +1,6 @@
 const FeedEntry = require('../models/feed_entry');
 const mongoose = require('mongoose');
-const { sendNotification } = require('../utils/notificationUtils');
+const { sendFeedNotification } = require('../utils/notificationUtils');
 
 exports.getFeed = async (req, res) => {
     try {
@@ -206,9 +206,8 @@ exports.createFeedEntry = async (forUsername, fromUsername, actionType, referenc
 
         // Send notification to the recipient if the entry is created for a specific user
         if (forUsername !== fromUsername) {
-            sendNotification({
+            sendFeedNotification({
                 userId: forUsername,
-                sendEmail:false,
                 notificationType: notificationType,
                 data: {
                     fromUsername: fromUsername,
@@ -256,10 +255,9 @@ exports.createFeedEntryForSubscribers = async (fromUsername, actionType, referen
             const notificationType = notificationTypeMap[actionType] || actionType;
 
             for (const subscriber of result.subscribers) {
-                sendNotification({
+                sendFeedNotification({
                     userId: subscriber,
                     notificationType: notificationType,
-                                    sendEmail:false,
                     data: {
                         fromUsername: fromUsername,
                         pieceId: referenceId,

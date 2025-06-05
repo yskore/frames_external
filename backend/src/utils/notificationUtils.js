@@ -2,7 +2,7 @@ const admin = require('firebase-admin');
 const config = require('../config');
 const UserProfile = require('../models/user_profile');
 const user_basic = require('../models/user_basic');
-const { sendTransactionEmail } = require('./emailUtils');
+const { sendTransactionEmail, sendNotificationEmail } = require('./emailUtils');
 const { isNotificationEnabled } = require('../controllers/notificationSettingsController');
 
 let firebaseApp;
@@ -22,7 +22,7 @@ const notificationTypeMap = {
   'confirmation_reminder': 'user_made_offer',
   'piece_liked': 'user_liked_piece',
   'new_subscriber': 'user_subscribed',
-  
+
   'posted_piece': 'user_posted_piece',
   'made_piece_live': 'user_made_piece_live',
   'listed_for_sale': 'user_listed_piece_for_sale',
@@ -50,7 +50,7 @@ const initializeFirebaseApp = () => {
  */
 const stringifyData = (data) => {
   const stringifiedData = {};
-  
+
   if (data && typeof data === 'object') {
     Object.keys(data).forEach(key => {
       if (data[key] !== undefined && data[key] !== null) {
@@ -60,7 +60,7 @@ const stringifyData = (data) => {
       }
     });
   }
-  
+
   return stringifiedData;
 };
 
@@ -82,15 +82,15 @@ const sendPushNotification = async (options) => {
     }
 
     const app = initializeFirebaseApp();
-    
+
     let token = options.token;
     if (!token && options.userId) {
       const userProfile = await UserProfile.findOne({ username: options.userId });
-      
+
       if (!userProfile || !userProfile.push_token) {
         return { success: false, message: 'No push token found for user' };
       }
-      
+
       token = userProfile.push_token;
     }
 
@@ -99,7 +99,7 @@ const sendPushNotification = async (options) => {
     }
 
     const stringifiedData = stringifyData(options.data || {});
-    
+
     console.log('Preparing push notification with data:', JSON.stringify(stringifiedData));
 
     const message = {
@@ -120,7 +120,7 @@ const sendPushNotification = async (options) => {
     };
 
     const response = await admin.messaging().send(message);
-    
+
     console.log('Push notification sent successfully:', response);
     return { success: true, messageId: response };
   } catch (error) {
@@ -190,25 +190,25 @@ const sendNotification = async (options) => {
   try {
     const userProfile = await UserProfile.findOne({ username: options.userId });
     const userBasic = await user_basic.findOne({ username: options.userId });
-    
+
     if (!userProfile && !userBasic) {
       console.error(`User ${options.userId} not found for notification`);
       return { success: false, message: 'User not found' };
     }
-    
+
     const settingKey = notificationTypeMap[options.notificationType] || options.notificationType;
-    
+
     const isEnabled = await isNotificationEnabled(options.userId, settingKey);
-    
+
     if (!isEnabled) {
       console.log(`Notification ${options.notificationType} disabled for user ${options.userId}`);
       return { success: false, message: 'Notification type disabled for user' };
     }
 
     const content = prepareNotificationContent(options.notificationType, options.data);
-    
+
     let pushResult = { success: false };
-    
+
     if (userProfile && userProfile.push_token) {
       pushResult = await sendPushNotification({
         userId: options.userId,
@@ -219,7 +219,7 @@ const sendNotification = async (options) => {
         priority: options.priority || 'normal'
       });
     }
-    
+
     if (!pushResult.success && userBasic && userBasic.email && options.sendEmail) {
       const emailResult = await sendTransactionEmail({
         email: userBasic.email,
@@ -227,14 +227,14 @@ const sendNotification = async (options) => {
         message: content.body,
         transaction: options.data
       });
-      
+
       return {
         success: true,
         method: 'email',
         result: emailResult
       };
     }
-    
+
     return {
       success: pushResult.success,
       method: 'push',
@@ -253,122 +253,122 @@ const prepareNotificationContent = (type, data) => {
         title: 'New Offer Received',
         body: `You received a new offer of $${data.amount} for your piece "${data.pieceTitle || 'Untitled'}"!`
       };
-      
+
     case 'offer_accepted':
       return {
         title: 'Offer Accepted',
         body: `Your offer for "${data.pieceTitle || 'Untitled'}" was accepted! Please submit payment within ${data.timeWindow || '30 minutes'}.`
       };
-      
+
     case 'payment_submitted':
       return {
         title: 'Payment Submitted',
         body: `The buyer has submitted payment proof for "${data.pieceTitle || 'Untitled'}". Please review and confirm.`
       };
-      
+
     case 'payment_confirmed':
       return {
         title: 'Payment Confirmed',
         body: `Your payment for "${data.pieceTitle || 'Untitled'}" has been confirmed! The piece is now yours.`
       };
-      
+
     case 'payment_denied':
       return {
         title: 'Payment Denied',
         body: `Your payment for "${data.pieceTitle || 'Untitled'}" was denied. Reason: ${data.reason || 'Not provided'}`
       };
-      
+
     case 'payment_reminder':
       return {
         title: 'Payment Reminder',
         body: `This is a reminder to submit payment for "${data.pieceTitle || 'Untitled'}". Your offer will expire soon!`
       };
-      
+
     case 'confirmation_reminder':
       return {
         title: 'Urgent: Confirmation Needed',
         body: `Please confirm or deny the payment for "${data.pieceTitle || 'Untitled'}" soon, or the system will automatically transfer ownership.`
       };
-      
+
     case 'new_piece':
       return {
         title: 'New Artwork Posted',
         body: `${data.ownerUsername || 'An artist'} just posted a new piece titled "${data.pieceTitle || 'Untitled'}"`
       };
-      
+
     case 'piece_live':
       return {
         title: 'Piece Now Live',
         body: `${data.ownerUsername || 'An artist'}'s piece "${data.pieceTitle || 'Untitled'}" is now live`
       };
-      
+
     case 'piece_for_sale':
       return {
         title: 'Artwork For Sale',
         body: `${data.ownerUsername || 'An artist'} just listed "${data.pieceTitle || 'Untitled'}" for sale at $${data.price || '0'}`
       };
-      
+
     case 'piece_liked':
       return {
         title: 'Your Artwork Was Liked',
         body: `${data.username || 'Someone'} liked your piece "${data.pieceTitle || 'Untitled'}"`
       };
-      
+
     case 'new_subscriber':
       return {
         title: 'New Subscriber',
         body: `${data.subscriberUsername || 'Someone'} just subscribed to your profile`
       };
-      
+
     // Additional cases for feed entry notifications
     case 'posted_piece':
       return {
         title: 'New Artwork Posted',
         body: `${data.fromUsername || 'An artist'} just posted a new piece titled "${data.pieceTitle || 'Untitled'}"`
       };
-      
+
     case 'made_piece_live':
       return {
         title: 'Piece Now Live',
         body: `${data.fromUsername || 'An artist'}'s piece "${data.pieceTitle || 'Untitled'}" is now live`
       };
-      
+
     case 'listed_for_sale':
       return {
         title: 'Artwork For Sale',
         body: `${data.fromUsername || 'An artist'} just listed "${data.pieceTitle || 'Untitled'}" for sale at $${data.price || '0'}`
       };
-      
+
     case 'made_offer':
       return {
         title: 'New Offer Made',
         body: `${data.fromUsername || 'Someone'} made an offer on "${data.pieceTitle || 'Untitled'}"`
       };
-      
+
     case 'liked_piece':
       return {
         title: 'Artwork Liked',
         body: `${data.fromUsername || 'Someone'} liked the piece "${data.pieceTitle || 'Untitled'}"`
       };
-      
+
     case 'subscribed':
       return {
         title: 'New Subscription',
         body: `${data.fromUsername || 'Someone'} subscribed to ${data.toUsername || 'an artist'}`
       };
-      
+
     case 'sold_piece':
       return {
         title: 'Piece Sold',
         body: `${data.fromUsername || 'An artist'} sold their piece "${data.pieceTitle || 'Untitled'}"`
       };
-      
+
     case 'purchased_piece':
       return {
         title: 'Piece Purchased',
         body: `${data.fromUsername || 'Someone'} purchased the piece "${data.pieceTitle || 'Untitled'}"`
       };
-      
+
     default:
       return {
         title: 'Frames App Notification',
@@ -391,28 +391,28 @@ const sendBothNotifications = async (options) => {
   try {
     const userProfile = await UserProfile.findOne({ username: options.userId });
     const userBasic = await user_basic.findOne({ username: options.userId });
-    
+
     if (!userProfile && !userBasic) {
       console.error(`User ${options.userId} not found for notification`);
       return { success: false, message: 'User not found' };
     }
-    
+
     const settingKey = notificationTypeMap[options.notificationType] || options.notificationType;
-    
+
     const isEnabled = await isNotificationEnabled(options.userId, settingKey);
-    
+
     if (!isEnabled) {
       console.log(`Notification ${options.notificationType} disabled for user ${options.userId}`);
       return { success: false, message: 'Notification type disabled for user' };
     }
 
     const content = prepareNotificationContent(options.notificationType, options.data);
-    
+
     const results = {
       push: { attempted: false, success: false },
       email: { attempted: false, success: false }
     };
-    
+
     if (userProfile && userProfile.push_token) {
       results.push.attempted = true;
       const pushResult = await sendPushNotification({
@@ -423,11 +423,11 @@ const sendBothNotifications = async (options) => {
         data: options.data,
         priority: options.priority || 'normal'
       });
-      
+
       results.push.success = pushResult.success;
       results.push.result = pushResult;
     }
-    
+
     if (userBasic && userBasic.email) {
       results.email.attempted = true;
       const emailResult = await sendTransactionEmail({
@@ -436,13 +436,13 @@ const sendBothNotifications = async (options) => {
         message: content.body,
         transaction: options.data
       });
-      
+
       results.email.success = emailResult.success;
       results.email.result = emailResult;
     }
-    
+
     const overallSuccess = results.push.success || results.email.success;
-    
+
     return {
       success: overallSuccess,
       results
@@ -453,11 +453,84 @@ const sendBothNotifications = async (options) => {
   }
 };
 
+/**
+ * Send notification specifically for feed entries - uses regular notification email instead of transaction email
+ * 
+ * @param {Object} options - Notification options
+ * @param {string} options.userId - Username of recipient
+ * @param {string} options.notificationType - Type of notification
+ * @param {Object} options.data - Data relevant to the notification
+ * @param {string} options.priority - Priority of the notification (high, normal)
+ * @returns {Promise<Object>} - Results of notification attempt
+ */
+const sendFeedNotification = async (options) => {
+  try {
+    const userProfile = await UserProfile.findOne({ username: options.userId });
+    const userBasic = await user_basic.findOne({ username: options.userId });
+
+    if (!userProfile && !userBasic) {
+      console.error(`User ${options.userId} not found for notification`);
+      return { success: false, message: 'User not found' };
+    }
+
+    const settingKey = notificationTypeMap[options.notificationType] || options.notificationType;
+
+    const isEnabled = await isNotificationEnabled(options.userId, settingKey);
+
+    if (!isEnabled) {
+      console.log(`Notification ${options.notificationType} disabled for user ${options.userId}`);
+      return { success: false, message: 'Notification type disabled for user' };
+    }
+
+    const content = prepareNotificationContent(options.notificationType, options.data);
+
+    let pushResult = { success: false };
+
+    // Try push notification first
+    if (userProfile && userProfile.push_token) {
+      pushResult = await sendPushNotification({
+        userId: options.userId,
+        token: userProfile.push_token,
+        title: content.title,
+        body: content.body,
+        data: options.data,
+        priority: options.priority || 'normal'
+      });
+    }
+
+    // If push notification fails, send regular notification email (not transaction email)
+    if (!pushResult.success && userBasic && userBasic.email) {
+      const emailResult = await sendNotificationEmail({
+        email: userBasic.email,
+        subject: content.title,
+        message: content.body,
+        data: options.data
+      });
+
+      return {
+        success: true,
+        method: 'email',
+        result: emailResult
+      };
+    }
+
+    return {
+      success: pushResult.success,
+      method: 'push',
+      result: pushResult
+    };
+  } catch (error) {
+    console.error('Error in sendFeedNotification:', error);
+    return { success: false, error: error.message };
+  }
+};
+
 module.exports = {
   initializeFirebaseApp,
   sendPushNotification,
   sendNotification,
   sendBothNotifications,
+  sendFeedNotification,
   stringifyData,
   testPushNotification
 };

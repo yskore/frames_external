@@ -18,7 +18,7 @@ const createTransporter = () => {
 const sendVerificationEmail = async (email, verificationCode) => {
   try {
     const transporter = createTransporter();
-    
+
     const info = await transporter.sendMail({
       from: `"${config.smtp.sender_name}" <${config.smtp.username}>`,
       to: email,
@@ -56,7 +56,7 @@ const sendVerificationEmail = async (email, verificationCode) => {
 const sendTransactionEmail = async (options) => {
   try {
     const transporter = createTransporter();
-    
+
     const info = await transporter.sendMail({
       from: `"${config.smtp.sender_name}" <${config.smtp.username}>`,
       to: options.email,
@@ -90,9 +90,53 @@ const sendTransactionEmail = async (options) => {
   }
 };
 
+/**
+ * Send a regular notification email (not transaction-specific)
+ * @param {Object} options - Email options
+ * @param {string} options.email - Recipient email
+ * @param {string} options.subject - Email subject
+ * @param {string} options.message - Main message content
+ * @param {Object} options.data - Additional notification data
+ */
+const sendNotificationEmail = async (options) => {
+  try {
+    const transporter = createTransporter();
 
+    const info = await transporter.sendMail({
+      from: `"${config.smtp.sender_name}" <${config.smtp.username}>`,
+      to: options.email,
+      subject: options.subject || 'Frames App Notification',
+      text: options.message,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #333;">${options.subject || 'Frames App Notification'}</h2>
+          <p>${options.message}</p>
+          
+          ${options.data && options.data.pieceTitle ? `
+          <div style="background-color: #f4f4f4; padding: 15px; border-radius: 5px; margin-top: 20px;">
+            <h3 style="margin-top: 0;">Details</h3>
+            <p><strong>Piece:</strong> ${options.data.pieceTitle}</p>
+            ${options.data.fromUsername ? `<p><strong>From:</strong> ${options.data.fromUsername}</p>` : ''}
+            ${options.data.amount ? `<p><strong>Amount:</strong> $${options.data.amount}</p>` : ''}
+            <p><strong>Date:</strong> ${new Date().toLocaleDateString()}</p>
+          </div>
+          ` : ''}
+          
+          <p style="color: #777; font-size: 12px; margin-top: 30px;">This is an automated message from Frames App. Please do not reply to this email.</p>
+        </div>
+      `
+    });
+
+    console.log('Notification email sent successfully:', info.messageId);
+    return { success: true, messageId: info.messageId };
+  } catch (error) {
+    console.error('Error sending notification email:', error);
+    return { success: false, error: error.message };
+  }
+};
 
 module.exports = {
   sendVerificationEmail,
   sendTransactionEmail,
+  sendNotificationEmail,
 };
