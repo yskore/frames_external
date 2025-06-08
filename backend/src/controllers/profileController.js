@@ -3,7 +3,8 @@ const Following = require('../models/following');
 const Piece = require('../models/pieces');
 const UserProfile = require('../models/user_profile');
 const user_basic = require('../models/user_basic');
-const { createFeedEntryForSubscribers } = require('./feedController');
+const { createFeedEntryForSubscribers, createFeedEntry } = require('./feedController');
+const { sendNotification } = require('../utils/notificationUtils');
 
 exports.getFollowerCount = async (req, res) => {
     try {
@@ -432,21 +433,33 @@ exports.subscribeToUser = async (req, res) => {
             }
         );
 
-        // Also create a feed entry for the subscribing user themselves
-        //TODO: redundant
-        // await createFeedEntry(
-        //     subscriber, 
-        //     subscriber, 
-        //     'subscribed',
-        //     targetUsername,
-        //     null,
-        //     { 
-        //         subscriberUsername: subscriber,
-        //         subscriberName: `${req.user.firstName || ''} ${req.user.lastName || ''}`.trim(),
-        //         targetUsername: targetUsername,
-        //         targetName: `${targetUser.firstName || ''} ${targetUser.lastName || ''}`.trim()
-        //     }
-        // );
+        // Create a feed entry for the target user (the one being subscribed to)
+        await createFeedEntry(
+            targetUsername,
+            subscriber,
+            'subscribed',
+            targetUsername,
+            null,
+            {
+                subscriberUsername: subscriber,
+                subscriberName: `${req.user.firstName || ''} ${req.user.lastName || ''}`.trim(),
+                targetUsername: targetUsername,
+                targetName: `${targetUser.firstName || ''} ${targetUser.lastName || ''}`.trim()
+            }
+        );
+
+        // Send notification to the target user about the new subscriber
+        sendNotification({
+            userId: targetUsername,
+            notificationType: 'new_subscriber',
+            sendEmail: false,
+            data: {
+                subscriberUsername: subscriber,
+                subscriberName: `${req.user.firstName || ''} ${req.user.lastName || ''}`.trim()
+            }
+        }).catch(err => {
+            console.error(`Error sending subscription notification to ${targetUsername}:`, err);
+        });
 
         res.status(200).json({
             success: true,

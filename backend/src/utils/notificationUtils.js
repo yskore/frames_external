@@ -114,7 +114,12 @@ const sendPushNotification = async (options) => {
       },
       apns: {
         headers: {
-          'apns-priority': options.priority === 'high' ? '5' : '1',
+          'apns-priority': options.priority === 'high' ? '10' : '5',
+        },
+        payload: {
+          aps: {
+            contentAvailable: true
+          }
         }
       }
     };
@@ -125,6 +130,30 @@ const sendPushNotification = async (options) => {
     return { success: true, messageId: response };
   } catch (error) {
     console.error('Error sending push notification:', error);
+
+    // Handle invalid/expired tokens
+    if (error.errorInfo && error.errorInfo.code === 'messaging/registration-token-not-registered') {
+      console.log(`Invalid token detected for user ${options.userId}, cleaning up...`);
+
+      if (options.userId) {
+        try {
+          await UserProfile.findOneAndUpdate(
+            { username: options.userId },
+            { $unset: { push_token: "" } }
+          );
+          console.log(`Removed invalid push token for user ${options.userId}`);
+        } catch (cleanupError) {
+          console.error('Error cleaning up invalid token:', cleanupError);
+        }
+      }
+
+      return {
+        success: false,
+        error: 'Invalid or expired push token',
+        tokenInvalid: true
+      };
+    }
+
     return { success: false, error: error.message };
   }
 };

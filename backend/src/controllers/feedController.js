@@ -277,3 +277,13 @@ exports.createFeedEntryForSubscribers = async (fromUsername, actionType, referen
         return { success: false, error: error.message };
     }
 };
+
+module.exports = {
+    getFeed: exports.getFeed,
+    markAsRead: exports.markAsRead,
+    markAllAsRead: exports.markAllAsRead,
+    getUnreadCount: exports.getUnreadCount,
+    deleteFeedEntry: exports.deleteFeedEntry,
+    createFeedEntry: exports.createFeedEntry,
+    createFeedEntryForSubscribers: exports.createFeedEntryForSubscribers
+};
