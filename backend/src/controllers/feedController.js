@@ -1,4 +1,5 @@
 const FeedEntry = require('../models/feed_entry');
+const UserProfile = require('../models/user_profile');
 const mongoose = require('mongoose');
 const { sendFeedNotification } = require('../utils/notificationUtils');
 
@@ -28,6 +29,21 @@ exports.getFeed = async (req, res) => {
             .skip(Number(offset))
             .limit(Number(limit));
 
+        // Get profile photos for each feed entry
+        const enrichedFeedEntries = await Promise.all(
+            feedEntries.map(async (entry) => {
+                const userProfile = await UserProfile.findOne(
+                    { username: entry.from_username },
+                    { Profile_photo: 1 }
+                );
+                
+                return {
+                    ...entry.toObject(),
+                    profile_photo: userProfile?.Profile_photo || null
+                };
+            })
+        );
+
         const unreadCount = await FeedEntry.countDocuments({
             for_username: username,
             read: false
@@ -36,7 +52,7 @@ exports.getFeed = async (req, res) => {
         res.status(200).json({
             success: true,
             data: {
-                feed: feedEntries,
+                feed: enrichedFeedEntries,
                 pagination: {
                     total: totalCount,
                     unread: unreadCount,

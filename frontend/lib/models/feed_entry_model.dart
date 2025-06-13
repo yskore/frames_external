@@ -63,7 +63,7 @@ class FeedEntry {
           ? DateTime.parse(json['created_at'])
           : DateTime.now(),
       read: json['read'] ?? false,
-      sourceAvatarUrl: null,
+      sourceAvatarUrl: json['profile_photo'],
     );
   }
 
