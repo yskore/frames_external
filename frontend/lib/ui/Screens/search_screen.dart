@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:frames_app/providers/user_provider.dart';
+import 'package:frames_app/ui/Screens/home_screen.dart';
 import 'package:frames_app/ui/Screens/other_user_profile_screen.dart';
 import 'package:frames_app/ui/Widgets/search_bar.dart';
 import 'package:frames_app/utils/debouncer.dart';
@@ -19,7 +20,7 @@ class SearchScreen extends ConsumerStatefulWidget {
 class _SearchScreenState extends ConsumerState<SearchScreen>
     with SingleTickerProviderStateMixin {
   final TextEditingController searchController = TextEditingController();
-  final Debouncer _searchDebouncer = Debouncer();
+  final Debouncer _searchDebouncer = Debouncer(duration: const Duration(milliseconds: 300));
   late TabController _tabController;
   bool isSearching = false;
 
@@ -36,6 +37,11 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
     _tabController.dispose();
     super.dispose();
   }
+  void _navigateBackToHome() {
+  Navigator.of(context).pushReplacement(
+    MaterialPageRoute(builder: (context) => const HomeScreen()),
+  );
+}
 
   Future<void> searchUsers(String query) async {
     if (query.isEmpty) {
@@ -82,7 +88,13 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
   Widget build(BuildContext context) {
     final searchResults = ref.watch(searchScreenResultsProvider);
 
-    return Scaffold(
+    return PopScope(
+    canPop: false,
+    onPopInvoked: (didPop) {
+      if (didPop) return;
+      _navigateBackToHome();
+    },
+    child:Scaffold(
       appBar: AppBar(
         title: const Text('Search'),
         bottom: TabBar(
@@ -128,7 +140,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
           ),
         ],
       ),
-    );
+    ));
   }
 
   Widget _buildUsersTab(List<Map<String, dynamic>> searchResults) {
