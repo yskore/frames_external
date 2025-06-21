@@ -1,7 +1,6 @@
 // piece_preview_popup.dart
 import 'dart:async';
 import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:frames_app/core/repositories/anchor_repository.dart';
@@ -44,26 +43,26 @@ class _PiecePreviewPopupState extends ConsumerState<PiecePreviewPopup> {
   bool _isFullScreen = false;
   String _errorMessage = '';
   String _ownership = '';
-
+  
   // Piece state
   late Piece _piece;
-
+  
   // Anchor details
   DateTime? _anchorExpireTime;
   bool _isLoadingAnchorDetails = false;
-
+  
   // Controllers
   late TextEditingController _nameController;
   late TextEditingController _descriptionController;
   late TextEditingController _priceController;
   late TextEditingController _paymentDetailsController;
   late TextEditingController _currencyController;
-
+  
   // Managers
   late PieceLocationManager _locationManager;
   late PieceOfferManager _offerManager;
   late PieceEditManager _editManager;
-
+  
   // Refresh timer
   Timer? _impressionsRefreshTimer;
   final int _refreshIntervalSeconds = 30;
@@ -71,36 +70,33 @@ class _PiecePreviewPopupState extends ConsumerState<PiecePreviewPopup> {
   @override
   void initState() {
     super.initState();
-
+    
     // Initialize the piece
     _piece = widget.piece;
-
+    
     // Initialize controllers
     _nameController = TextEditingController(text: _piece.pieceTitle);
-    _descriptionController =
-        TextEditingController(text: _piece.pieceDescription);
-    _priceController =
-        TextEditingController(text: _piece.piecePrice.toString());
-    _paymentDetailsController =
-        TextEditingController(text: _piece.paymentDetails ?? '');
+    _descriptionController = TextEditingController(text: _piece.pieceDescription);
+    _priceController = TextEditingController(text: _piece.piecePrice.toString());
+    _paymentDetailsController = TextEditingController(text: _piece.paymentDetails ?? '');
     _currencyController = TextEditingController(text: _piece.currency ?? 'USD');
-
+    
     // Initialize ownership
     _ownership = _piece.ownership ?? '00';
-
+    
     // Initialize managers
     _locationManager = PieceLocationManager(
       ref: ref,
       pieceId: jsonDecode(widget.pieceData)['PieceID'],
       pieceTitle: _piece.pieceTitle,
     );
-
+    
     _offerManager = PieceOfferManager(
       ref: ref,
       piece: _piece,
       paymentDetailsController: _paymentDetailsController,
     );
-
+    
     _editManager = PieceEditManager(
       ref: ref,
       piece: _piece,
@@ -116,17 +112,18 @@ class _PiecePreviewPopupState extends ConsumerState<PiecePreviewPopup> {
         _isEditing = false;
       }),
     );
-
+    
     // Fetch additional data
     if (_piece.liveStatus) {
       _fetchAnchorDetails(widget.pieceData);
     }
-
+    
     // Start impression refresh timer
     _fetchPieceImpressions(widget.pieceData);
     _impressionsRefreshTimer = Timer.periodic(
-        Duration(seconds: _refreshIntervalSeconds),
-        (_) => _fetchPieceImpressions(widget.pieceData));
+      Duration(seconds: _refreshIntervalSeconds), 
+      (_) => _fetchPieceImpressions(widget.pieceData)
+    );
   }
 
   @override
@@ -171,11 +168,11 @@ class _PiecePreviewPopupState extends ConsumerState<PiecePreviewPopup> {
       // Parse the piece data to get the piece ID
       var pieceData = jsonDecode(widget.pieceData);
       String pieceId = pieceData['PieceID'];
-
+      
       if (pieceId.isNotEmpty) {
         final pieceRepository = ref.read(pieceRepositoryProvider);
         final impressions = await pieceRepository.getPieceImpressions(pieceId);
-
+        
         if (mounted) {
           setState(() {
             // This updates the local state to show in the UI
@@ -189,33 +186,45 @@ class _PiecePreviewPopupState extends ConsumerState<PiecePreviewPopup> {
     }
   }
 
-  Future<void> _handleClosing() async {
-    if (_isClosing) return; // Prevent multiple closing attempts
+ // Replace your _handleClosing method in piece_preview_popup.dart with this:
 
-    setState(() {
-      _isClosing = true;
-    });
+Future<void> _handleClosing() async {
+  if (_isClosing) return;  // Prevent multiple closing attempts
+  
+  setState(() {
+    _isClosing = true;
+  });
 
-    try {
-      // Use the SceneManager to safely dispose the controller
-      final sceneManager = ref.read(unitySceneManagerProvider);
-      if (sceneManager.isUnityInitialized) {
-        await sceneManager.safeDisposeController();
-      }
+  print('[piece preview] Starting safe closure');
+  
+  try {
+    // Cancel any ongoing timers first
+    _impressionsRefreshTimer?.cancel();
+    
+    // Use the SceneManager to safely dispose the controller
+    final sceneManager = ref.read(unitySceneManagerProvider);
+    if (sceneManager.isUnityInitialized) {
+      print('[piece preview] Safely disposing Unity controller');
+      await sceneManager.safeDisposeController();
+    } else {
+      print('[piece preview] Unity not initialized, skipping disposal');
+    }
 
-      // Short delay to ensure everything is cleaned up
-      await Future.delayed(const Duration(milliseconds: 100));
-
-      if (mounted) {
-        Navigator.of(context).pop();
-      }
-    } catch (e) {
-      print('Error during closing: $e');
-      if (mounted) {
-        Navigator.of(context).pop();
-      }
+    // Short delay to ensure everything is cleaned up
+    await Future.delayed(const Duration(milliseconds: 100));
+    
+    if (mounted) {
+      Navigator.of(context).pop();
+      print('[piece preview] Successfully closed piece preview');
+    }
+  } catch (e) {
+    print('[piece preview] Error during closing: $e');
+    // Even if there's an error, try to close the dialog
+    if (mounted) {
+      Navigator.of(context).pop();
     }
   }
+}
 
   void _handleUnityMessage(String message) {
     print('Received message from Unity: $message');
@@ -241,11 +250,11 @@ class _PiecePreviewPopupState extends ConsumerState<PiecePreviewPopup> {
       setState(() {
         _isLoading = true;
       });
-
+      
       final pieceRepository = ref.read(pieceRepositoryProvider);
       final response = await pieceRepository.deletePiece(
           _piece.pieceTitle, _piece.pieceOwner);
-
+      
       if (response.isSuccess && mounted) {
         // First safely dispose the Unity controller before navigation
         final sceneManager = ref.read(unitySceneManagerProvider);
@@ -256,7 +265,7 @@ class _PiecePreviewPopupState extends ConsumerState<PiecePreviewPopup> {
             print('Error disposing Unity controller during piece deletion: $e');
           }
         }
-
+        
         // Now navigate after controller is properly disposed
         if (mounted) {
           Navigator.pushReplacement(
@@ -270,10 +279,8 @@ class _PiecePreviewPopupState extends ConsumerState<PiecePreviewPopup> {
         }
         return;
       }
-
-      ref
-          .read(errorProvider.notifier)
-          .setError(response.message ?? 'Failed to delete piece');
+      
+      ref.read(errorProvider.notifier).setError(response.message ?? 'Failed to delete piece');
     } catch (e) {
       ref.read(errorProvider.notifier).setError('Failed to delete piece: $e');
     } finally {
@@ -310,10 +317,14 @@ class _PiecePreviewPopupState extends ConsumerState<PiecePreviewPopup> {
                   Navigator.of(context).pop(); // pop alert dialog
                   Navigator.of(context).pop(); // pop piece preview popup
 
-                  Navigator.of(context).push(MaterialPageRoute(
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
                       builder: (context) => UnityARViewPlacement(
-                          pieceData: pieceDataToPass,
-                          username: usernameToPass)));
+                        pieceData: pieceDataToPass, 
+                        username: usernameToPass
+                      )
+                    )
+                  );
                 }
               },
               child: const Text('Proceed'),
@@ -324,70 +335,80 @@ class _PiecePreviewPopupState extends ConsumerState<PiecePreviewPopup> {
     );
   }
 
-  void _liveStatusChange() {
-    if (_piece.liveStatus) {
-      // Turn offline
-      showDialog(
-        context: context,
-        builder: (BuildContext context) {
-          return AlertDialog(
-            title: const Text('Turn Piece Offline'),
-            content: const Text(
-                'Are you sure you want to turn this piece offline? Users will not be able to view it and its specific location will be lost.'),
-            actions: [
-              TextButton(
-                onPressed: () {
-                  Navigator.of(context).pop();
-                },
-                child: const Text('Cancel'),
-              ),
-              TextButton(
-                onPressed: () async {
-                  setState(() {
-                    _isLoading = true;
-                  });
-                  try {
-                    var decodedData = jsonDecode(widget.pieceData);
-                    String pieceId = decodedData['PieceID'];
+ void _liveStatusChange() {
+  if (_piece.liveStatus) {
+    // Turn offline
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Turn Piece Offline'),
+          content: const Text('Are you sure you want to turn this piece offline? Users will not be able to view it and its specific location will be lost.'),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop(); // Close the confirmation dialog
+              },
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () async {
+                setState(() {
+                  _isLoading = true;
+                });
+                try {
+                  var decodedData = jsonDecode(widget.pieceData);
+                  String pieceId = decodedData['PieceID'];
 
-                    final pieceRepository = ref.read(pieceRepositoryProvider);
-                    final response = await pieceRepository
-                        .togglePieceLiveStatus(pieceId, false);
-                    if (response.isSuccess) {
-                      setState(() {
-                        _piece = _piece.copyWith(liveStatus: false);
-                      });
-
-                      Navigator.pushReplacement(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const UserProfileScreen(
-                            successMessage: 'Piece turned offline successfully',
-                          ),
-                        ),
-                      );
-                      return;
-                    }
-                    ref.read(errorProvider.notifier).setError(response.message);
-                  } finally {
-                    if (mounted) {
-                      setState(() {
-                        _isLoading = false;
-                      });
-                    }
+                  final pieceRepository = ref.read(pieceRepositoryProvider);
+                  final response = await pieceRepository.togglePieceLiveStatus(pieceId, false);
+                  if (response.isSuccess) {
+                    setState(() {
+                      _piece = _piece.copyWith(liveStatus: false);
+                    });
+                    
+                    // Close the confirmation dialog
+                    Navigator.of(context).pop();
+                    
+                    // Close the piece preview popup
+                    Navigator.of(context).pop();
+                    
+                    // Trigger refresh of the parent screen
+                    widget.onPieceUpdated();
+                    
+                    // Show success message
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Piece turned offline successfully'),
+                        duration: Duration(seconds: 2),
+                      ),
+                    );
+                    return;
                   }
-                },
-                child: const Text('Turn Offline'),
-              ),
-            ],
-          );
-        },
-      );
-    } else {
-      // Turn online (place in AR)
-      _showPopup(context);
-    }
+                  ref.read(errorProvider.notifier).setError(response.message);
+                } catch (e) {
+                  ref.read(errorProvider.notifier).setError('Failed to turn piece offline: $e');
+                } finally {
+                  if (mounted) {
+                    setState(() {
+                      _isLoading = false;
+                    });
+                  }
+                }
+              },
+              child: const Text('Turn Offline'),
+            ),
+          ],
+        );
+      },
+    );
+  } else {
+    // Turn online (place in AR)
+    _showPopup(context);
   }
+}
+  
+  
 
   @override
   Widget build(BuildContext context) {
