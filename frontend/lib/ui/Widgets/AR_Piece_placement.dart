@@ -1,7 +1,9 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:frames_app/core/auth/ios_arcore_authentication.dart';
 import 'package:frames_app/ui/Screens/user_profile_screen.dart';
 import 'package:frames_app/Functions/piece_anchoring.dart';
 import 'package:frames_app/Functions/toggle_live_status.dart';
@@ -57,18 +59,25 @@ class UnityARViewPlacementState extends ConsumerState<UnityARViewPlacement> {
   int _cloudAnchorSubProgress = 0;
   int _cloudAnchorSubTotal = 0;
 
+  // Geospatial anchor status
+  String _geospatialStatus = "";
+  String _geospatialSubStatus = "";
+  double _locationAccuracy = 0.0;
+  double _orientationAccuracy = 0.0;
+  bool _vpsAvailable = false;
+
   @override
   void initState() {
     super.initState();
-    //_checkPermissionsAndProceed();
+   // setAuthToken();
 
-    // Load the Unity AR scene when widget is built - similar to FramePreviewScreen
+    // Load the Unity AR scene when widget is built
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadARScene();
     });
   }
 
-  // Unity Scene Management with SceneManager - similar to FramePreviewScreen
+  // Unity Scene Management with SceneManager
   void _loadARScene() async {
     setState(() {
       _isLoading = true;
@@ -138,54 +147,96 @@ class UnityARViewPlacementState extends ConsumerState<UnityARViewPlacement> {
     });
     print('Error: $message');
   }
-
-  Future<void> _checkPermissionsAndProceed() async {
-    // Quick check - no dialog needed if already granted
-    if (await PermissionsUtils.hasRequiredPermissions()) {
-      // Permissions are good
+/** 
+  Future<void> setAuthToken() async {
+    print('[iOS Auth] Received auth token request from Unity (AR Placement)');
+    
+    if (Platform.isIOS) {
+      try {
+        final authService = iOSARCoreAuthService();
+        
+        // Initialize the service if not already done
+        if (!authService.isInitialized) {
+          final initialized = await authService.initialize();
+          if (!initialized) {
+            print('[iOS Auth] Failed to initialize auth service');
+            return;
+          }
+        }
+        
+        // Generate ARCore auth token (JWT)
+        final token = await authService.getValidAccessToken();
+        if (token != null) {
+          print('Geo [iOS Auth] Generated auth token, sending to Unity');
+          
+          final sceneManager = ref.read(unitySceneManagerProvider);
+          if (sceneManager.isUnityInitialized) {
+            final controller = sceneManager.getController();
+            
+            controller?.postMessage(
+              'ARManager',  
+              'SetAuthToken',        
+              token,
+            );
+            
+            print('Geo [iOS Auth] Auth token sent to Unity via multiple methods');
+          } else {
+            print('Geo [iOS Auth] Unity not initialized, cannot send token');
+          }
+        } else {
+          print('Geo [iOS Auth] Failed to generate auth token');
+        }
+      } catch (e) {
+        print('geo [iOS Auth] Error handling auth token request: $e');
+      }
     } else {
-      // This should rarely happen if HomeScreen worked properly
-      _handleMissingPermissions();
+      print('geo [iOS Auth] Not on iOS platform, ignoring auth token request');
     }
   }
-
-  void _handleMissingPermissions() {
-    // Show error or redirect back to home
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Permissions required. Please restart the app.')),
-    );
-    Navigator.pop(context);
-  }
+  */
 
   // Method for unified cleanup and navigation
   Future<void> _cleanupAndNavigate() async {
-    final sceneManager = ref.read(unitySceneManagerProvider);
+  print('[AR placement] Starting cleanup and navigation');
+  
+  final sceneManager = ref.read(unitySceneManagerProvider);
 
-    try {
-      if (sceneManager.isUnityInitialized) {
-        await sceneManager.safeDisposeController();
-      }
+  try {
+    if (sceneManager.isUnityInitialized) {
+      print('[AR placement] Unity is initialized, starting safe disposal');
+      
+      // Give Unity a moment to finish any ongoing operations
+      await Future.delayed(const Duration(milliseconds: 200));
+      
+      // Now safely dispose
+      await sceneManager.safeDisposeController();
+    } else {
+      print('[AR placement] Unity not initialized, skipping disposal');
+    }
 
-      if (mounted) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (context) => const UserProfileScreen(),
-          ),
-        );
-      }
-    } catch (e) {
-      print('Error during navigation: $e');
-      if (mounted) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (context) => const UserProfileScreen(),
-          ),
-        );
-      }
+    // Navigate after cleanup
+    if (mounted) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (context) => const UserProfileScreen(),
+        ),
+      );
+      print('[AR placement] Navigation completed');
+    }
+  } catch (e) {
+    print('[AR placement] Error during cleanup: $e');
+    // Even if cleanup fails, try to navigate
+    if (mounted) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (context) => const UserProfileScreen(),
+        ),
+      );
     }
   }
+}
 
   @override
   void dispose() {
@@ -195,6 +246,8 @@ class UnityARViewPlacementState extends ConsumerState<UnityARViewPlacement> {
   Future<void> _handleUnityMessage(String message) async {
     print('Unity message: $message');
 
+    final sceneManager = ref.read(unitySceneManagerProvider);
+    sceneManager.handleUnityMessage(message);
     if (message == 'AR_COMPONENTS_INITIALIZED') {
       setState(() {
         _isARSceneLoaded = true;
@@ -221,7 +274,7 @@ class UnityARViewPlacementState extends ConsumerState<UnityARViewPlacement> {
         _currentViewType = viewType;
       });
     }
-    // Handle scene messages - similar to FramePreviewScreen
+    // Handle scene messages
     else if (message.startsWith('ACTIVE_SCENE:')) {
       String activeScene = message.split(':')[1];
       setState(() {
@@ -233,8 +286,6 @@ class UnityARViewPlacementState extends ConsumerState<UnityARViewPlacement> {
           _isLoading = false;
         });
         print('Current AR scene loaded: $activeScene');
-
-        // Set placement view type after scene is confirmed loaded
         _setPlacementViewType();
       } else {
         print('Wrong scene loaded: $activeScene - switching to frames_ar');
@@ -246,27 +297,87 @@ class UnityARViewPlacementState extends ConsumerState<UnityARViewPlacement> {
         _isLoading = false;
       });
       print('Scene switched to frames_ar');
-
-      // Set placement view type after scene switch
       _setPlacementViewType();
     }
-    // Handle cloud anchor warnings
+    // Geospatial anchor messages
+    else if (message.startsWith('GEOSPATIAL_STATUS:')) {
+      final parts = message.split(':');
+      if (parts.length >= 2) {
+        final status = parts[1];
+        setState(() {
+          _geospatialStatus = status;
+        });
+        
+        // Handle specific geospatial statuses
+        if (status == "INITIALIZING") {
+          setState(() {
+            _geospatialSubStatus = "Starting geospatial tracking...";
+          });
+        } else if (status == "LOCALIZED") {
+          setState(() {
+            _geospatialSubStatus = "Location tracking active";
+          });
+        } else if (status == "NOT_TRACKING") {
+          setState(() {
+            _geospatialSubStatus = "Unable to track location";
+          });
+        }
+      }
+    }
+    else if (message.startsWith('GEOSPATIAL_ACCURACY:')) {
+      final parts = message.split(':');
+      if (parts.length >= 3) {
+        try {
+          final locAccuracy = double.parse(parts[1]);
+          final oriAccuracy = double.parse(parts[2]);
+          setState(() {
+            _locationAccuracy = locAccuracy;
+            _orientationAccuracy = oriAccuracy;
+          });
+        } catch (e) {
+          print('Error parsing geospatial accuracy: $e');
+        }
+      }
+    }
+    else if (message.startsWith('VPS_AVAILABILITY:')) {
+      final available = message.split(':')[1] == "true";
+      setState(() {
+        _vpsAvailable = available;
+      });
+    }
+    else if (message.startsWith('TERRAIN_ANCHOR_STATUS:')) {
+      final parts = message.split(':');
+      if (parts.length >= 2) {
+        final status = parts[1];
+        setState(() {
+          _geospatialSubStatus = status;
+        });
+        
+        if (status == "SUCCESS") {
+          setState(() {
+            _geospatialStatus = "SUCCESS";
+          });
+        } else if (status.startsWith("ERROR")) {
+          setState(() {
+            _geospatialStatus = "ERROR:$status";
+          });
+        }
+      }
+    }
+    // Cloud anchor messages (existing)
     else if (message.startsWith('CLOUD_ANCHOR_WARNING:')) {
       final warningMessage = message.split(':')[1];
       print('Cloud anchor warning: $warningMessage');
-
       setState(() {
         _cloudAnchorStatus = "WARNING";
       });
     }
-    // Handle scanning progress
     else if (message.startsWith('CLOUD_ANCHOR_SCANNING:')) {
       final parts = message.split(':');
       if (parts.length >= 3) {
         try {
           final current = double.parse(parts[1]);
           final total = double.parse(parts[2]);
-
           setState(() {
             _cloudAnchorSubStatus = "SCANNING";
             _cloudAnchorSubProgress = current.round();
@@ -277,14 +388,12 @@ class UnityARViewPlacementState extends ConsumerState<UnityARViewPlacement> {
         }
       }
     }
-    // Handle stabilizing progress
     else if (message.startsWith('CLOUD_ANCHOR_STATUS:STABILIZING:')) {
       final parts = message.split(':');
       if (parts.length >= 4) {
         try {
           final current = int.parse(parts[2]);
           final total = int.parse(parts[3]);
-
           setState(() {
             _cloudAnchorSubStatus = "STABILIZING";
             _cloudAnchorSubProgress = current;
@@ -295,19 +404,14 @@ class UnityARViewPlacementState extends ConsumerState<UnityARViewPlacement> {
         }
       }
     }
-    // Other cloud anchor status updates
     else if (message.startsWith('CLOUD_ANCHOR_STATUS:')) {
       final parts = message.split(':');
       final status = parts[1];
-
       setState(() {
         _cloudAnchorStatus = status;
-
-        // Reset substatus when main status changes
         if (status != "SCANNING" && status != "STABILIZING") {
           _cloudAnchorSubStatus = "";
         }
-
         if (status == "WAITING" && parts.length > 2) {
           _cloudAnchorWaitTime = int.tryParse(parts[2]) ?? 0;
         } else if (status == "SUCCESS" && parts.length > 2) {
@@ -315,11 +419,9 @@ class UnityARViewPlacementState extends ConsumerState<UnityARViewPlacement> {
         }
       });
     }
-    // Handle cloud anchor errors
     else if (message.startsWith('CLOUD_ANCHOR_ERROR:')) {
       final errorMessage = message.split(':')[1];
       print('Cloud anchor error: $errorMessage');
-
       setState(() {
         _cloudAnchorStatus = "ERROR:$errorMessage";
         _cloudAnchorSubStatus = "";
@@ -328,7 +430,6 @@ class UnityARViewPlacementState extends ConsumerState<UnityARViewPlacement> {
     // Handle frame post data
     else if (message.startsWith('FRAME_POST_DATA:')) {
       try {
-        // Extract the JSON data from the message
         final jsonData = message.toString().substring('FRAME_POST_DATA:'.length);
         print('Received anchor data from Unity: $jsonData');
 
@@ -338,9 +439,8 @@ class UnityARViewPlacementState extends ConsumerState<UnityARViewPlacement> {
 
         final unityJson = jsonDecode(jsonData);
         final latitude = unityJson['latitude'] as double;
-        print('[LOGS]Latitude: $latitude');
         final longitude = unityJson['longitude'] as double;
-        print('[LOGS]Longitude: $longitude');
+        print('[LOGS] Latitude: $latitude, Longitude: $longitude');
 
         // Validate anchor placement
         final anchorRepository = ref.read(anchorRepositoryProvider);
@@ -352,7 +452,6 @@ class UnityARViewPlacementState extends ConsumerState<UnityARViewPlacement> {
             _isPosting = false;
           });
 
-          // Show the placement error dialog
           if (mounted) {
             showDialog(
               context: context,
@@ -361,7 +460,7 @@ class UnityARViewPlacementState extends ConsumerState<UnityARViewPlacement> {
                 errorMessage: validationResponse.message,
                 username: widget.username,
                 onTryAgain: () {
-                  Navigator.pop(context); // Close the dialog
+                  Navigator.pop(context);
                 },
               ),
             );
@@ -369,7 +468,7 @@ class UnityARViewPlacementState extends ConsumerState<UnityARViewPlacement> {
           return;
         }
 
-        // Try to use provider repository if available, otherwise fall back to direct functions
+        // Save anchor using repository
         try {
           final anchorRepository = ref.read(anchorRepositoryProvider);
           final response = await anchorRepository.saveAnchor(
@@ -388,19 +487,15 @@ class UnityARViewPlacementState extends ConsumerState<UnityARViewPlacement> {
             _anchorSuccessfullySaved = true;
           });
         } catch (e) {
-          // Fall back to direct function calls if provider is not available
           print('Using fallback anchor creation method: $e');
           final newAnchor = await createNewAnchor(jsonData, widget.pieceData, widget.username);
-          print('New anchor created: $newAnchor');
           await sendAnchorToServer(newAnchor);
-          print('Anchor successfully sent to server');
-
           setState(() {
             _anchorSuccessfullySaved = true;
           });
         }
 
-        // Update piece status - try to use repository first
+        // Update piece status
         var decodedData = jsonDecode(widget.pieceData);
         String pieceId = decodedData['PieceID'];
 
@@ -417,37 +512,38 @@ class UnityARViewPlacementState extends ConsumerState<UnityARViewPlacement> {
             return;
           }
         } catch (e) {
-          // Fall back to direct function call
           print('Using fallback piece status update method: $e');
           await togglePieceLiveStatus(pieceId, true);
         }
 
         print('Piece live status updated to TRUE');
 
-        // Hide the loading overlay
         setState(() {
           _isPosting = false;
         });
 
         // Clean up Unity before navigating
         final sceneManager = ref.read(unitySceneManagerProvider);
-        if (sceneManager.isUnityInitialized) {
-          final controller = sceneManager.getController();
-          if (controller != null) {
-            await controller.postMessage(
-                'GameManager',
-                'ResetUnityScene',
-                'reset'
-            );
-          }
-          await Future.delayed(const Duration(milliseconds: 500));
-        }
+if (sceneManager.isUnityInitialized) {
+  try {
+    final controller = sceneManager.getController();
+    if (controller != null) {
+      // Use safe post message instead
+      sceneManager.safePostMessage('GameManager', 'ResetUnityScene', 'reset');
+    }
+    await Future.delayed(const Duration(milliseconds: 300));
+  } catch (e) {
+    print('[AR placement] Error during Unity cleanup in post handler: $e');
+  }
+}
 
-        // Navigate with success message that includes cloud anchor status
+        // Navigate with success message
         if (mounted) {
           String successMessage = 'Piece successfully posted!';
 
-          if (_cloudAnchorStatus == "SUCCESS") {
+          if (_geospatialStatus == "SUCCESS") {
+            successMessage = 'Piece successfully posted with geospatial anchor!';
+          } else if (_cloudAnchorStatus == "SUCCESS") {
             successMessage = 'Piece successfully posted with cloud anchor!';
           } else if (_cloudAnchorStatus == "TIMEOUT" || _cloudAnchorStatus.startsWith("ERROR")) {
             successMessage = 'Piece posted with GPS location only';
@@ -464,8 +560,6 @@ class UnityARViewPlacementState extends ConsumerState<UnityARViewPlacement> {
         }
       } catch (e) {
         print('Error processing anchor data: $e');
-
-        // Hide the loading overlay on error too
         setState(() {
           _isPosting = false;
           _anchorError = e.toString();
@@ -483,6 +577,8 @@ class UnityARViewPlacementState extends ConsumerState<UnityARViewPlacement> {
     } else if (message == 'PIECE_ANCHORED') {
       print('Piece anchored successfully in Unity');
     }
+        // Pass message to scene manager for handling
+ 
   }
 
   void _handleSceneLoaded(SceneLoaded? scene) {
@@ -490,7 +586,6 @@ class UnityARViewPlacementState extends ConsumerState<UnityARViewPlacement> {
     setState(() {
       _currentScene = scene?.name ?? 'not set';
     });
-    print('Current scene set to: $_currentScene');
 
     if (scene != null && scene.name == UnitySceneType.arScene.sceneName) {
       setState(() {
@@ -498,7 +593,6 @@ class UnityARViewPlacementState extends ConsumerState<UnityARViewPlacement> {
         _isLoading = false;
       });
 
-      // Set view type to placement
       Future.delayed(const Duration(milliseconds: 500), () {
         _setPlacementViewType();
       });
@@ -516,7 +610,21 @@ class UnityARViewPlacementState extends ConsumerState<UnityARViewPlacement> {
 
   // Updated helper method to get appropriate status message
   String _getPostingStatusMessage() {
-    if (_cloudAnchorStatus == "STARTED") {
+    // Prioritize geospatial status if active
+    if (_geospatialStatus == "INITIALIZING") {
+      return "Initializing location tracking...";
+    } else if (_geospatialStatus == "LOCALIZED") {
+      return "Creating geospatial anchor...";
+    } else if (_geospatialSubStatus.isNotEmpty && _geospatialStatus != "SUCCESS") {
+      return _geospatialSubStatus;
+    } else if (_geospatialStatus == "SUCCESS") {
+      return "Geospatial anchor created!";
+    } else if (_geospatialStatus.startsWith("ERROR")) {
+      return "Using GPS location instead";
+    }
+    
+    // Fall back to cloud anchor status
+    else if (_cloudAnchorStatus == "STARTED") {
       return "Creating cloud anchor...";
     } else if (_cloudAnchorSubStatus == "SCANNING") {
       return "Scanning for features...";
@@ -537,9 +645,51 @@ class UnityARViewPlacementState extends ConsumerState<UnityARViewPlacement> {
     }
   }
 
-  // Updated helper method to build cloud anchor status widget
-  Widget _buildCloudAnchorStatusWidget() {
-    if (_cloudAnchorSubStatus == "SCANNING") {
+  // Updated helper method to build anchor status widget
+  Widget _buildAnchorStatusWidget() {
+    // Show geospatial status if active
+    if (_geospatialStatus.isNotEmpty && _geospatialStatus != "SUCCESS") {
+      return Column(
+        children: [
+          if (_geospatialStatus == "INITIALIZING")
+            const Text(
+              "Acquiring precise location using GPS and visual positioning",
+              style: TextStyle(fontSize: 12),
+              textAlign: TextAlign.center,
+            )
+          else if (_geospatialStatus == "LOCALIZED")
+            Column(
+              children: [
+                Text(
+                  "Location accuracy: ${_locationAccuracy.toStringAsFixed(1)}m",
+                  style: const TextStyle(fontSize: 12),
+                ),
+                Text(
+                  "Orientation accuracy: ${_orientationAccuracy.toStringAsFixed(1)}°",
+                  style: const TextStyle(fontSize: 12),
+                ),
+                if (_vpsAvailable)
+                  const Text(
+                    "Visual positioning system available",
+                    style: TextStyle(fontSize: 12, color: Colors.green),
+                  ),
+              ],
+            )
+          else if (_geospatialStatus == "NOT_TRACKING")
+            const Text(
+              "Unable to determine precise location",
+              style: TextStyle(fontSize: 12, color: Colors.orange),
+            ),
+          
+          const SizedBox(height: 8),
+          if (_geospatialStatus == "INITIALIZING" || _geospatialStatus == "LOCALIZED")
+            const LinearProgressIndicator(),
+        ],
+      );
+    }
+    
+    // Fall back to cloud anchor status widget
+    else if (_cloudAnchorSubStatus == "SCANNING") {
       return Column(
         children: [
           const Text(
@@ -551,7 +701,7 @@ class UnityARViewPlacementState extends ConsumerState<UnityARViewPlacement> {
           LinearProgressIndicator(
             value: _cloudAnchorSubProgress > 0 && _cloudAnchorSubTotal > 0
                 ? _cloudAnchorSubProgress / _cloudAnchorSubTotal
-                : null, // Indeterminate if no progress values
+                : null,
           ),
         ],
       );
@@ -581,9 +731,15 @@ class UnityARViewPlacementState extends ConsumerState<UnityARViewPlacement> {
           ),
           const SizedBox(height: 8),
           LinearProgressIndicator(
-            value: _cloudAnchorWaitTime / 40, // 40 seconds is the max wait time
+            value: _cloudAnchorWaitTime / 40,
           ),
         ],
+      );
+    } else if (_geospatialStatus == "SUCCESS") {
+      return const Text(
+        "Your piece will be anchored with geospatial precision!",
+        style: TextStyle(color: Colors.green, fontSize: 14),
+        textAlign: TextAlign.center,
       );
     } else if (_cloudAnchorStatus == "SUCCESS") {
       return const Text(
@@ -591,15 +747,15 @@ class UnityARViewPlacementState extends ConsumerState<UnityARViewPlacement> {
         style: TextStyle(color: Colors.green, fontSize: 14),
         textAlign: TextAlign.center,
       );
-    } else if (_cloudAnchorStatus == "TIMEOUT") {
+    } else if (_cloudAnchorStatus == "TIMEOUT" || _geospatialStatus.startsWith("ERROR")) {
       return const Text(
-        "Cloud anchor timed out, but your piece will still be visible using GPS",
+        "Anchor timed out, but your piece will still be visible using GPS",
         style: TextStyle(color: Colors.orange, fontSize: 12),
         textAlign: TextAlign.center,
       );
     } else if (_cloudAnchorStatus.startsWith("ERROR")) {
       return const Text(
-        "Cloud anchoring not available, but your piece will still be visible using GPS",
+        "Anchoring not available, but your piece will still be visible using GPS",
         style: TextStyle(color: Colors.orange, fontSize: 12),
         textAlign: TextAlign.center,
       );
@@ -649,6 +805,8 @@ class UnityARViewPlacementState extends ConsumerState<UnityARViewPlacement> {
                                 Text('Frame Loaded: ${_isFrameLoaded ? "Yes" : "No"}'),
                                 Text('Current view: $_currentViewType'),
                                 Text('Scene: $_currentScene'),
+                                if (_geospatialStatus.isNotEmpty)
+                                  Text('Geospatial: $_geospatialStatus'),
                               ],
                             ),
                           ),
@@ -776,12 +934,21 @@ class UnityARViewPlacementState extends ConsumerState<UnityARViewPlacement> {
                                                           _anchorDataReceived = false;
                                                           _anchorSuccessfullySaved = false;
                                                           _anchorError = null;
+                                                          
+                                                          // Reset cloud anchor status
                                                           _cloudAnchorStatus = "";
                                                           _cloudAnchorWaitTime = 0;
                                                           _cloudAnchorId = null;
                                                           _cloudAnchorSubStatus = "";
                                                           _cloudAnchorSubProgress = 0;
                                                           _cloudAnchorSubTotal = 0;
+                                                          
+                                                          // Reset geospatial status
+                                                          _geospatialStatus = "";
+                                                          _geospatialSubStatus = "";
+                                                          _locationAccuracy = 0.0;
+                                                          _orientationAccuracy = 0.0;
+                                                          _vpsAvailable = false;
                                                         });
 
                                                         // Tell Unity to post the piece using SceneManager
@@ -789,6 +956,7 @@ class UnityARViewPlacementState extends ConsumerState<UnityARViewPlacement> {
                                                         if (sceneManager.isUnityInitialized) {
                                                           final controller = sceneManager.getController();
                                                           if (controller != null) {
+                                                          //  setAuthToken(); // Ensure auth token is set for iOS
                                                             controller.postMessage(
                                                               'ARManager',
                                                               'PostPiece',
@@ -798,12 +966,12 @@ class UnityARViewPlacementState extends ConsumerState<UnityARViewPlacement> {
                                                           }
                                                         }
 
-                                                        // Set an extended timeout (40 seconds to match Unity's timeout)
-                                                        Future.delayed(const Duration(seconds: 40), () {
+                                                        // Set an extended timeout (60 seconds to allow for geospatial initialization)
+                                                        Future.delayed(const Duration(seconds: 60), () {
                                                           if (mounted && _isPosting && !_anchorDataReceived) {
                                                             setState(() {
                                                               _isPosting = false;
-                                                              _anchorError = "Posting timed out after 40 seconds";
+                                                              _anchorError = "Posting timed out after 60 seconds";
                                                             });
 
                                                             ScaffoldMessenger.of(context).showSnackBar(
@@ -839,7 +1007,19 @@ class UnityARViewPlacementState extends ConsumerState<UnityARViewPlacement> {
                                 ],
                               ),
                             ),
-                        ],
+                        ElevatedButton(onPressed:(){ final sceneManager = ref.read(unitySceneManagerProvider);
+                                                        if (sceneManager.isUnityInitialized) {
+                                                          final controller = sceneManager.getController();
+                                                          if (controller != null) {
+                                                          //  setAuthToken(); // Ensure auth token is set for iOS
+                                                            controller.postMessage(
+                                                              'ARManager',
+                                                              'WaitForEarthTracking',
+                                                              '',
+                                                            );
+                                                            print('[geo] Wait for Earth tracking Button pressed');
+                                                          }
+                                                        }}, child: Text('Wait for Earth Tracking'))],
                       ),
                     ),
                   ],
@@ -866,7 +1046,7 @@ class UnityARViewPlacementState extends ConsumerState<UnityARViewPlacement> {
                               textAlign: TextAlign.center,
                             ),
                             const SizedBox(height: 8),
-                            _buildCloudAnchorStatusWidget(),
+                            _buildAnchorStatusWidget(),
                             if (_anchorError != null)
                               Padding(
                                 padding: const EdgeInsets.only(top: 8),
