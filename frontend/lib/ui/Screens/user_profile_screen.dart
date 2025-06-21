@@ -7,11 +7,12 @@ import 'package:frames_app/models/anchor_model.dart';
 import 'package:frames_app/models/piece_model.dart';
 import 'package:frames_app/models/user_model.dart';
 import 'package:frames_app/providers/user_provider.dart';
-import 'package:frames_app/ui/Screens/subscribers_screen.dart';
-import 'package:frames_app/ui/Screens/subscriptions_screen.dart';
+import 'package:frames_app/ui/Screens/user_menu.dart';
 import 'package:frames_app/ui/Widgets/piece_preview_popup.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:frames_app/ui/Screens/subscribers_screen.dart';
+import 'package:frames_app/ui/Screens/subscriptions_screen.dart';
 
 class UserProfileScreen extends ConsumerStatefulWidget {
   final String? successMessage;
@@ -27,7 +28,10 @@ class UserProfileScreen extends ConsumerStatefulWidget {
 
 class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
   bool _showGallery = true;
+  final bool _isLoading = false;
   bool _manualRefreshInProgress = false;
+
+
   Completer<GoogleMapController> _mapController = Completer();
   LatLng? _currentUserLocation;
 
@@ -48,11 +52,12 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
       });
     }
 
-    // Silent refresh when entering the screen without showing loading indicator
+     // Silent refresh when entering the screen without showing loading indicator
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _silentRefresh();
     });
   }
+  
 
   Future<void> requestLocationPermission() async {
     final permission = await Geolocator.requestPermission();
@@ -119,7 +124,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
   }
   */
 
-  // Silent refresh without showing loading overlay
+// Silent refresh without showing loading overlay
   Future<void> _silentRefresh() async {
     if (mounted) {
       await ref.read(userNotifierProvider).refreshUserData(showLoading: false);
@@ -143,14 +148,31 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
   }
 
   @override
-  Widget build(BuildContext context) {
-    final userModel = ref.watch(userProfileProvider);
-    print(
-        '[LOGS] User profile data for : ${userModel!.username}. Has ${userModel.pieces.length} pieces');
-
-    return Scaffold(
+  @override
+Widget build(BuildContext context) {
+  final userModel = ref.watch(userProfileProvider);
+  print('[LOGS] User profile data for : ${userModel!.username}. Has ${userModel.pieces.length} pieces');
+  final bool isLoading = _isLoading;
+  
+  return PopScope(
+    canPop: false,
+    onPopInvoked: (didPop) {
+      if (didPop) return;
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (context) => const MenuScreen()),
+      );
+    },
+    child: Scaffold(
       resizeToAvoidBottomInset: false,
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () {
+            Navigator.of(context).pushReplacement(
+              MaterialPageRoute(builder: (context) => const MenuScreen()),
+            );
+          },
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.edit),
@@ -184,8 +206,9 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
           ],
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildProfileInfoRow(UserModel userProfile) {
     return Padding(
@@ -260,7 +283,6 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
       ),
     );
   }
-
   Widget _buildGalleryView(List<Piece> pieces) {
     if (pieces.isEmpty) {
       return const Center(child: Text('No pieces available'));
@@ -338,9 +360,9 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
           piece: piece,
           pieceData: freshPieceData,
           onPieceUpdated: () {
-            // print("Piece updated callback triggered for: ${piece.pieceTitle}");
-            // Do a full refresh to ensure data is updated
-            //_refreshProfileData(showLoading: false);
+            print("Piece updated callback triggered for: ${piece.pieceTitle}");
+    // Do a full refresh to ensure data is updated
+    _silentRefresh(); // This will refresh the user data
           },
         );
       },
@@ -348,8 +370,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
   }
 
   Widget _buildPieceItem(Piece piece) {
-    print(
-        '[LOGS] Building piece item for: ${piece.pieceTitle} (${piece.pieceid}). The url is: ${piece.pieceDisplay.toString()}');
+    print('[LOGS] Building piece item for: ${piece.pieceTitle} (${piece.pieceid}). The url is: ${piece.pieceDisplay.toString()}');
     return GestureDetector(
       onTap: () => _showPiecePreview(context, piece),
       child: Container(
