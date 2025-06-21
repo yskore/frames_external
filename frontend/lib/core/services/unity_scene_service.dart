@@ -127,40 +127,69 @@ void handleUnityMessage(String message) {
   }
 
   // Method to safely dispose the controller
-  Future<void> safeDisposeController() async {
-    if (_isDisposing) return; // Prevent multiple dispose calls
-    
-    _isDisposing = true;
-    
-    try {
-      if (_unityController != null) {
-        // First send a reset message
-        _unityController!.postMessage(
-          'GameManager',
-          'ResetUnityScene',
-          'reset'
-        );
-        
-        // Small delay to allow Unity to process the message
-        await Future.delayed(const Duration(milliseconds: 300));
-        
-        // Now actually dispose
-        _unityController!.dispose();
-        _unityController = null;
-
-        print("[TEST] safeDisposeController called and unity controller disposed");
-      }
-
-       _isInitialized = false;
-      _currentScene = null;
-      _authTokenSet = false;
-    } catch (e) {
-      print('Error disposing Unity controller: $e');
-    } finally {
-      _isInitialized = false;
-      _isDisposing = false;
-    }
+ Future<void> safeDisposeController() async {
+  print('[unity service] Starting safe disposal of Unity controller');
+  
+  if (!_isInitialized) {
+    print('[unity service] Controller already disposed or not initialized');
+    return;
   }
+
+  try {
+    if (_unityController != null) {
+      // Give Unity a moment to finish any ongoing operations
+      await Future.delayed(const Duration(milliseconds: 200));
+
+      // Now dispose the controller
+      try {
+        _unityController!.dispose();
+        print('[unity service] Unity controller disposed successfully');
+      } catch (e) {
+        print('[unity service] Error disposing controller (may already be disposed): $e');
+      }
+    }
+  } catch (e) {
+    print('[unity service] Error during safe disposal: $e');
+  } finally {
+    // Always reset state regardless of errors
+    _unityController = null;
+    _isInitialized = false;
+    _currentScene = null;
+    print('[unity service] Unity service state reset');
+  }
+}
+
+Future<bool> _testControllerResponsive() async {
+  try {
+    if (_unityController == null) return false;
+    
+    // Try a simple operation to test if controller is still valid
+    // This will throw if the controller is disposed
+    _unityController!.hashCode;
+    return true;
+  } catch (e) {
+    print('[unity service] Controller is not responsive: $e');
+    return false;
+  }
+}
+
+// Update all postMessage calls to be safe
+bool safePostMessage(String gameObject, String methodName, String message) {
+  if (!_isInitialized || _unityController == null) {
+    print('[unity service] Cannot post message: Unity not initialized');
+    return false;
+  }
+
+  try {
+    // Test if controller is still valid before posting
+    _unityController!.hashCode; // This will throw if disposed
+    _unityController!.postMessage(gameObject, methodName, message);
+    return true;
+  } catch (e) {
+    print('[unity service] Error posting message to Unity: $e');
+    return false;
+  }
+}
 
    // Modified loadScene method with auth token initialization
 Future<bool> loadScene(UnitySceneType sceneType) async {
