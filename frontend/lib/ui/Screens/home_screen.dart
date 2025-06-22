@@ -165,10 +165,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with WidgetsBindingObse
     }
   }
 
-  void _handleUnityMessage(String message) {
+  Future<void> _handleUnityMessage(String message) async {
     print('Unity message: $message');
+
+
     
     // Handle view type messages
+    final sceneManager = ref.read(unitySceneManagerProvider);
+    sceneManager.handleUnityMessage(message);
+    
     if (message.startsWith('CURRENT_VIEW_TYPE:') && !_hasProcessedViewType) {
       final viewType = message.split(':')[1];
       print('Current AR View Type: $viewType');
@@ -226,9 +231,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with WidgetsBindingObse
     }
    
     // Handle calibration-related messages
-    else {
-      _handleCalibrationMessage(message);
-    }
+    
+    _handleCalibrationMessage(message);
+        // Pass message to scene manager for handling
+   
   }
 
   void _handleCalibrationMessage(String message) {
@@ -758,7 +764,36 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with WidgetsBindingObse
                 ],
               ),
             ),
-             ],
+            
+            // Map/Earth button positioned at bottom left
+            Positioned(
+              bottom: 90, // Position above the bottom action area
+              left: 16,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surface,
+                  borderRadius: BorderRadius.circular(28),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.2),
+                      spreadRadius: 1,
+                      blurRadius: 6,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: IconButton(
+                  onPressed: () {
+                    // TODO: Add map/earth functionality here
+                  },
+                  icon: const Icon(Icons.public), // Earth/globe icon
+                  iconSize: 28,
+                  padding: const EdgeInsets.all(12),
+                  tooltip: 'View Map',
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
