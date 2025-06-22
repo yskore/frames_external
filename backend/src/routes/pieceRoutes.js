@@ -20,5 +20,8 @@ router.get('/piece/:pieceId', pieceController.getPieceById);
 
 // Add new route for toggling sale status
 router.post('/toggle_for_sale', validateToken, validateSaleToggle, pieceController.toggleForSale);
+// new route for getting pieces by Title
+router.post('/search_pieces', pieceController.searchPieces);
+
 
 module.exports = router;
