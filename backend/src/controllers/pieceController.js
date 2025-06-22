@@ -1,3 +1,4 @@
+
 const Piece = require('../models/pieces');
 const Anchor = require('../models/anchors');
 const user_profile = require('../models/user_profile');
@@ -406,5 +407,71 @@ exports.getPieceById = async (req, res) => {
             message: 'Failed to retrieve piece information',
             error: error.message
         });
+    }
+};
+
+
+// Search pieces by title
+exports.searchPieces = async (req, res) => {
+    try {
+        const { query } = req.body;
+
+        if (!query) {
+            return res.status(400).json({
+                success: false,
+                message: 'Search query is required'
+            });
+        }
+
+        const searchPattern = new RegExp(query, 'i');
+
+        const pieces = await Piece.find(
+            { Piece_title: searchPattern },
+            { 
+                Piece_id: 1, 
+                Piece_title: 1, 
+                Piece_owner: 1, 
+                Frame_name: 1,
+                Piece_description: 1,
+                Piece_display: 1,
+                Piece_creation_date: 1,
+                Piece_likes: 1,
+                Piece_impressions: 1,
+                currency: 1,
+                payment_details: 1,
+                ownership: 1,
+                live_status: 1,
+                Piece_for_sale: 1,
+                Piece_price: 1,
+                _id: 0 
+            }
+        ).limit(20);
+
+        const formattedPieces = pieces.map(piece => ({
+            id: piece.Piece_id,
+            title: piece.Piece_title,
+            owner: piece.Piece_owner,
+            frameName: piece.Frame_name,
+            description: piece.Piece_description,
+            imageUrl: piece.Piece_display,
+            creationDate: piece.Piece_creation_date,
+            likes: piece.Piece_likes,
+            impressions: piece.Piece_impressions,
+            currency: piece.currency,
+            payment_details: piece.payment_details,
+            ownership: piece.ownership || '00', // Include the ownership field
+            isLive: piece.live_status,
+            forSale: piece.Piece_for_sale,
+            price: piece.Piece_price
+        }));
+
+        res.json({
+            success: true,
+            message: 'Pieces retrieved successfully',
+            data: { pieces: formattedPieces }
+        });
+    } catch (error) {
+        console.error('Error in searchPieces:', error);
+        res.status(500).json({ success: false, message: 'Internal server error' });
     }
 };
