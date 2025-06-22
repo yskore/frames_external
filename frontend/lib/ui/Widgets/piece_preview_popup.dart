@@ -538,6 +538,7 @@ Future<void> _handleClosing() async {
                               descriptionController: _descriptionController,
                               priceController: _priceController,
                               currencyController: _currencyController,
+                              paymentDetailsController: _paymentDetailsController,
                               isLoadingAnchorDetails: _isLoadingAnchorDetails,
                               anchorExpireTime: _anchorExpireTime,
                               ownership: _ownership,
@@ -545,7 +546,7 @@ Future<void> _handleClosing() async {
                               onForSaleChanged: (value) {
                                 setState(() {
                                   _piece = _piece.copyWith(pieceForSale: value);
-                                  // _editManager.updateForSaleState(value);
+                                  _editManager.updateForSaleState(value);
                                 });
                               },
                               context: context,

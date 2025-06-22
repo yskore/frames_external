@@ -12,6 +12,7 @@ class PieceInfoSection extends StatelessWidget {
   final TextEditingController descriptionController;
   final TextEditingController priceController;
   final TextEditingController currencyController;
+  final TextEditingController paymentDetailsController;
   final bool isLoadingAnchorDetails;
   final DateTime? anchorExpireTime;
   final String ownership;
@@ -27,6 +28,7 @@ class PieceInfoSection extends StatelessWidget {
     required this.descriptionController,
     required this.priceController,
     required this.currencyController, // Add this parameter
+    required this.paymentDetailsController,
     required this.isLoadingAnchorDetails,
     this.anchorExpireTime,
     required this.ownership,
@@ -67,6 +69,7 @@ class PieceInfoSection extends StatelessWidget {
               const SizedBox(height: 5),
             ],
             _buildEditableInfoRow('Price', priceController),
+            _buildEditableInfoRow('Payment Details', paymentDetailsController)
           ],
           _buildInfoRow(
               'Creation Date',
@@ -134,6 +137,28 @@ class PieceInfoSection extends StatelessWidget {
   }
 
   Widget _buildEditableInfoRow(String label, TextEditingController controller) {
+
+      // Special case for Payment Details to make it multi-line
+  if (label == 'Payment Details') {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('$label:', style: const TextStyle(fontWeight: FontWeight.bold)),
+          const SizedBox(height: 8),
+          TextField(
+            controller: controller,
+            maxLines: 4,  // This makes it a multi-line text field
+            decoration: InputDecoration(
+              border: isEditing ? const OutlineInputBorder() : InputBorder.none,
+            ),
+            readOnly: !isEditing,
+          ),
+        ],
+      ),
+    );
+  }
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4.0),
       child: Row(

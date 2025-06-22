@@ -18,6 +18,7 @@ class PieceEditManager {
   final String ownership;
   final Function(bool) setLoading;
   final Function(Piece) updatePiece;
+  bool currentForSaleState; 
 
   PieceEditManager({
     required this.ref,
@@ -30,7 +31,7 @@ class PieceEditManager {
     required this.ownership,
     required this.setLoading,
     required this.updatePiece,
-  });
+  }) : currentForSaleState = piece.pieceForSale;
 
  // In piece_edit_section.dart
 // In piece_edit_section.dart
@@ -76,13 +77,17 @@ void openCurrencyPicker(BuildContext context) {
     );
   }
 
+  void updateForSaleState(bool newState) {
+    currentForSaleState = newState;
+  }
+
   Future<bool> savePieceChanges() async {
     setLoading(true);
 
     try {
       final pieceRepository = ref.read(pieceRepositoryProvider);
       String? paymentDetails;
-      if (piece.pieceForSale) {
+      if (currentForSaleState) {  // Use the tracked state
         paymentDetails = paymentDetailsController.text;
       }
       
@@ -91,7 +96,7 @@ void openCurrencyPicker(BuildContext context) {
         oldPieceTitle: piece.pieceTitle,
         newPieceTitle: nameController.text,
         pieceDescription: descriptionController.text,
-        pieceForSale: piece.pieceForSale,
+        pieceForSale: currentForSaleState,  // Use the tracked state
         piecePrice: double.tryParse(priceController.text) ?? 0.0,
         ownership: ownership,
         paymentDetails: paymentDetails,
@@ -103,8 +108,9 @@ void openCurrencyPicker(BuildContext context) {
           pieceTitle: nameController.text,
           pieceDescription: descriptionController.text,
           piecePrice: double.tryParse(priceController.text) ?? piece.piecePrice,
-          paymentDetails: piece.pieceForSale ? paymentDetailsController.text : piece.paymentDetails,
+          paymentDetails: currentForSaleState ? paymentDetailsController.text : piece.paymentDetails,
           currency: currencyController.text,
+          pieceForSale: currentForSaleState,  // Include the updated state
         );
         
         updatePiece(updatedPiece);
