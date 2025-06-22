@@ -6,6 +6,7 @@ class Piece {
   final String frameName;
   final bool liveStatus;
   final int pieceLikes;
+  final int pieceImpressions;
   final Map<String, dynamic>? pieceLocation;
   final String? pieceDescription;
   final DateTime pieceCreationDate;
@@ -15,7 +16,6 @@ class Piece {
   final String ownership;
   final String? paymentDetails;
   final String currency;
-  final int pieceImpressions;
 
   Piece({
     required this.pieceid,
@@ -25,40 +25,90 @@ class Piece {
     required this.frameName,
     required this.liveStatus,
     required this.pieceLikes,
+    required this.pieceImpressions,
     this.pieceLocation,
     this.pieceDescription,
-    this.paymentDetails,
-    this.pieceImpressions = 0,
     required this.pieceCreationDate,
     this.pieceDisplay,
     required this.pieceForSale,
     required this.piecePrice,
     required this.ownership,
     required this.currency,
+    this.paymentDetails,
   });
 
   factory Piece.fromJson(Map<String, dynamic> json) {
     return Piece(
-      pieceid: json['Piece_id'] ?? '',
-      pieceObject: json['Piece_Object'] ?? '',
-      pieceOwner: json['Piece_owner'] ?? '',
-      pieceTitle: json['Piece_title'] ?? '',
-      paymentDetails: json['payment_details'],
-      frameName: json['Frame_name'] ?? 'not_found',
-      liveStatus: json['live_status'] ?? false,
-      pieceImpressions: json['Piece_impressions'] ?? 0,
-      pieceLikes: json['Piece_likes'] ?? 0,
-      pieceLocation: json['Piece_location'],
+      // Handle both database format (Piece_id) and API format (id)
+      pieceid: json['Piece_id'] ?? json['id'] ?? '',
+      
+      // Handle both database format (Piece_Object) and API format (pieceObject)
+      pieceObject: json['Piece_Object'] ?? json['pieceObject'] ?? '',
+      
+      // Handle both database format (Piece_owner) and API format (owner)
+      pieceOwner: json['Piece_owner'] ?? json['owner'] ?? '',
+      
+      // Handle both database format (Piece_title) and API format (title)
+      pieceTitle: json['Piece_title'] ?? json['title'] ?? '',
+      
+      // Handle payment details
+      paymentDetails: json['payment_details'] ?? json['paymentDetails'],
+      
+      // Handle both database format (Frame_name) and API format (frameName)
+      frameName: json['Frame_name'] ?? json['frameName'] ?? 'not_found',
+      
+      // Handle both database format (live_status) and API format (isLive)
+      liveStatus: json['live_status'] ?? json['isLive'] ?? false,
+      
+      // Handle both database format (Piece_likes) and API format (likes)
+      pieceLikes: json['Piece_likes'] ?? json['likes'] ?? 0,
+      
+      // Handle both database format (Piece_impressions) and API format (impressions)
+      pieceImpressions: json['Piece_impressions'] ?? json['impressions'] ?? 0,
+      
+      // Handle location
+      pieceLocation: json['Piece_location'] ?? json['pieceLocation'],
+      
+      // Handle currency
       currency: json['currency'] ?? 'USD',
-      pieceDescription: json['Piece_description'],
-      pieceCreationDate: json['Piece_creation_date'] != null
-          ? DateTime.parse(json['Piece_creation_date'])
-          : DateTime.now(),
-      pieceDisplay: json['Piece_display'],
-      pieceForSale: json['Piece_for_sale'] ?? false,
-      piecePrice: (json['Piece_price'] ?? 0).toDouble(),
+      
+      // Handle both database format (Piece_description) and API format (description)
+      pieceDescription: json['Piece_description'] ?? json['description'],
+      
+      // Handle creation date - support multiple formats
+      pieceCreationDate: _parseDate(json['Piece_creation_date'] ?? json['creationDate']),
+      
+      // Handle both database format (Piece_display) and API format (imageUrl)
+      pieceDisplay: json['Piece_display'] ?? json['imageUrl'],
+      
+      // Handle both database format (Piece_for_sale) and API format (forSale)
+      pieceForSale: json['Piece_for_sale'] ?? json['forSale'] ?? false,
+      
+      // Handle both database format (Piece_price) and API format (price)
+      piecePrice: (json['Piece_price'] ?? json['price'] ?? 0).toDouble(),
+      
+      // Handle ownership
       ownership: json['ownership'] ?? '00',
     );
+  }
+
+  // Helper method to parse dates from different formats
+  static DateTime _parseDate(dynamic dateValue) {
+    if (dateValue == null) return DateTime.now();
+    
+    if (dateValue is String) {
+      try {
+        return DateTime.parse(dateValue);
+      } catch (e) {
+        return DateTime.now();
+      }
+    }
+    
+    if (dateValue is DateTime) {
+      return dateValue;
+    }
+    
+    return DateTime.now();
   }
 
   Piece copyWith({
