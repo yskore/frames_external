@@ -1,16 +1,39 @@
 import 'dart:convert';
 import 'dart:developer';
+import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:frames_app/Providers/error_provider.dart';
-import 'package:frames_app/Providers/user_provider.dart';
 import 'package:frames_app/core/services/unity_scene_service.dart';
 import 'package:frames_app/models/piece_model.dart';
 import 'package:frames_app/models/user_profile_model.dart';
-import 'package:frames_app/providers/subscription_provider.dart';
-import 'package:frames_app/ui/Screens/user_subscribers_screen.dart';
+import 'package:frames_app/models/anchor_model.dart';
+import 'package:frames_app/core/repositories/piece_repository.dart';
+import 'package:frames_app/ui/Screens/home_screen.dart';
+import 'package:frames_app/ui/Screens/search_screen.dart';
 import 'package:frames_app/ui/Widgets/piece_preview_popup.dart';
+import 'package:frames_app/Providers/error_provider.dart';
+import 'package:frames_app/Providers/user_provider.dart';
+import 'package:frames_app/Providers/subscription_provider.dart';
+import 'package:frames_app/ui/Screens/user_subscribers_screen.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';import 'dart:convert';
+import 'dart:developer';
+
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:frames_app/core/services/unity_scene_service.dart';
+import 'package:frames_app/models/piece_model.dart';
+import 'package:frames_app/models/user_profile_model.dart';
+import 'package:frames_app/models/anchor_model.dart';
+import 'package:frames_app/ui/Screens/home_screen.dart';
+import 'package:frames_app/ui/Screens/search_screen.dart';
+import 'package:frames_app/ui/Widgets/piece_preview_popup.dart';
+import 'package:frames_app/ui/Widgets/map_view_widget.dart';
+import 'package:frames_app/Providers/error_provider.dart';
+import 'package:frames_app/Providers/user_provider.dart';
+import 'package:frames_app/Providers/subscription_provider.dart';
+import 'package:frames_app/ui/Screens/user_subscribers_screen.dart';
 
 class OtherUserProfileScreen extends ConsumerStatefulWidget {
   final String username;
@@ -28,24 +51,65 @@ class OtherUserProfileScreen extends ConsumerStatefulWidget {
 class _OtherUserProfileScreenState
     extends ConsumerState<OtherUserProfileScreen> {
   bool _isLoading = true;
+  bool _showGallery = true; // New state variable for toggle
   UserProfileModel? _userProfile;
   List<Piece>? _pieces;
+  List<AnchorModel>? _anchors;
   String? _errorMessage;
   bool _isSubscribed = false;
   bool _isSubscribeButtonLoading = false;
+  
+  Completer<GoogleMapController> _mapController = Completer();
+  LatLng? _currentUserLocation;
 
   @override
   void initState() {
     super.initState();
     _loadProfileData();
-
-    // Set Unity scene to preview mode when entering profile screen
+    _requestLocationPermission();
+    
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final sceneManager = ref.read(unitySceneManagerProvider);
       if (sceneManager.isUnityInitialized) {
         sceneManager.loadScene(UnitySceneType.previewScene);
       }
     });
+  }
+
+  Future<void> _requestLocationPermission() async {
+    final permission = await Geolocator.requestPermission();
+    if (permission == LocationPermission.whileInUse ||
+        permission == LocationPermission.always) {
+      try {
+        final position = await Geolocator.getCurrentPosition(
+            desiredAccuracy: LocationAccuracy.high);
+        setState(() {
+          _currentUserLocation = LatLng(position.latitude, position.longitude);
+        });
+      } catch (e) {
+        print('Error getting location: $e');
+      }
+    }
+  }
+
+  Future<void> _loadAnchors() async {
+    if (_pieces == null) return;
+    
+    final pieceRepository = ref.read(pieceRepositoryProvider);
+    final anchors = <AnchorModel>[];
+    
+    for (final piece in _pieces!.where((p) => p.liveStatus)) {
+      final result = await pieceRepository.getAnchorByPieceId(piece.pieceid);
+      if (result.error == null && result.data != null) {
+        anchors.add(result.data!);
+      }
+    }
+    
+    if (mounted) {
+      setState(() {
+        _anchors = anchors;
+      });
+    }
   }
 
   Future<void> _loadProfileData() async {
@@ -62,8 +126,14 @@ class _OtherUserProfileScreenState
           _pieces = (response.data!['pieces'] as List)
               .map((piece) => Piece.fromJson(piece))
               .toList();
+          
+          // Initialize empty anchors list
+          _anchors = [];
           _isSubscribed = response.data!['isSubscribed'] ?? false;
           _isLoading = false;
+          
+          // Fetch anchors for live pieces
+          _loadAnchors();
         });
       } else {
         setState(() {
@@ -81,18 +151,30 @@ class _OtherUserProfileScreenState
     }
   }
 
-  // Method to navigate back to home with scene switching
   void _navigateBackToHome() {
     // Pre-load AR scene before navigation
     final sceneManager = ref.read(unitySceneManagerProvider);
     if (sceneManager.isUnityInitialized) {
-      // Set the scene back to AR mode first
       sceneManager.loadScene(UnitySceneType.arScene).then((_) {
         if (!mounted) return;
         Navigator.of(context).pop();
       });
     } else {
       Navigator.of(context).pop();
+    }
+  }
+
+  @override
+  void dispose() {
+    _disposeMapController();
+    super.dispose();
+  }
+
+  void _disposeMapController() async {
+    if (_mapController.isCompleted) {
+      final controller = await _mapController.future;
+      controller.dispose();
+      _mapController = Completer<GoogleMapController>();
     }
   }
 
@@ -136,7 +218,7 @@ class _OtherUserProfileScreenState
               ),
               const SizedBox(height: 16),
               ElevatedButton(
-                onPressed: _navigateBackToHome,
+                onPressed: _navigateBackToHome, 
                 child: const Text('Go Back'),
               ),
             ],
@@ -149,14 +231,125 @@ class _OtherUserProfileScreenState
           children: [
             _buildProfileInfoRow(context, _userProfile!),
             const Divider(),
+            _buildToggleRow(), // Add the toggle row
             Expanded(
-              child: _buildGalleryView(context, ref, _pieces!),
+              child: _showGallery
+                  ? _buildGalleryView(context, ref, _pieces!)
+                  : _buildMapView(), // Show map or gallery based on toggle
             ),
           ],
         ),
       );
     }
   }
+
+  // New toggle row widget (similar to user profile screen)
+  Widget _buildToggleRow() {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Text('Gallery'),
+          Switch(
+            value: !_showGallery,
+            onChanged: (value) {
+              setState(() {
+                _showGallery = !value;
+              });
+
+              if (!_showGallery) {
+                // When switching back to gallery, dispose of the map controller
+                _disposeMapController();
+              }
+            },
+          ),
+          const Text('Map'),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMapView() {
+    if (_anchors == null || _anchors!.isEmpty) {
+      return const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.location_off, size: 64, color: Colors.grey),
+            SizedBox(height: 16),
+            Text('No live pieces placed on map', 
+                 style: TextStyle(fontSize: 18, color: Colors.grey)),
+            SizedBox(height: 8),
+            Text('This user hasn\'t placed any pieces yet',
+                 style: TextStyle(color: Colors.grey)),
+          ],
+        ),
+      );
+    }
+
+    Set<Marker> markers = {};
+    
+    // Add piece markers
+    for (final anchor in _anchors!) {
+      final piece = _pieces!.firstWhere((p) => p.pieceid == anchor.pieceId);
+      markers.add(Marker(
+        markerId: MarkerId(anchor.anchorId),
+        position: LatLng(anchor.location.coordinates[1], anchor.location.coordinates[0]),
+        infoWindow: InfoWindow(title: piece.pieceTitle, snippet: 'Tap to view'),
+        onTap: () => _showPiecePreview(context, piece),
+      ));
+    }
+    
+    // Add user location
+    if (_currentUserLocation != null) {
+      markers.add(Marker(
+        markerId: const MarkerId('user_location'),
+        position: _currentUserLocation!,
+        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
+        infoWindow: const InfoWindow(title: 'Your Location'),
+      ));
+    }
+
+    final initialPosition = _currentUserLocation ?? 
+        LatLng(_anchors!.first.location.coordinates[1], _anchors!.first.location.coordinates[0]);
+
+    return GoogleMap(
+      initialCameraPosition: CameraPosition(target: initialPosition, zoom: 15),
+      markers: markers,
+      myLocationEnabled: true,
+      myLocationButtonEnabled: true,
+      onMapCreated: (controller) {
+        if (!_mapController.isCompleted) {
+          _mapController.complete(controller);
+          if (markers.isNotEmpty) _fitBounds(markers);
+        }
+      },
+    );
+  }
+
+  Future<void> _fitBounds(Set<Marker> markers) async {
+    if (markers.isEmpty) return;
+    double minLat = markers.first.position.latitude;
+    double maxLat = markers.first.position.latitude;
+    double minLng = markers.first.position.longitude;
+    double maxLng = markers.first.position.longitude;
+
+    for (final marker in markers) {
+      if (marker.position.latitude < minLat) minLat = marker.position.latitude;
+      if (marker.position.latitude > maxLat) maxLat = marker.position.latitude;
+      if (marker.position.longitude < minLng) minLng = marker.position.longitude;
+      if (marker.position.longitude > maxLng) maxLng = marker.position.longitude;
+    }
+
+    final controller = await _mapController.future;
+    controller.animateCamera(CameraUpdate.newLatLngBounds(
+      LatLngBounds(southwest: LatLng(minLat, minLng), northeast: LatLng(maxLat, maxLng)),
+      50,
+    ));
+  }
+
+
 
   Widget _buildProfileInfoRow(
       BuildContext context, UserProfileModel userProfile) {
@@ -426,10 +619,14 @@ class _OtherUserProfileScreenState
       context: context,
       builder: (BuildContext context) {
         return PiecePreviewPopup(
-            piece: piece,
-            pieceData: pieceData,
-            onPieceUpdated: () {},
-            isReadOnly: true);
+          piece: piece,
+          pieceData: pieceData,
+          onPieceUpdated: () {
+            // Refresh the profile data when a piece is updated
+            _loadProfileData();
+          },
+          isReadOnly: true,  
+        );
       },
     );
   }
