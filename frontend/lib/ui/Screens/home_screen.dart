@@ -23,6 +23,8 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:frames_app/utils/permissions_utils.dart';
 import 'package:frames_app/ui/Widgets/permissions_dialog.dart';
 import 'package:frames_app/core/auth/ios_arcore_authentication.dart'; // Adjust path as needed
+import 'package:frames_app/ui/Widgets/map_explore_screen.dart';
+
 
 
 // Create a provider for user search results
@@ -766,7 +768,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with WidgetsBindingObse
             ),
             
             // Map/Earth button positioned at bottom left
-            Positioned(
+             Positioned(
               bottom: 90, // Position above the bottom action area
               left: 16,
               child: Container(
@@ -784,12 +786,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with WidgetsBindingObse
                 ),
                 child: IconButton(
                   onPressed: () {
-                    // TODO: Add map/earth functionality here
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const MapExploreScreen(),
+                      ),
+                    );
                   },
                   icon: const Icon(Icons.public), // Earth/globe icon
                   iconSize: 28,
                   padding: const EdgeInsets.all(12),
-                  tooltip: 'View Map',
+                  tooltip: 'Explore Map',
                 ),
               ),
             ),
