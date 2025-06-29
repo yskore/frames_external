@@ -40,6 +40,8 @@ class _FramePreviewScreenState extends ConsumerState<FramePreviewScreen> {
   String _errorMessage = '';
   String? _preparedJsonMessage;
   String _ownership = '00'; // Default ownership status
+  bool _isHidden = false;
+  int _showRadius = 0;
 
   // Image flip tracking
   String _currentImageUrl = '';
@@ -77,6 +79,23 @@ class _FramePreviewScreenState extends ConsumerState<FramePreviewScreen> {
   void _handleOwnershipChanged(String value) {
     setState(() {
       _ownership = value;
+    });
+  }
+
+    void _handleHidePieceChanged(bool value) {
+    setState(() {
+      _isHidden = value;
+      if (!value) {
+        _showRadius = 0; // Reset radius when unhiding
+      }
+    });
+  }
+
+// Add this method to handle radius changes:
+
+  void _handleRadiusChanged(double value) {
+    setState(() {
+      _showRadius = value.round();
     });
   }
 
@@ -412,6 +431,97 @@ class _FramePreviewScreenState extends ConsumerState<FramePreviewScreen> {
     print('Error: $message');
   }
 
+   Widget _buildHiddenPieceSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 20),
+        
+        // Hide piece toggle
+        Row(
+          children: [
+            Switch(
+              value: _isHidden,
+              onChanged: _handleHidePieceChanged,
+            ),
+            const SizedBox(width: 8),
+            const Expanded(
+              child: Text(
+                'Hide Piece',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                ),
+              ),
+            ),
+          ],
+        ),
+        
+        if (_isHidden) ...[
+          const SizedBox(height: 8),
+          const Text(
+            'Hidden pieces can only be previewed by you. Others can see the location but only view the piece in AR mode.',
+            style: TextStyle(
+              fontSize: 12,
+              color: Colors.grey,
+              fontStyle: FontStyle.italic,
+            ),
+          ),
+          const SizedBox(height: 16),
+          
+          // Show radius section
+          const Text(
+            'Location Display (0-500 meters)',
+            style: TextStyle(
+              fontWeight: FontWeight.w500,
+              fontSize: 14,
+            ),
+          ),
+          const SizedBox(height: 8),
+          
+          Row(
+            children: [
+              Expanded(
+                child: Slider(
+                  value: _showRadius.toDouble(),
+                  min: 0,
+                  max: 500,
+                  divisions: 10,
+                  label: _showRadius == 0 
+                      ? 'Exact location' 
+                      : '${_showRadius}m radius',
+                  onChanged: _handleRadiusChanged,
+                ),
+              ),
+              SizedBox(
+                width: 100,
+                child: Text(
+                  _showRadius == 0 
+                      ? 'Exact location' 
+                      : '${_showRadius}m radius',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          
+          const SizedBox(height: 8),
+          Text(
+            _showRadius == 0
+                ? 'Others will see the exact location on the map'
+                : 'Others will see a ${_showRadius}m radius area instead of the exact location',
+            style: const TextStyle(
+              fontSize: 12,
+              color: Colors.grey,
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
   Future<bool> _savePiece() async {
     final user = ref.read(userProvider);
     final username = user?.username;
@@ -448,6 +558,8 @@ class _FramePreviewScreenState extends ConsumerState<FramePreviewScreen> {
         pieceImage: imageToUpload,
         pieceOwner: username!,
         ownership: _ownership,
+        isHidden: _isHidden,
+        showRadius: _showRadius,
       );
 
       if (!res) return false;
@@ -594,6 +706,7 @@ class _FramePreviewScreenState extends ConsumerState<FramePreviewScreen> {
                           onChanged: _handleOwnershipChanged,
                           isEditing: true,
                         ),
+                        _buildHiddenPieceSection(),
                         const SizedBox(height: 20),
                         
                         const Text('Piece Display Picture'),
