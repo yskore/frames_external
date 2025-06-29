@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:frames_app/core/network/api_response.dart';
 import 'package:frames_app/core/repositories/piece_repository.dart';
 import 'package:frames_app/core/services/storage_service.dart';
 import 'package:frames_app/models/frame_model.dart';
@@ -55,7 +56,10 @@ class PieceNotifier extends StateNotifier<void> {
     required String pieceOwner,
     required String ownership,
     bool liveStatus = false,
-    String pieceDisplay = " "//CHANGES: Changed PieceDisplay to String [URL]
+    String pieceDisplay = " ",
+    // NEW HIDDEN FEATURE PARAMETERS
+    bool isHidden = false,
+    int showRadius = 0,
   }) async {
     try {
       _loadingNotifier.setLoading(true);
@@ -83,6 +87,7 @@ class PieceNotifier extends StateNotifier<void> {
           'longitude': 0.0 // Will be updated when placed in AR
         }
       });
+
       // Create piece using repository
       final response = await _pieceRepository.createPiece(
         pieceObject: serializedObjectData,
@@ -99,7 +104,9 @@ class PieceNotifier extends StateNotifier<void> {
         pieceForSale: pieceForSale,
         piecePrice: piecePrice,
         ownership: ownership,
-
+        // Pass hidden feature parameters
+        isHidden: isHidden,
+        showRadius: showRadius,
       );
 
       if (response.isSuccess) {
@@ -202,4 +209,22 @@ Future<Map<String, dynamic>?> getPieceDetails(String pieceId) async {
     _loadingNotifier.setLoading(false);
   }
 }
+
+Future<ApiResponse> searchPieces(String query) async {
+  try {
+    // _loadingNotifier.setLoading(true);
+    _errorNotifier.clearError();
+
+    final response = await _pieceRepository.searchPieces(query);
+
+    return response;
+  } catch (e) {
+    _errorNotifier.setError('Error searching pieces: ${e.toString()}');
+    return ApiResponse.error('Error searching pieces: ${e.toString()}');
+  } finally {
+    // _loadingNotifier.setLoading(false);
+  }
+}
+
+
 }
