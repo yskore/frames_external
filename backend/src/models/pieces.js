@@ -55,6 +55,17 @@ const PieceSchema = new mongoose.Schema({
   pending_owner: {
     type: String,
     ref: 'user_basic'
+  },
+  // NEW HIDDEN FEATURE FIELDS
+  isHidden: { 
+    type: Boolean, 
+    default: false 
+  },
+  showRadius: { 
+    type: Number, 
+    default: 0,
+    min: 0,
+    max: 500
   }
 });
 
