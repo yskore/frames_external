@@ -1,7 +1,9 @@
 // piece_unity_viewer.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:frames_app/Providers/user_provider.dart';
 import 'package:frames_app/core/services/unity_scene_service.dart';
+import 'package:frames_app/models/piece_model.dart';
 import 'package:frames_app/ui/Widgets/unified_unity_view.dart';
 
 class PieceUnityViewer extends ConsumerStatefulWidget {
@@ -10,6 +12,8 @@ class PieceUnityViewer extends ConsumerStatefulWidget {
   final Function(String) onUnityMessage;
   final Function(String) onErrorMessage;
   final bool isLoading;
+  final Piece? piece; // NEW: Optional piece parameter for hidden logic
+  final bool forceShow; // NEW: Override hidden logic (for owners)
 
   const PieceUnityViewer({
     super.key,
@@ -18,6 +22,8 @@ class PieceUnityViewer extends ConsumerStatefulWidget {
     required this.onUnityMessage,
     required this.onErrorMessage,
     this.isLoading = true,
+    this.piece,
+    this.forceShow = false, 
   }) ;
 
   @override
@@ -32,7 +38,20 @@ class _PieceUnityViewerState extends ConsumerState<PieceUnityViewer> {
   String _errorMessage = '';
 
   
-
+ bool _shouldShowUnityView() {
+    // If forceShow is true (for owners), always show
+    if (widget.forceShow) return true;
+    
+    // If no piece data, show Unity view (backward compatibility)
+    if (widget.piece == null) return true;
+    
+    // Check ownership
+    final currentUser = ref.watch(userProvider)?.username;
+    final isOwner = currentUser != null && currentUser == widget.piece!.pieceOwner;
+    
+    // Show Unity view if user owns the piece or piece is not hidden
+    return isOwner || !widget.piece!.isHidden;
+  }
 
   void _handleLocalUnityMessage(String message) {
     widget.onUnityMessage(message);
@@ -121,8 +140,10 @@ void setErrorMessage(String message) {
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
+ @override
+Widget build(BuildContext context) {
+  // Check if Unity view should be shown
+  if (!_shouldShowUnityView()) {
     return SizedBox(
       height: widget.isFullScreen
           ? MediaQuery.of(context).size.height * 0.7
@@ -130,34 +151,85 @@ void setErrorMessage(String message) {
       width: widget.isFullScreen
           ? MediaQuery.of(context).size.width * 0.95
           : double.infinity,
-      child: Stack(
-        children: [
-          // Always show the UnifiedUnityView
-          Positioned.fill(
-            child: UnifiedUnityView(
-              initialScene: UnitySceneType.previewScene,
-              onUnityMessage: _handleLocalUnityMessage,
-              onUnitySceneLoaded: (sceneInfo) {
-                if (sceneInfo?.name == UnitySceneType.previewScene.sceneName) {
-                  setState(() {
-                    _isSceneReady = true;
-                  });
-                  _sendPieceDataToUnity();
-                }
-              },
+      child: _buildHiddenMessage(),
+    );
+  }
+
+  return SizedBox(
+    height: widget.isFullScreen
+        ? MediaQuery.of(context).size.height * 0.7
+        : MediaQuery.of(context).size.height * 0.3,
+    width: widget.isFullScreen
+        ? MediaQuery.of(context).size.width * 0.95
+        : double.infinity,
+    child: Stack(
+      children: [
+        // Always show the UnifiedUnityView
+        Positioned.fill(
+          child: UnifiedUnityView(
+            initialScene: UnitySceneType.previewScene,
+            onUnityMessage: _handleLocalUnityMessage,
+            onUnitySceneLoaded: (sceneInfo) {
+              if (sceneInfo?.name == UnitySceneType.previewScene.sceneName) {
+                setState(() {
+                  _isSceneReady = true;
+                });
+                _sendPieceDataToUnity();
+              }
+            },
+          ),
+        ),
+        
+        // Loading overlay
+        if ( !isTextureCompleted) //widget.isLoading || !_isSceneReady ||
+          Container(
+            color: Colors.white,
+            child: const Center(
+              child: CircularProgressIndicator(),
             ),
           ),
-          
-          // Loading overlay
-          if ( !isTextureCompleted) //widget.isLoading || !_isSceneReady ||
-            Container(
-              color: Colors.white,
-              child: const Center(
-                child: CircularProgressIndicator(),
-              ),
+      ],
+    ),
+  );
+}
+
+  Widget _buildHiddenMessage() {
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: Colors.grey[100],
+        border: Border.all(color: Colors.grey[300]!),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.visibility_off,
+            size: 48,
+            color: Colors.orange[400],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'Hidden',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: Colors.orange[700],
             ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'View in AR mode only',
+            style: TextStyle(
+              fontSize: 12,
+              color: Colors.grey[600],
+            ),
+          ),
         ],
       ),
     );
   }
+
+
 }

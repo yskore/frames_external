@@ -67,6 +67,24 @@ class _PiecePreviewPopupState extends ConsumerState<PiecePreviewPopup> {
   Timer? _impressionsRefreshTimer;
   final int _refreshIntervalSeconds = 30;
 
+  // NEW: Added this helper method to check ownership
+  bool _isCurrentUserOwner() {
+    final currentUser = ref.watch(userProvider)?.username;
+    return currentUser != null && currentUser == _piece.pieceOwner;
+  }
+
+   bool _shouldShowUnityView() {
+    // Always show Unity view for piece owners
+    if (_isCurrentUserOwner()) {
+      return true;
+    }
+    
+    // For non-owners, only show Unity view if piece is not hidden
+    return !_piece.isHidden;
+  }
+
+
+
   @override
   void initState() {
     super.initState();
@@ -89,6 +107,7 @@ class _PiecePreviewPopupState extends ConsumerState<PiecePreviewPopup> {
       ref: ref,
       pieceId: jsonDecode(widget.pieceData)['PieceID'],
       pieceTitle: _piece.pieceTitle,
+      piece: _piece,
     );
     
     _offerManager = PieceOfferManager(
@@ -510,15 +529,16 @@ Future<void> _handleClosing() async {
                     SizedBox(
                       height: _isFullScreen
                           ? MediaQuery.of(context).size.height * 0.7
-                          : (maxHeight * 0.3).clamp(
-                              150.0, 300.0), // Adaptive height with min/max
-                      child: PieceUnityViewer(
-                        pieceData: widget.pieceData,
-                        isFullScreen: _isFullScreen,
-                        onUnityMessage: _handleUnityMessage,
-                        onErrorMessage: _setErrorMessage,
-                        isLoading: _isLoading,
-                      ),
+                          : (maxHeight * 0.3).clamp(150.0, 300.0),
+                      child: _shouldShowUnityView()
+                          ? PieceUnityViewer(
+                              pieceData: widget.pieceData,
+                              isFullScreen: _isFullScreen,
+                              onUnityMessage: _handleUnityMessage,
+                              onErrorMessage: _setErrorMessage,
+                              isLoading: _isLoading,
+                            )
+                          : _buildHiddenPieceView(), // NEW: Show hidden message instead
                     ),
 
                     // Scrollable details section
@@ -549,7 +569,20 @@ Future<void> _handleClosing() async {
                                   _editManager.updateForSaleState(value);
                                 });
                               },
+                               onHiddenChanged: (value) {
+    setState(() {
+      _piece = _piece.copyWith(isHidden: value);
+      _editManager.updateHiddenState(value);
+    });
+  },
+  onShowRadiusChanged: (value) {
+    setState(() {
+      _piece = _piece.copyWith(showRadius: value);
+      _editManager.updateShowRadius(value);
+    });
+  },
                               context: context,
+
                             ),
                           ),
                         ),
@@ -675,4 +708,64 @@ Future<void> _handleClosing() async {
       ),
     );
   }
+
+ Widget _buildHiddenPieceView() {
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: Colors.grey[100],
+        border: Border.all(color: Colors.grey[300]!),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.visibility_off,
+            size: 64,
+            color: Colors.orange[400],
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Hidden Piece',
+            style: TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+              color: Colors.orange[700],
+            ),
+          ),
+          const SizedBox(height: 8),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 32),
+            child: Text(
+              'This piece is hidden by the creator.\nYou can only view it in AR mode.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 16,
+                color: Colors.grey[600],
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: Colors.orange[100],
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Text(
+              'Hidden',
+              style: TextStyle(
+                color: Colors.orange[700],
+                fontWeight: FontWeight.bold,
+                fontSize: 12,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+
 }

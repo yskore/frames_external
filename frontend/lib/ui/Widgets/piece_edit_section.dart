@@ -19,6 +19,8 @@ class PieceEditManager {
   final Function(bool) setLoading;
   final Function(Piece) updatePiece;
   bool currentForSaleState; 
+  bool currentHiddenState;
+  int currentShowRadius;
 
   PieceEditManager({
     required this.ref,
@@ -31,10 +33,22 @@ class PieceEditManager {
     required this.ownership,
     required this.setLoading,
     required this.updatePiece,
-  }) : currentForSaleState = piece.pieceForSale;
+  }) : currentForSaleState = piece.pieceForSale,
+   currentHiddenState = piece.isHidden,
+       currentShowRadius = piece.showRadius;
 
  // In piece_edit_section.dart
 // In piece_edit_section.dart
+
+  void updateHiddenState(bool newState) {
+    currentHiddenState = newState;
+    if (!newState) currentShowRadius = 0; // Reset radius when unhiding
+  }
+
+  void updateShowRadius(int newRadius) {
+    currentShowRadius = newRadius;
+  }
+
 void openCurrencyPicker(BuildContext context) {
   showCurrencyPicker(
     context: context,
@@ -101,6 +115,8 @@ void openCurrencyPicker(BuildContext context) {
         ownership: ownership,
         paymentDetails: paymentDetails,
         currency: currencyController.text,
+        isHidden: currentHiddenState,        // ADD
+        showRadius: currentShowRadius, 
       );
 
       if (response.isSuccess) {
@@ -111,6 +127,8 @@ void openCurrencyPicker(BuildContext context) {
           paymentDetails: currentForSaleState ? paymentDetailsController.text : piece.paymentDetails,
           currency: currencyController.text,
           pieceForSale: currentForSaleState,  // Include the updated state
+          isHidden: currentHiddenState,      // ADD
+          showRadius: currentShowRadius,
         );
         
         updatePiece(updatedPiece);

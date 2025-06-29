@@ -18,6 +18,8 @@ class PieceInfoSection extends StatelessWidget {
   final String ownership;
   final Function(String) onOwnershipChanged;
   final Function(bool) onForSaleChanged;
+    final Function(bool) onHiddenChanged; // Add this
+  final Function(int) onShowRadiusChanged;
   final BuildContext context; // Add context parameter
 
   const PieceInfoSection({
@@ -34,6 +36,8 @@ class PieceInfoSection extends StatelessWidget {
     required this.ownership,
     required this.onOwnershipChanged,
     required this.onForSaleChanged,
+     required this.onHiddenChanged, // Add this
+    required this.onShowRadiusChanged,
     required this.context, // Add this parameter
   }) : super(key: key);
 
@@ -82,7 +86,43 @@ class PieceInfoSection extends StatelessWidget {
             onChanged: onOwnershipChanged,
             isEditing: isEditing,
           ),
-        ],
+           Row(
+    children: [
+      const Text('Hidden Piece: ', style: TextStyle(fontWeight: FontWeight.bold)),
+      Switch(
+        value: piece.isHidden,
+        onChanged: onHiddenChanged, // Add this callback
+      ),
+    ],
+  ),
+   // Show radius slider when hidden
+  if (piece.isHidden) ...[
+    const SizedBox(height: 8),
+    const Text('Location Display (0-500m)', style: TextStyle(fontWeight: FontWeight.w500)),
+    Row(
+      children: [
+        Expanded(
+          child: Slider(
+            value: piece.showRadius.toDouble(),
+            min: 0,
+            max: 500,
+            divisions: 10,
+            label: piece.showRadius == 0 ? 'Exact location' : '${piece.showRadius}m radius',
+            onChanged: (value) => onShowRadiusChanged(value.round()), // Add this callback
+          ),
+        ),
+        SizedBox(
+          width: 100,
+          child: Text(
+            piece.showRadius == 0 ? 'Exact location' : '${piece.showRadius}m radius',
+            style: const TextStyle(fontWeight: FontWeight.bold),
+          ),
+        ),
+      ],
+    ),
+  ],
+],
+        
       ),
     );
   }

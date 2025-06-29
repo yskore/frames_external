@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:frames_app/Providers/user_provider.dart';
 import 'package:frames_app/core/repositories/anchor_repository.dart';
 import 'package:frames_app/core/repositories/piece_repository.dart';
 import 'package:frames_app/models/anchor_model.dart';
@@ -19,6 +20,8 @@ final mapRadiusProvider = StateProvider.family<double, String>((ref, key) => 500
 final mapErrorProvider = StateProvider.family<String?, String>((ref, key) => null);
 final selectedMarkerProvider = StateProvider.family<String?, String>((ref, key) => null);
 final markerPieceDetailsProvider = StateProvider.family<Piece?, String>((ref, key) => null);
+final mapPiecesProvider = StateProvider.family<Map<String, Piece>, String>((ref, key) => {});
+
 
 enum MapMode {
   allAnchors,     // Show all anchored pieces globally
@@ -101,45 +104,69 @@ class _MapViewWidgetState extends ConsumerState<MapViewWidget> {
     }
   }
 
-  Future<void> _loadAnchors() async {
-    ref.read(mapLoadingProvider(widget.mapKey).notifier).state = true;
-    ref.read(mapErrorProvider(widget.mapKey).notifier).state = null;
+Future<void> _loadAnchors() async {
+  ref.read(mapLoadingProvider(widget.mapKey).notifier).state = true;
+  ref.read(mapErrorProvider(widget.mapKey).notifier).state = null;
 
-    try {
-      List<AnchorModel> anchors = [];
+  try {
+    List<AnchorModel> anchors = [];
+    Map<String, Piece> pieces = {};
 
-      if (widget.mode == MapMode.userAnchors && widget.preloadedAnchors != null) {
-        // Use preloaded anchors from user profile
-        anchors = widget.preloadedAnchors!;
-        print('[LOGS] Using preloaded anchors: ${anchors.length}');
-      } else if ((widget.mode == MapMode.allAnchors || widget.mode == MapMode.explore) && _currentUserLocation != null) {
-        // Fetch nearby anchors for global search or explore mode
-        final anchorRepository = ref.read(anchorRepositoryProvider);
-        final currentRadius = ref.read(mapRadiusProvider(widget.mapKey));
-        
-        final result = await anchorRepository.fetchNearbyAnchors(currentRadius);
-        
-        if (result.error == null && result.data != null) {
-          anchors = result.data!;
-          print('[LOGS] Loaded ${anchors.length} anchors from API');
-        } else {
-          ref.read(mapErrorProvider(widget.mapKey).notifier).state = result.error ?? 'Failed to load anchors';
-          return;
+    if (widget.mode == MapMode.userAnchors && widget.preloadedAnchors != null) {
+      // Use preloaded data
+      anchors = widget.preloadedAnchors!;
+      if (widget.preloadedPieces != null) {
+        for (final piece in widget.preloadedPieces!) {
+          pieces[piece.pieceid] = piece;
         }
-      } else if (widget.mode == MapMode.userAnchors && widget.username != null) {
-        // TODO: Implement fetching anchors for specific user if not preloaded
-        // This would require a new API endpoint: getAnchorsByUsername
-        print('[LOGS] User anchors mode without preloaded data - implement API call if needed');
       }
-
-      ref.read(mapAnchorsProvider(widget.mapKey).notifier).state = anchors;
-    } catch (e) {
-      print('Error loading anchors: $e');
-      ref.read(mapErrorProvider(widget.mapKey).notifier).state = 'Error loading anchors: $e';
-    } finally {
-      ref.read(mapLoadingProvider(widget.mapKey).notifier).state = false;
+    } else if ((widget.mode == MapMode.allAnchors || widget.mode == MapMode.explore) && _currentUserLocation != null) {
+      // Fetch nearby anchors
+      final anchorRepository = ref.read(anchorRepositoryProvider);
+      final currentRadius = ref.read(mapRadiusProvider(widget.mapKey));
+      
+      final result = await anchorRepository.fetchNearbyAnchors(currentRadius);
+      
+      if (result.error == null && result.data != null) {
+        anchors = result.data!;
+        
+        // Fetch piece details for each anchor
+        final pieceRepository = ref.read(pieceRepositoryProvider);
+        for (final anchor in anchors) {
+          try {
+            final pieceResponse = await pieceRepository.getPieceById(anchor.pieceId);
+            if (pieceResponse.isSuccess && pieceResponse.data != null) {
+              final piece = Piece.fromJson(pieceResponse.data!['piece']);
+              pieces[piece.pieceid] = piece;
+            }
+          } catch (e) {
+            print('Failed to fetch piece ${anchor.pieceId}: $e');
+          }
+        }
+      } else {
+        ref.read(mapErrorProvider(widget.mapKey).notifier).state = result.error ?? 'Failed to load anchors';
+        return;
+      }
     }
+
+    // Update both providers
+    ref.read(mapAnchorsProvider(widget.mapKey).notifier).state = anchors;
+    ref.read(mapPiecesProvider(widget.mapKey).notifier).state = pieces;
+    
+  } catch (e) {
+    print('Error loading anchors: $e');
+    ref.read(mapErrorProvider(widget.mapKey).notifier).state = 'Error loading anchors: $e';
+  } finally {
+    ref.read(mapLoadingProvider(widget.mapKey).notifier).state = false;
   }
+}
+
+    bool _isCurrentUserOwner(String pieceOwner) {
+    final currentUser = ref.watch(userProvider)?.username;
+    return currentUser != null && currentUser == pieceOwner;
+  }
+
+
 
   Future<void> _expandSearchRadius() async {
     if (widget.mode != MapMode.allAnchors && widget.mode != MapMode.explore) return; // Only allow expansion for global search and explore
@@ -196,43 +223,35 @@ class _MapViewWidgetState extends ConsumerState<MapViewWidget> {
 
   Future<void> _showPiecePreviewFromAnchor(AnchorModel anchor) async {
     try {
-      Piece? piece;
+    final pieces = ref.read(mapPiecesProvider(widget.mapKey));
+    Piece? piece = pieces[anchor.pieceId];
 
-      // Check if we have preloaded pieces (user profile mode)
-      if (widget.preloadedPieces != null) {
-        try {
-          piece = widget.preloadedPieces!.firstWhere(
-            (p) => p.pieceid == anchor.pieceId,
-          );
-        } catch (e) {
-          print('No matching piece found in preloaded data for anchor: ${anchor.pieceId}');
-        }
-      }
+    // If no cached piece, fetch from API
+    if (piece == null) {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(child: CircularProgressIndicator()),
+      );
 
-      // If no preloaded piece found, fetch from API
-      if (piece == null) {
-        // Show loading indicator
-        showDialog(
-          context: context,
-          barrierDismissible: false,
-          builder: (context) => const Center(child: CircularProgressIndicator()),
+      final pieceRepository = ref.read(pieceRepositoryProvider);
+      final pieceResponse = await pieceRepository.getPieceById(anchor.pieceId);
+
+      Navigator.of(context).pop();
+
+      if (pieceResponse.isSuccess && pieceResponse.data != null) {
+        piece = Piece.fromJson(pieceResponse.data!['piece']);
+        // Cache the piece
+        final updatedPieces = Map<String, Piece>.from(pieces);
+        updatedPieces[piece.pieceid] = piece;
+        ref.read(mapPiecesProvider(widget.mapKey).notifier).state = updatedPieces;
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to load piece details: ${pieceResponse.message}')),
         );
-
-        final pieceRepository = ref.read(pieceRepositoryProvider);
-        final pieceResponse = await pieceRepository.getPieceById(anchor.pieceId);
-
-        // Close loading dialog
-        Navigator.of(context).pop();
-
-        if (pieceResponse.isSuccess && pieceResponse.data != null) {
-          piece = Piece.fromJson(pieceResponse.data!['piece']);
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Failed to load piece details: ${pieceResponse.message}')),
-          );
-          return;
-        }
+        return;
       }
+    }
 
       // Show piece preview
       String pieceData = jsonEncode({
@@ -309,218 +328,250 @@ class _MapViewWidgetState extends ConsumerState<MapViewWidget> {
   }
 
   @override
-  Widget build(BuildContext context) {
-    final anchors = ref.watch(mapAnchorsProvider(widget.mapKey));
-    final isLoading = ref.watch(mapLoadingProvider(widget.mapKey));
-    final error = ref.watch(mapErrorProvider(widget.mapKey));
-    final currentRadius = ref.watch(mapRadiusProvider(widget.mapKey));
-    final selectedMarkerId = ref.watch(selectedMarkerProvider(widget.mapKey));
-    final selectedPieceDetails = ref.watch(markerPieceDetailsProvider(widget.mapKey));
+Widget build(BuildContext context) {
+  final anchors = ref.watch(mapAnchorsProvider(widget.mapKey));
+  final pieces = ref.watch(mapPiecesProvider(widget.mapKey));
+  final isLoading = ref.watch(mapLoadingProvider(widget.mapKey));
+  final error = ref.watch(mapErrorProvider(widget.mapKey));
+  final currentRadius = ref.watch(mapRadiusProvider(widget.mapKey));
+  final selectedMarkerId = ref.watch(selectedMarkerProvider(widget.mapKey));
+  final selectedPieceDetails = ref.watch(markerPieceDetailsProvider(widget.mapKey));
 
-    if (error != null) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.error_outline, size: 64, color: Colors.red[400]),
-            const SizedBox(height: 16),
-            Text(error, textAlign: TextAlign.center),
-            const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: _loadAnchors,
-              child: const Text('Retry'),
-            ),
-          ],
-        ),
-      );
-    }
+  if (error != null) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.error_outline, size: 64, color: Colors.red[400]),
+          const SizedBox(height: 16),
+          Text(error, textAlign: TextAlign.center),
+          const SizedBox(height: 16),
+          ElevatedButton(
+            onPressed: _loadAnchors,
+            child: const Text('Retry'),
+          ),
+        ],
+      ),
+    );
+  }
 
-    if (!_mapInitialized || 
-        ((widget.mode == MapMode.allAnchors || widget.mode == MapMode.explore) && _currentUserLocation == null)) {
-      return const Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            CircularProgressIndicator(),
-            SizedBox(height: 16),
-            Text('Initializing map...'),
-          ],
-        ),
-      );
-    }
+  if (!_mapInitialized || 
+      ((widget.mode == MapMode.allAnchors || widget.mode == MapMode.explore) && _currentUserLocation == null)) {
+    return const Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          CircularProgressIndicator(),
+          SizedBox(height: 16),
+          Text('Initializing map...'),
+        ],
+      ),
+    );
+  }
 
-    if (anchors.isEmpty && !isLoading) {
-      String message;
-      Widget? actionButton;
+  if (anchors.isEmpty && !isLoading) {
+    String message;
+    Widget? actionButton;
 
-      if (widget.mode == MapMode.userAnchors) {
-        message = 'No live pieces placed on map';
-      } else {
-        message = 'No pieces found within ${(currentRadius / 1000).toStringAsFixed(1)}km';
-        if (currentRadius < 50000) {
-          actionButton = ElevatedButton(
-            onPressed: _expandSearchRadius,
-            child: Text('Search wider area (${((currentRadius * 2) / 1000).toStringAsFixed(1)}km)'),
-          );
-        }
+    if (widget.mode == MapMode.userAnchors) {
+      message = 'No live pieces placed on map';
+    } else {
+      message = 'No pieces found within ${(currentRadius / 1000).toStringAsFixed(1)}km';
+      if (currentRadius < 50000) {
+        actionButton = ElevatedButton(
+          onPressed: _expandSearchRadius,
+          child: Text('Search wider area (${((currentRadius * 2) / 1000).toStringAsFixed(1)}km)'),
+        );
       }
-
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.location_off, size: 64, color: Colors.grey[400]),
-            const SizedBox(height: 16),
-            Text(
-              message,
-              style: TextStyle(fontSize: 18, color: Colors.grey[600]),
-              textAlign: TextAlign.center,
-            ),
-            if (actionButton != null) ...[
-              const SizedBox(height: 16),
-              actionButton,
-            ],
-          ],
-        ),
-      );
     }
 
-    // Create markers from anchors
-    Set<Marker> markers = {};
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.location_off, size: 64, color: Colors.grey[400]),
+          const SizedBox(height: 16),
+          Text(
+            message,
+            style: TextStyle(fontSize: 18, color: Colors.grey[600]),
+            textAlign: TextAlign.center,
+          ),
+          if (actionButton != null) ...[
+            const SizedBox(height: 16),
+            actionButton,
+          ],
+        ],
+      ),
+    );
+  }
 
-    // Add anchor markers
-    markers.addAll(anchors.map((anchor) {
-      return Marker(
-        markerId: MarkerId(anchor.anchorId),
-        position: LatLng(
-          anchor.location.coordinates[1], // latitude
-          anchor.location.coordinates[0], // longitude
+  // Create markers and circles from anchors
+  Set<Marker> markers = {};
+  Set<Circle> circles = {};
+
+  for (final anchor in anchors) {
+    final piece = pieces[anchor.pieceId];
+    
+    // Determine if this is a hidden piece and how to display it
+    final isHidden = piece?.isHidden ?? false;
+    final showRadius = piece?.showRadius ?? 0;
+    final isOwner = piece != null ? _isCurrentUserOwner(piece.pieceOwner) : false;
+
+    final position = LatLng(
+      anchor.location.coordinates[1], // latitude
+      anchor.location.coordinates[0], // longitude
+    );
+
+    if (isHidden && !isOwner && showRadius > 0) {
+      // For non-owners viewing hidden pieces with radius > 0: show as circle
+      circles.add(
+        Circle(
+          circleId: CircleId('hidden_${anchor.anchorId}'),
+          center: position,
+          radius: showRadius.toDouble(),
+          fillColor: Colors.orange.withOpacity(0.2),
+          strokeColor: Colors.orange,
+          strokeWidth: 2,
+          onTap: () => _handleMarkerTap(anchor),
         ),
-        infoWindow: InfoWindow(
-          title: anchor.frameName,
-          snippet: widget.mode == MapMode.allAnchors 
-              ? 'By ${anchor.pieceOwner} • Tap to view'
-              : widget.mode == MapMode.explore
-                  ? 'Tap for details'
-                  : 'Tap to view details',
-        ),
-        onTap: () => _handleMarkerTap(anchor),
       );
-    }));
-
-    // Add user location marker
-    if (_currentUserLocation != null) {
+    } else {
+      // For all other cases: show as normal marker
       markers.add(
         Marker(
-          markerId: const MarkerId('user_location'),
-          position: _currentUserLocation!,
-          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
-          infoWindow: const InfoWindow(title: 'Your Location'),
+          markerId: MarkerId(anchor.anchorId),
+          position: position,
+          infoWindow: InfoWindow(
+            title: piece?.pieceTitle ?? anchor.frameName,
+            snippet: widget.mode == MapMode.allAnchors 
+                ? 'By ${piece?.pieceOwner ?? anchor.pieceOwner} • Tap to view'
+                : widget.mode == MapMode.explore
+                    ? 'Tap for details'
+                    : 'Tap to view details',
+          ),
+          onTap: () => _handleMarkerTap(anchor),
+          icon: isHidden && isOwner 
+              ? BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueOrange)
+              : BitmapDescriptor.defaultMarker,
         ),
       );
     }
+  }
 
-    // Determine initial camera position
-    LatLng initialPosition = _currentUserLocation ??
-        (anchors.isNotEmpty
-            ? LatLng(anchors.first.location.coordinates[1],
-                anchors.first.location.coordinates[0])
-            : const LatLng(0, 0));
+  // Add user location marker
+  if (_currentUserLocation != null) {
+    markers.add(
+      Marker(
+        markerId: const MarkerId('user_location'),
+        position: _currentUserLocation!,
+        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
+        infoWindow: const InfoWindow(title: 'Your Location'),
+      ),
+    );
+  }
 
-    return Stack(
-      children: [
-        GoogleMap(
-          initialCameraPosition: CameraPosition(
-            target: initialPosition,
-            zoom: widget.mode == MapMode.userAnchors ? 15 : 13,
-          ),
-          markers: markers,
-          myLocationEnabled: true,
-          myLocationButtonEnabled: true,
-          mapToolbarEnabled: false,
-          zoomControlsEnabled: true,
-          onMapCreated: (GoogleMapController controller) {
-            if (!_mapController.isCompleted) {
-              _mapController.complete(controller);
-              if (markers.isNotEmpty && widget.mode == MapMode.userAnchors) {
-                _fitBounds(markers);
-              }
-            }
-          },
-          onCameraMove: (CameraPosition position) {
-            // Cancel existing timer
-            _radiusExpansionTimer?.cancel();
-            
-            // Set new timer for lazy loading when user stops moving
-            _radiusExpansionTimer = Timer(const Duration(seconds: 2), () {
-              // Could implement region-based loading here if needed
-            });
-          },
-          onTap: (LatLng position) {
-            // Close info widget when tapping elsewhere on the map
-            if (widget.mode == MapMode.explore) {
-              _closeInfoWidget();
-            }
-          },
+  // Determine initial camera position
+  LatLng initialPosition = _currentUserLocation ??
+      (anchors.isNotEmpty
+          ? LatLng(anchors.first.location.coordinates[1],
+              anchors.first.location.coordinates[0])
+          : const LatLng(0, 0));
+
+  return Stack(
+    children: [
+      GoogleMap(
+        initialCameraPosition: CameraPosition(
+          target: initialPosition,
+          zoom: widget.mode == MapMode.userAnchors ? 15 : 13,
         ),
-        
-        // Loading overlay
-        if (isLoading)
-          Container(
-            color: Colors.black26,
-            child: const Center(
-              child: Card(
-                child: Padding(
-                  padding: EdgeInsets.all(16.0),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      CircularProgressIndicator(),
-                      SizedBox(height: 8),
-                      Text('Loading pieces...'),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
+        markers: markers,
+        circles: circles,
+        myLocationEnabled: true,
+        myLocationButtonEnabled: true,
+        mapToolbarEnabled: false,
+        zoomControlsEnabled: true,
+        onMapCreated: (GoogleMapController controller) {
+          if (!_mapController.isCompleted) {
+            _mapController.complete(controller);
+            if (markers.isNotEmpty && widget.mode == MapMode.userAnchors) {
+              _fitBounds(markers);
+            }
+          }
+        },
+        onCameraMove: (CameraPosition position) {
+          // Cancel existing timer
+          _radiusExpansionTimer?.cancel();
           
-        // Info panel (only for global search and explore)
-        if (widget.mode == MapMode.allAnchors || widget.mode == MapMode.explore)
-          Positioned(
-            top: 16,
-            left: 16,
-            right: 16,
+          // Set new timer for lazy loading when user stops moving
+          _radiusExpansionTimer = Timer(const Duration(seconds: 2), () {
+            // Could implement region-based loading here if needed
+          });
+        },
+        onTap: (LatLng position) {
+          // Close info widget when tapping elsewhere on the map
+          if (widget.mode == MapMode.explore) {
+            _closeInfoWidget();
+          }
+        },
+      ),
+      
+      // Loading overlay
+      if (isLoading)
+        Container(
+          color: Colors.black26,
+          child: const Center(
             child: Card(
               child: Padding(
-                padding: const EdgeInsets.all(12.0),
-                child: Row(
+                padding: EdgeInsets.all(16.0),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.info_outline, color: Colors.blue[600]),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        '${anchors.length} pieces within ${(currentRadius / 1000).toStringAsFixed(1)}km',
-                        style: const TextStyle(fontSize: 14),
-                      ),
-                    ),
-                    if (currentRadius < 50000)
-                      TextButton(
-                        onPressed: _expandSearchRadius,
-                        child: const Text('Expand'),
-                      ),
+                    CircularProgressIndicator(),
+                    SizedBox(height: 8),
+                    Text('Loading pieces...'),
                   ],
                 ),
               ),
             ),
           ),
+        ),
+        
+      // Info panel (only for global search and explore)
+      if (widget.mode == MapMode.allAnchors || widget.mode == MapMode.explore)
+        Positioned(
+          top: 16,
+          left: 16,
+          right: 16,
+          child: Card(
+            child: Padding(
+              padding: const EdgeInsets.all(12.0),
+              child: Row(
+                children: [
+                  Icon(Icons.info_outline, color: Colors.blue[600]),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      '${anchors.length} pieces within ${(currentRadius / 1000).toStringAsFixed(1)}km',
+                      style: const TextStyle(fontSize: 14),
+                    ),
+                  ),
+                  if (currentRadius < 50000)
+                    TextButton(
+                      onPressed: _expandSearchRadius,
+                      child: const Text('Expand'),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ),
 
-        // Custom info widget for explore mode
-        if (widget.mode == MapMode.explore && selectedMarkerId != null)
-          _buildCustomInfoWidget(selectedMarkerId, selectedPieceDetails, anchors),
-      ],
-    );
-  }
+      // Custom info widget for explore mode
+      if (widget.mode == MapMode.explore && selectedMarkerId != null)
+        _buildCustomInfoWidget(selectedMarkerId, selectedPieceDetails, anchors),
+    ],
+  );
+}
 
   Widget _buildCustomInfoWidget(String selectedMarkerId, Piece? pieceDetails, List<AnchorModel> anchors) {
     // Find the selected anchor
