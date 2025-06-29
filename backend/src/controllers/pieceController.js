@@ -9,7 +9,8 @@ const { createFeedEntryForSubscribers } = require('./feedController');
 exports.createPiece = async (req, res) => {
     const { Piece_id, Piece_Object, Piece_owner, Piece_title, Frame_name, live_status,
         Piece_likes, Piece_location, Piece_description, Piece_creation_date,
-        Piece_display, Piece_for_sale, Piece_price, ownership } = req.body;
+        Piece_display, Piece_for_sale, Piece_price, ownership, 
+        isHidden, showRadius } = req.body; // Added isHidden and showRadius
 
     try {
         const existingPiece = await Piece.findOne({ Piece_owner, Piece_title });
@@ -24,7 +25,9 @@ exports.createPiece = async (req, res) => {
             Piece_id, Piece_Object, Piece_owner, Piece_title, Frame_name,
             live_status, Piece_likes, Piece_location, Piece_description,
             Piece_creation_date, Piece_display, Piece_for_sale, Piece_price,
-            ownership: ownership || '00' // Default to '00' if not provided
+            ownership: ownership || '00', // Default to '00' if not provided
+            isHidden: isHidden || false, // Default to false if not provided
+            showRadius: showRadius || 0  // Default to 0 if not provided
         });
 
         // Add payment details to piece if for sale
@@ -62,7 +65,8 @@ exports.createPiece = async (req, res) => {
 // Update piece
 exports.updatePiece = async (req, res) => {
     const { piece_owner, old_piece_title, new_piece_title,
-        updated_piece_description, piece_for_sale, piece_price, ownership } = req.body;
+        updated_piece_description, piece_for_sale, piece_price, ownership,
+        isHidden, showRadius } = req.body;
 
     try {
         if (old_piece_title !== new_piece_title) {
@@ -90,6 +94,22 @@ exports.updatePiece = async (req, res) => {
             updateData.ownership = ownership;
         }
 
+        // Handle hidden fields
+        if (isHidden !== undefined) {
+            updateData.isHidden = isHidden;
+        }
+
+        if (showRadius !== undefined) {
+            // Validate showRadius
+            if (showRadius < 0 || showRadius > 500) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Show radius must be between 0 and 500 meters'
+                });
+            }
+            updateData.showRadius = showRadius;
+        }
+
         if (piece_for_sale) {
             const { payment_details } = req.body;
             updateData.payment_details = payment_details;
@@ -115,7 +135,6 @@ exports.updatePiece = async (req, res) => {
         res.status(500).json({ success: false, message: 'Failed to update piece' });
     }
 };
-
 // Delete piece
 exports.deletePiece = async (req, res) => {
     const { piece_title, piece_owner } = req.body;
@@ -389,10 +408,12 @@ exports.getPieceById = async (req, res) => {
             impressions: piece.Piece_impressions,
             currency: piece.currency,
             payment_details: piece.payment_details,
-            ownership: piece.ownership || '00', // Include the ownership field
+            ownership: piece.ownership || '00',
             isLive: piece.live_status,
             forSale: piece.Piece_for_sale,
-            price: piece.Piece_price
+            price: piece.Piece_price,
+            isHidden: piece.isHidden || false, // Default to false if not present
+            showRadius: piece.showRadius || 0   // Default to 0 if not present
         };
 
         res.status(200).json({
@@ -443,6 +464,8 @@ exports.searchPieces = async (req, res) => {
                 live_status: 1,
                 Piece_for_sale: 1,
                 Piece_price: 1,
+                isHidden: 1,
+                showRadius: 1,
                 _id: 0 
             }
         ).limit(20);
@@ -459,10 +482,12 @@ exports.searchPieces = async (req, res) => {
             impressions: piece.Piece_impressions,
             currency: piece.currency,
             payment_details: piece.payment_details,
-            ownership: piece.ownership || '00', // Include the ownership field
+            ownership: piece.ownership || '00',
             isLive: piece.live_status,
             forSale: piece.Piece_for_sale,
-            price: piece.Piece_price
+            price: piece.Piece_price,
+            isHidden: piece.isHidden || false, // Default to false if not present
+            showRadius: piece.showRadius || 0   // Default to 0 if not present
         }));
 
         res.json({
@@ -475,3 +500,4 @@ exports.searchPieces = async (req, res) => {
         res.status(500).json({ success: false, message: 'Internal server error' });
     }
 };
+
