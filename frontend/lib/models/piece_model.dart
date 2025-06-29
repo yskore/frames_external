@@ -16,6 +16,9 @@ class Piece {
   final String ownership;
   final String? paymentDetails;
   final String currency;
+  // NEW HIDDEN FEATURE FIELDS
+  final bool isHidden;
+  final int showRadius;
 
   Piece({
     required this.pieceid,
@@ -35,6 +38,8 @@ class Piece {
     required this.ownership,
     required this.currency,
     this.paymentDetails,
+    required this.isHidden,
+    required this.showRadius,
   });
 
   factory Piece.fromJson(Map<String, dynamic> json) {
@@ -89,6 +94,10 @@ class Piece {
       
       // Handle ownership
       ownership: json['ownership'] ?? '00',
+
+      // Handle hidden fields with defaults for backward compatibility
+      isHidden: json['isHidden'] ?? json['is_hidden'] ?? false,
+      showRadius: json['showRadius'] ?? json['show_radius'] ?? 0,
     );
   }
 
@@ -129,6 +138,8 @@ class Piece {
     String? paymentDetails,
     String? currency,
     int? pieceImpressions,
+    bool? isHidden,
+    int? showRadius,
   }) {
     return Piece(
       pieceid: pieceid ?? this.pieceid,
@@ -148,6 +159,8 @@ class Piece {
       paymentDetails: paymentDetails ?? this.paymentDetails,
       currency: currency ?? this.currency,
       pieceImpressions: pieceImpressions ?? this.pieceImpressions,
+      isHidden: isHidden ?? this.isHidden,
+      showRadius: showRadius ?? this.showRadius,
     );
   }
 }
