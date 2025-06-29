@@ -13,7 +13,7 @@ final pieceRepositoryProvider = Provider<PieceRepository>((ref) {
 class PieceRepository {
   final ApiService _apiService = ApiService();
 
-  Future<ApiResponse> updatePieceInfo({
+Future<ApiResponse> updatePieceInfo({
     required String pieceOwner,
     required String oldPieceTitle,
     required String newPieceTitle,
@@ -23,6 +23,9 @@ class PieceRepository {
     required String ownership,
     String? paymentDetails,
     String? currency,
+    // NEW HIDDEN FEATURE PARAMETERS
+    bool? isHidden,
+    int? showRadius,
   }) async {
     try {
       final Map<String, dynamic> requestData = {
@@ -32,7 +35,7 @@ class PieceRepository {
         'updated_piece_description': pieceDescription,
         'piece_for_sale': pieceForSale,
         'piece_price': piecePrice,
-        'ownership': ownership, // Added ownership to request body
+        'ownership': ownership,
       };
 
       // Only add payment details if it's provided (not null or empty)
@@ -43,6 +46,15 @@ class PieceRepository {
       // Add currency if provided
       if (currency != null && currency.isNotEmpty) {
         requestData['currency'] = currency;
+      }
+
+      // Add hidden feature fields if provided
+      if (isHidden != null) {
+        requestData['isHidden'] = isHidden;
+      }
+
+      if (showRadius != null) {
+        requestData['showRadius'] = showRadius;
       }
 
       final response = await _apiService.put(
@@ -122,37 +134,34 @@ class PieceRepository {
     }
   }
 
-  Future<({String? error, AnchorModel? data})> getAnchorByPieceId(
-      String pieceId) async {
-    try {
-      final response = await _apiService.post(
-        'get_anchor_by_piece_id',
-        data: {'pieceId': pieceId},
-      );
+  Future<({String? error, AnchorModel? data})> getAnchorByPieceId(String pieceId) async {
+  try {
+    final response = await _apiService.post(
+      'get_anchor_by_piece_id',
+      data: {'pieceId': pieceId},
+    );
 
-      if (response.isSuccess && response.data != null) {
-        // Extract the anchor data from the nested structure
-        if (response.data!.containsKey('anchor')) {
-          // The actual anchor data is inside the 'anchor' field
-          return (
-            error: null,
-            data: AnchorModel.fromJson(response.data!['anchor'])
-          );
-        } else {
-          print('Unexpected response structure: ${response.data}');
-          return (error: "Unexpected response structure", data: null);
-        }
+    if (response.isSuccess && response.data != null) {
+      // Extract the anchor data from the nested structure
+      if (response.data!.containsKey('anchor')) {
+        // The actual anchor data is inside the 'anchor' field
+        return (error: null,
+         data: AnchorModel.fromJson(response.data!['anchor']));
+      } else {
+        print('Unexpected response structure: ${response.data}');
+        return (error: "Unexpected response structure", data: null);
       }
-      return (error: response.message ?? "", data: null);
-    } catch (e) {
-      if (kDebugMode) {
-        print('Get anchor by piece ID error: $e');
-      }
-      return (error: e.toString(), data: null);
     }
+    return (error: response.message ?? "", data: null);
+  } catch (e) {
+    if (kDebugMode) {
+      print('Get anchor by piece ID error: $e');
+    }
+    return (error: e.toString(), data: null);
   }
+}
 
-  Future<ApiResponse> createPiece({
+Future<ApiResponse> createPiece({
     required String pieceObject,
     required String pieceOwner,
     required String pieceTitle,
@@ -169,6 +178,9 @@ class PieceRepository {
     String? paymentDetails,
     required String ownership,
     String? currency,
+    // NEW HIDDEN FEATURE PARAMETERS
+    bool isHidden = false,
+    int showRadius = 0,
   }) async {
     try {
       const uuid = Uuid();
@@ -190,6 +202,9 @@ class PieceRepository {
         'Piece_for_sale': pieceForSale.toString(),
         'Piece_price': piecePrice.toString(),
         'ownership': ownership,
+        // Hidden feature fields
+        'isHidden': isHidden,
+        'showRadius': showRadius,
       };
 
       // Add payment details if provided
@@ -197,7 +212,6 @@ class PieceRepository {
         requestData['payment_details'] = paymentDetails;
       }
 
-      // Add currency if provided
       if (currency != null && currency.isNotEmpty) {
         requestData['currency'] = currency;
       } else {
@@ -246,7 +260,7 @@ class PieceRepository {
     }
   }
 
-  Future<ApiResponse> getPieceById(String pieceId) async {
+ Future<ApiResponse> getPieceById(String pieceId) async {
     try {
       final response = await _apiService.get(
         'piece/$pieceId',
@@ -268,7 +282,7 @@ class PieceRepository {
     }
   }
 
-  Future<ApiResponse> incrementImpressions(String pieceId) async {
+Future<ApiResponse> incrementImpressions(String pieceId) async {
     try {
       final response = await _apiService.post(
         'increment_impression',
@@ -294,7 +308,7 @@ class PieceRepository {
     }
   }
 
-  Future<int> getPieceImpressions(String pieceId) async {
+ Future<int> getPieceImpressions(String pieceId) async {
     try {
       final response = await _apiService.get(
         'piece_impressions/$pieceId',
@@ -334,4 +348,21 @@ class PieceRepository {
       return 0;
     }
   }
+
+  Future<ApiResponse> searchPieces(String query) async {
+  try {
+    final response = await _apiService.post(
+      'search_pieces',
+      data: {'query': query},
+    );
+
+    return response;
+  } catch (e) {
+    if (kDebugMode) {
+      print('Search pieces error: $e');
+    }
+    return ApiResponse.error('Failed to search pieces: $e');
+  }
+}
+
 }
