@@ -185,11 +185,13 @@ exports.searchUsersByUsername = async (req, res) => {
                 const userProfile = await UserProfile.findOne({ username: user.username });
                 const subscriberCount = userProfile?.mySubscribers?.length || 0;
                 const livePiecesCount = userProfile?.Live_pieces || 0;
+                const profilePhoto = userProfile?.Profile_photo || '';
 
                 return {
                     ...user.toObject(),
                     subscriberCount,
-                    livePiecesCount
+                    livePiecesCount,
+                    profilePhoto  // Add profile photo to the response
                 };
             })
         );
@@ -231,6 +233,8 @@ exports.getPiecesByOwner = async (req, res) => {
             ownership: piece.ownership,
             currency: piece.currency,
             payment_details: piece.payment_details,
+            isHidden: piece.isHidden,     // ADD THIS
+            showRadius: piece.showRadius,
         }));
 
         res.json({
@@ -321,6 +325,8 @@ exports.getProfileWithPieces = async (req, res) => {
             payment_details: piece.payment_details,
             Piece_price: piece.Piece_price,
             ownership: piece.ownership,
+            isHidden: piece.isHidden,     // ADD THIS
+            showRadius: piece.showRadius,
         }));
 
 
