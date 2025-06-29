@@ -289,16 +289,52 @@ class _OtherUserProfileScreenState
     }
 
     Set<Marker> markers = {};
+    Set<Circle> circles = {}; // NEW: Add circles for hidden pieces
     
-    // Add piece markers
+    // Add piece markers with hidden piece filtering
     for (final anchor in _anchors!) {
       final piece = _pieces!.firstWhere((p) => p.pieceid == anchor.pieceId);
-      markers.add(Marker(
-        markerId: MarkerId(anchor.anchorId),
-        position: LatLng(anchor.location.coordinates[1], anchor.location.coordinates[0]),
-        infoWindow: InfoWindow(title: piece.pieceTitle, snippet: 'Tap to view'),
-        onTap: () => _showPiecePreview(context, piece),
-      ));
+      
+      // Skip completely hidden pieces (isHidden = true, showRadius = 0)
+      // For other hidden pieces, show according to the radius rules
+      final isHidden = piece.isHidden;
+      final showRadius = piece.showRadius;
+      
+      final position = LatLng(
+        anchor.location.coordinates[1], 
+        anchor.location.coordinates[0]
+      );
+      
+      if (isHidden && showRadius > 0) {
+        // Hidden piece with radius > 0: show as circle for non-owners
+        circles.add(
+          Circle(
+            circleId: CircleId('hidden_${anchor.anchorId}'),
+            center: position,
+            radius: showRadius.toDouble(),
+            fillColor: Colors.orange.withOpacity(0.2),
+            strokeColor: Colors.orange,
+            strokeWidth: 2,
+            onTap: () => _showPiecePreview(context, piece),
+          ),
+        );
+      } else {
+        // All other cases: show as normal marker
+        // This includes:
+        // - Non-hidden pieces (normal marker)
+        // - Hidden pieces with radius = 0 (exact location marker)
+        markers.add(
+          Marker(
+            markerId: MarkerId(anchor.anchorId),
+            position: position,
+            infoWindow: InfoWindow(
+              title: piece.pieceTitle, 
+              snippet: 'Tap to view'
+            ),
+            onTap: () => _showPiecePreview(context, piece),
+          ),
+        );
+      }
     }
     
     // Add user location
@@ -317,6 +353,7 @@ class _OtherUserProfileScreenState
     return GoogleMap(
       initialCameraPosition: CameraPosition(target: initialPosition, zoom: 15),
       markers: markers,
+      circles: circles, // NEW: Add circles for hidden pieces
       myLocationEnabled: true,
       myLocationButtonEnabled: true,
       onMapCreated: (controller) {
@@ -353,6 +390,7 @@ class _OtherUserProfileScreenState
 
   Widget _buildProfileInfoRow(
       BuildContext context, UserProfileModel userProfile) {
+
     return Padding(
       padding: const EdgeInsets.all(16.0),
       child: Row(
@@ -522,10 +560,35 @@ class _OtherUserProfileScreenState
     );
   }
 
-  Widget _buildGalleryView(
-      BuildContext context, WidgetRef ref, List<Piece> pieces) {
-    if (pieces.isEmpty) {
-      return const Center(child: Text('No pieces available'));
+ 
+  Widget _buildGalleryView(BuildContext context, WidgetRef ref, List<Piece> pieces) {
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    // Filter out hidden pieces for other users' profiles
+    final visiblePieces = pieces.where((piece) => !piece.isHidden).toList();
+
+    if (visiblePieces.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.photo_library_outlined, size: 64, color: Colors.grey[400]),
+            const SizedBox(height: 16),
+            Text(
+              'No pieces to display',
+              style: TextStyle(fontSize: 18, color: Colors.grey[600]),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'This user hasn\'t shared any visible pieces yet',
+              style: TextStyle(fontSize: 14, color: Colors.grey[500]),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      );
     }
 
     return GridView.builder(
@@ -533,9 +596,9 @@ class _OtherUserProfileScreenState
         crossAxisCount: 3,
         childAspectRatio: 1,
       ),
-      itemCount: pieces.length,
+      itemCount: visiblePieces.length,
       itemBuilder: (context, index) {
-        return _buildPieceItem(context, ref, pieces[index]);
+        return _buildPieceItem(context, ref, visiblePieces[index]); // Fixed: pass all three parameters
       },
     );
   }

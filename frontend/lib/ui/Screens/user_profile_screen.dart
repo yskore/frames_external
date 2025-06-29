@@ -30,6 +30,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
   bool _showGallery = true;
   final bool _isLoading = false;
   bool _manualRefreshInProgress = false;
+  bool _showHidden = false; 
 
 
   Completer<GoogleMapController> _mapController = Completer();
@@ -283,22 +284,72 @@ Widget build(BuildContext context) {
       ),
     );
   }
-  Widget _buildGalleryView(List<Piece> pieces) {
-    if (pieces.isEmpty) {
-      return const Center(child: Text('No pieces available'));
-    }
+Widget _buildGalleryView(List<Piece> pieces) {
+  if (_isLoading) {
+    return const Center(child: CircularProgressIndicator());
+  }
 
-    return GridView.builder(
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 3,
-        childAspectRatio: 1,
+  // DEBUG: Print toggle state and piece info
+  print('[DEBUG] _showHidden toggle state: $_showHidden');
+  print('[DEBUG] Total pieces: ${pieces.length}');
+  
+  // DEBUG: Check each piece's hidden status
+  for (int i = 0; i < pieces.length; i++) {
+    print('[DEBUG] Piece $i: ${pieces[i].pieceTitle} - isHidden: ${pieces[i].isHidden}');
+  }
+
+  // Filter pieces based on hidden toggle
+  List<Piece> filteredPieces = pieces;
+  
+  if (!_showHidden) {
+    // Hide hidden pieces when toggle is off
+    filteredPieces = pieces.where((piece) => !piece.isHidden).toList();
+    print('[DEBUG] After filtering (showHidden=false): ${filteredPieces.length} pieces');
+  } else {
+    print('[DEBUG] Showing all pieces (showHidden=true): ${pieces.length} pieces');
+  }
+  
+  // DEBUG: Print filtered pieces
+  for (int i = 0; i < filteredPieces.length; i++) {
+    print('[DEBUG] Filtered piece $i: ${filteredPieces[i].pieceTitle} - isHidden: ${filteredPieces[i].isHidden}');
+  }
+
+  if (filteredPieces.isEmpty) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.photo_library_outlined, size: 64, color: Colors.grey[400]),
+          const SizedBox(height: 16),
+          Text(
+            _showHidden 
+                ? 'No pieces found'
+                : 'No visible pieces found',
+            style: TextStyle(fontSize: 18, color: Colors.grey[600]),
+          ),
+          if (!_showHidden && pieces.any((piece) => piece.isHidden)) ...[
+            const SizedBox(height: 8),
+            Text(
+              'Turn on "Show Hidden" to see hidden pieces',
+              style: TextStyle(fontSize: 14, color: Colors.grey[500]),
+            ),
+          ],
+        ],
       ),
-      itemCount: pieces.length,
-      itemBuilder: (context, index) {
-        return _buildPieceItem(pieces[index]);
-      },
     );
   }
+
+  return GridView.builder(
+    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+      crossAxisCount: 3,
+      childAspectRatio: 1,
+    ),
+    itemCount: filteredPieces.length,
+    itemBuilder: (context, index) {
+      return _buildPieceItem(filteredPieces[index]);
+    },
+  );
+}
 
   Widget _buildCountColumn(String label, String count, VoidCallback? onTap) {
     return GestureDetector(
@@ -334,10 +385,25 @@ Widget build(BuildContext context) {
             },
           ),
           const Text('Map'),
+          
+          // NEW: Add Show Hidden toggle (only visible in gallery view)
+          if (_showGallery) ...[
+            const SizedBox(width: 20),
+            const Text('Show Hidden'),
+            Switch(
+              value: _showHidden,
+              onChanged: (value) {
+                setState(() {
+                  _showHidden = value;
+                });
+              },
+            ),
+          ],
         ],
       ),
     );
   }
+
 
   void _showPiecePreview(BuildContext context, Piece piece) {
     print("Opening piece preview for: ${piece.pieceTitle} (${piece.pieceid})");
@@ -369,7 +435,7 @@ Widget build(BuildContext context) {
     );
   }
 
-  Widget _buildPieceItem(Piece piece) {
+    Widget _buildPieceItem(Piece piece) {
     print('[LOGS] Building piece item for: ${piece.pieceTitle} (${piece.pieceid}). The url is: ${piece.pieceDisplay.toString()}');
     return GestureDetector(
       onTap: () => _showPiecePreview(context, piece),
@@ -388,59 +454,94 @@ Widget build(BuildContext context) {
               fit: BoxFit.cover,
               loadingBuilder: (BuildContext context, Widget child,
                   ImageChunkEvent? loadingProgress) {
-                if (loadingProgress == null) {
-                  return child;
-                }
+                if (loadingProgress == null) return child;
                 return Center(
                   child: CircularProgressIndicator(
                     value: loadingProgress.expectedTotalBytes != null
                         ? loadingProgress.cumulativeBytesLoaded /
                             loadingProgress.expectedTotalBytes!
                         : null,
-                    strokeWidth: 2.0,
                   ),
                 );
               },
               errorBuilder: (context, error, stackTrace) {
-                return const Center(
-                  child: Icon(Icons.error_outline, color: Colors.red),
+                return Container(
+                  color: Colors.grey[300],
+                  child: const Icon(Icons.error, color: Colors.red),
                 );
               },
             ),
-            // Status overlay
-            Positioned(
-              bottom: 0,
-              left: 0,
-              right: 0,
-              child: Container(
-                padding: const EdgeInsets.symmetric(vertical: 4),
-                color: Colors.black54,
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      piece.liveStatus ? 'Live' : 'Draft',
-                      style: const TextStyle(color: Colors.white),
+            
+            // Live status indicator
+            if (piece.liveStatus)
+              Positioned(
+                top: 4,
+                left: 4,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: Colors.green,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Text(
+                    'LIVE',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
                     ),
-                    const SizedBox(width: 4),
-                    Container(
-                      width: 8,
-                      height: 8,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: piece.liveStatus ? Colors.green : Colors.red,
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
               ),
-            ),
+            
+            // NEW: Hidden indicator
+            if (piece.isHidden)
+              Positioned(
+                top: 4,
+                right: 4,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: Colors.orange,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Text(
+                    'HIDDEN',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
+            
+            // For sale indicator  
+            if (piece.pieceForSale)
+              Positioned(
+                bottom: 4,
+                right: 4,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: Colors.blue,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Text(
+                    'FOR SALE',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
           ],
         ),
       ),
     );
   }
-
   Widget _buildMapView(List<AnchorModel> anchors, List<Piece> pieces) {
     if (anchors.isEmpty && _currentUserLocation == null) {
       return const Center(
@@ -456,8 +557,9 @@ Widget build(BuildContext context) {
       );
     }
 
-    // Create set of markers including both pieces and user location
+    // Create markers and circles for the user's own pieces
     Set<Marker> markers = {};
+    Set<Circle> circles = {}; // NEW: Add circles for hidden pieces
 
     // Add piece markers
     markers.addAll(anchors.map((anchor) {
@@ -470,20 +572,47 @@ Widget build(BuildContext context) {
         print('No matching piece found for anchor: ${anchor.pieceId}');
       }
 
-      return Marker(
+      final position = LatLng(
+        anchor.location.coordinates[1], 
+        anchor.location.coordinates[0]
+      );
+
+      // For user's own profile, always show exact markers
+      // But add visual distinction for hidden pieces
+      final marker = Marker(
         markerId: MarkerId(anchor.anchorId),
-        position: LatLng(
-            anchor.location.coordinates[1], anchor.location.coordinates[0]),
+        position: position,
         infoWindow: InfoWindow(
           title: matchingPiece?.pieceTitle ?? anchor.frameName,
-          snippet: 'Tap to view details',
+          snippet: matchingPiece?.isHidden == true 
+              ? 'Hidden piece • Tap to view details'
+              : 'Tap to view details',
         ),
         onTap: () {
           if (matchingPiece != null) {
             _showPiecePreview(context, matchingPiece);
           }
         },
+        icon: matchingPiece?.isHidden == true
+            ? BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueOrange)
+            : BitmapDescriptor.defaultMarker,
       );
+
+      // NEW: Add radius circles for hidden pieces to show their coverage area
+      if (matchingPiece?.isHidden == true && (matchingPiece?.showRadius ?? 0) > 0) {
+        circles.add(
+          Circle(
+            circleId: CircleId('radius_${anchor.anchorId}'),
+            center: position,
+            radius: (matchingPiece?.showRadius ?? 0).toDouble(),
+            fillColor: Colors.orange.withOpacity(0.1),
+            strokeColor: Colors.orange.withOpacity(0.5),
+            strokeWidth: 1,
+          ),
+        );
+      }
+
+      return marker;
     }));
 
     // Add user location marker if available
@@ -492,8 +621,7 @@ Widget build(BuildContext context) {
         Marker(
           markerId: const MarkerId('user_location'),
           position: _currentUserLocation!,
-          icon:
-              BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
+          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
           infoWindow: const InfoWindow(title: 'Your Location'),
         ),
       );
@@ -512,6 +640,7 @@ Widget build(BuildContext context) {
         zoom: 15,
       ),
       markers: markers,
+      circles: circles, // NEW: Add circles to show hidden piece radius
       myLocationEnabled: true,
       myLocationButtonEnabled: true,
       mapToolbarEnabled: false,
