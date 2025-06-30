@@ -70,12 +70,14 @@ exports.getProfile = async (req, res) => {
         const subscriberCount = userProfile.mySubscribers ? userProfile.mySubscribers.length : 0;
         const subscriptionCount = userProfile.mySubscriptions ? userProfile.mySubscriptions.length : 0;
         const totalImpressions = userPieces.reduce((sum, piece) => sum + (piece.Piece_impressions || 0), 0);
+        const livePieces = userPieces.filter(piece => piece.live_status === true).length;
 
         const profileWithCounts = userProfile.toObject();
         profileWithCounts.subscriberCount = subscriberCount;
         profileWithCounts.subscriptionCount = subscriptionCount;
         profileWithCounts.totalImpressions = totalImpressions;
         profileWithCounts.pieceCount = userPieces.length;
+        profileWithCounts.Live_pieces = livePieces;
 
         // Remove array fields from response
         delete profileWithCounts.mySubscribers;
@@ -280,12 +282,14 @@ exports.getProfileWithPieces = async (req, res) => {
         const subscriberCount = userProfile.mySubscribers ? userProfile.mySubscribers.length : 0;
         const subscriptionCount = userProfile.mySubscriptions ? userProfile.mySubscriptions.length : 0;
         const totalImpressions = pieces.reduce((sum, piece) => sum + (piece.Piece_impressions || 0), 0);
+        const livePieces = pieces.filter(piece => piece.live_status === true).length;
 
         const profileWithCounts = userProfile.toObject();
         profileWithCounts.subscriberCount = subscriberCount;
         profileWithCounts.subscriptionCount = subscriptionCount;
         profileWithCounts.totalImpressions = totalImpressions;
         profileWithCounts.pieceCount = pieces.length;
+        profileWithCounts.Live_pieces = livePieces;
 
         let isSubscribed = false;
         if (currentUser && currentUser !== username) {
