@@ -113,6 +113,7 @@ class UserModel {
       bio: bio ?? this.bio,
       subscriberCount: subscriberCount ?? this.subscriberCount,
       subscriptionCount: subscriptionCount ?? this.subscriptionCount,
+      totalImpressions: totalImpressions ?? this.totalImpressions,
       pieceCount: pieceCount ?? this.pieceCount,
       livePieces: livePieces ?? this.livePieces,
       pieces: pieces ?? this.pieces,
