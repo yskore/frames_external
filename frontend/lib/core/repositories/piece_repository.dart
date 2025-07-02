@@ -374,9 +374,8 @@ class PieceRepository {
   }) async {
     try {
       final response = await _apiService.post(
-        'flag-piece',
+        '$pieceId/flag',
         data: {
-          'piece_id': pieceId,
           'flagType': flagType,
         },
       );
@@ -400,7 +399,7 @@ class PieceRepository {
 
   Future<ApiResponse> getMyFlaggedPieces() async {
     try {
-      final response = await _apiService.get('my-flagged-pieces');
+      final response = await _apiService.get('flagged');
 
       if (kDebugMode) {
         if (response.isSuccess) {
@@ -437,9 +436,8 @@ class PieceRepository {
       if (comments != null) {
         requestData['comments'] = comments;
       }
-
       final response = await _apiService.post(
-        'respond-to-flag/$flagId',
+        '$flagId/flag-response',
         data: requestData,
       );
 
@@ -460,6 +458,7 @@ class PieceRepository {
     }
   }
 
+//TODO:redundant method, remove later
   Future<ApiResponse> getPieceFlags(String pieceId) async {
     try {
       final response = await _apiService.get('piece-flags/$pieceId');
