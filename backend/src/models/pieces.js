@@ -66,6 +66,29 @@ const PieceSchema = new mongoose.Schema({
     default: 0,
     min: 0,
     max: 500
+  },
+  flag_status: {
+    type: String,
+    enum: ['normal', 'pending_action', 'disputed', 'resolved', 'deleted'],
+    default: 'normal'
+  },
+  flag_type: {
+    type: String,
+    enum: ['IN', 'PI'], // IN: inappropriate, PI: piracy
+    required: false
+  },
+  flag_expiration: {
+    type: Date,
+    required: false
+  },
+  dispute_id: {
+    type: String,
+    ref: 'Dispute',
+    required: false
+  },
+  deleted_at: {
+    type: Date,
+    required: false
   }
 });
 

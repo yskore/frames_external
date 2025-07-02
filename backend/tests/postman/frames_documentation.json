@@ -1183,6 +1183,143 @@
 						},
 						"description": "Resolves a disputed offer. Can optionally transfer piece ownership as part of resolution. Creates dispute resolution record in ownership history. (Requires admin authentication)"
 					}
+				},
+				{
+					"name": "Get Flag Disputes",
+					"request": {
+						"method": "GET",
+						"url": "http://localhost:8080/admin/flag-disputes",
+						"header": [
+							{
+								"key": "X-API-Key",
+								"value": "{{api_key}}"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"description": "Get all flag disputes for admin review. Returns disputes with status 'Raised'. (Requires admin authentication)"
+					}
+				},
+				{
+					"name": "Resolve Flag Dispute",
+					"request": {
+						"method": "POST",
+						"url": "http://localhost:8080/admin/resolve-flag-dispute/:dispute_id",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "X-API-Key",
+								"value": "{{api_key}}"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\"decision\":\"accept\"}"
+						},
+						"description": "Resolve a flag dispute. 'accept' upholds the owner's dispute (keeps piece), 'reject' upholds the flags (deletes piece for inappropriate, changes ownership to '00' for piracy). (Requires admin authentication)"
+					}
+				}
+			]
+		},
+		{
+			"name": "Flag Management",
+			"item": [
+				{
+					"name": "Flag Piece",
+					"request": {
+						"method": "POST",
+						"url": "http://localhost:8080/flag-piece",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "X-API-Key",
+								"value": "{{api_key}}"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\"piece_id\":\"piece123\",\"flagType\":\"IN\"}"
+						},
+						"description": "Flag a piece for inappropriate content (IN) or piracy (PI). Users cannot flag their own pieces. (Requires authentication)"
+					}
+				},
+				{
+					"name": "Get Piece Flags",
+					"request": {
+						"method": "GET",
+						"url": "http://localhost:8080/piece-flags/:piece_id",
+						"header": [
+							{
+								"key": "X-API-Key",
+								"value": "{{api_key}}"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"description": "Get all flags for a specific piece. Only piece owner can access this. (Requires authentication)"
+					}
+				},
+				{
+					"name": "Respond to Flag",
+					"request": {
+						"method": "POST",
+						"url": "http://localhost:8080/respond-to-flag/:flag_id",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "X-API-Key",
+								"value": "{{api_key}}"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\"action\":\"dispute\",\"evidence\":\"https://example.com/evidence.jpg\",\"comments\":\"This is my original work\"}"
+						},
+						"description": "Respond to a flag with accept or dispute. For inappropriate flags: accept deletes piece, dispute creates dispute record. For piracy flags: accept changes ownership to '00', dispute requires evidence/comments. (Requires authentication)"
+					}
+				},
+				{
+					"name": "Get My Flagged Pieces",
+					"request": {
+						"method": "GET",
+						"url": "http://localhost:8080/my-flagged-pieces",
+						"header": [
+							{
+								"key": "X-API-Key",
+								"value": "{{api_key}}"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"description": "Get all pieces owned by authenticated user that have received 3 or more flags and need response. (Requires authentication)"
+					}
 				}
 			]
 		},

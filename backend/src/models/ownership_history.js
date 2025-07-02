@@ -18,6 +18,7 @@ const ownershipHistorySchema = new mongoose.Schema({
             'marketplace_sale',          // Normal sale through marketplace
             'dispute_resolution',        // Transfer after dispute resolution
             'admin_transfer',           // Administrative transfer
+            'flag_deletion',            // Piece deleted due to flagging
         ],
         required: true
     },

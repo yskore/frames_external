@@ -1,5 +1,6 @@
 const cron = require('node-cron');
 const offerController = require('../controllers/offerController');
+const { scheduleExpiredFlagCheck } = require('./flagScheduler');
 
 // Initialize cron jobs
 const initCronJobs = () => {
@@ -37,6 +38,9 @@ const initCronJobs = () => {
       console.error('Error sending confirmation reminders:', error);
     }
   });
+  
+  // Initialize flag expiration scheduler
+  scheduleExpiredFlagCheck();
   
   console.log('Cron jobs initialized successfully');
 };

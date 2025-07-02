@@ -2,12 +2,12 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:frames_app/Providers/error_provider.dart';
+import 'package:frames_app/Providers/loading_provider.dart';
 import 'package:frames_app/core/network/api_response.dart';
 import 'package:frames_app/core/repositories/piece_repository.dart';
 import 'package:frames_app/core/services/storage_service.dart';
 import 'package:frames_app/models/frame_model.dart';
-import 'package:frames_app/Providers/error_provider.dart';
-import 'package:frames_app/Providers/loading_provider.dart';
 import 'package:frames_app/providers/user_provider.dart';
 import 'package:intl/intl.dart';
 
@@ -172,59 +172,85 @@ class PieceNotifier extends StateNotifier<void> {
     }
   }
 
-Future<Map<String, dynamic>?> getPieceDetails(String pieceId) async {
-  try {
-    _loadingNotifier.setLoading(true);
-    _errorNotifier.clearError();
-    
-    final response = await _pieceRepository.getPieceById(pieceId);
-    print('TEST: Full response: $response');
-    
-    if (response.isSuccess) {
-      // Look at the raw response content
-      print('TEST: Checking raw response structure');
-      
-      // If the response data exists
-      if (response.data != null) {
-        print('TEST: Response data exists');
-        
-        // Check if it has a 'piece' field
-        if (response.data is Map<String, dynamic> && 
-            (response.data as Map<String, dynamic>).containsKey('piece')) {
-          print('TEST: Found piece data in response');
-          return (response.data as Map<String, dynamic>)['piece'];
+  Future<Map<String, dynamic>?> getPieceDetails(String pieceId) async {
+    try {
+      _loadingNotifier.setLoading(true);
+      _errorNotifier.clearError();
+
+      final response = await _pieceRepository.getPieceById(pieceId);
+      print('TEST: Full response: $response');
+
+      if (response.isSuccess) {
+        // Look at the raw response content
+        print('TEST: Checking raw response structure');
+
+        // If the response data exists
+        if (response.data != null) {
+          print('TEST: Response data exists');
+
+          // Check if it has a 'piece' field
+          if (response.data is Map<String, dynamic> &&
+              (response.data as Map<String, dynamic>).containsKey('piece')) {
+            print('TEST: Found piece data in response');
+            return (response.data as Map<String, dynamic>)['piece'];
+          }
+
+          // Return the data as-is if no piece field
+          return response.data as Map<String, dynamic>;
         }
-        
-        // Return the data as-is if no piece field
-        return response.data as Map<String, dynamic>;
       }
+
+      _errorNotifier
+          .setError(response.message ?? 'Failed to get piece details');
+      return null;
+    } catch (e) {
+      _errorNotifier.setError('Error getting piece details: $e');
+      return null;
+    } finally {
+      _loadingNotifier.setLoading(false);
     }
-    
-    _errorNotifier.setError(response.message ?? 'Failed to get piece details');
-    return null;
-  } catch (e) {
-    _errorNotifier.setError('Error getting piece details: $e');
-    return null;
-  } finally {
-    _loadingNotifier.setLoading(false);
   }
-}
 
-Future<ApiResponse> searchPieces(String query) async {
-  try {
-    // _loadingNotifier.setLoading(true);
-    _errorNotifier.clearError();
+  Future<ApiResponse> searchPieces(String query) async {
+    try {
+      // _loadingNotifier.setLoading(true);
+      _errorNotifier.clearError();
 
-    final response = await _pieceRepository.searchPieces(query);
+      final response = await _pieceRepository.searchPieces(query);
 
-    return response;
-  } catch (e) {
-    _errorNotifier.setError('Error searching pieces: ${e.toString()}');
-    return ApiResponse.error('Error searching pieces: ${e.toString()}');
-  } finally {
-    // _loadingNotifier.setLoading(false);
+      return response;
+    } catch (e) {
+      _errorNotifier.setError('Error searching pieces: ${e.toString()}');
+      return ApiResponse.error('Error searching pieces: ${e.toString()}');
+    } finally {
+      // _loadingNotifier.setLoading(false);
+    }
   }
-}
 
+  Future<bool> flagPiece({
+    required String pieceId,
+    required String flagType,
+  }) async {
+    try {
+      _loadingNotifier.setLoading(true);
+      _errorNotifier.clearError();
 
+      final response = await _pieceRepository.flagPiece(
+        pieceId: pieceId,
+        flagType: flagType,
+      );
+
+      if (response.isSuccess) {
+        return true;
+      }
+
+      _errorNotifier.setError(response.message ?? 'Failed to flag piece');
+      return false;
+    } catch (e) {
+      _errorNotifier.setError('Error flagging piece: $e');
+      return false;
+    } finally {
+      _loadingNotifier.setLoading(false);
+    }
+  }
 }

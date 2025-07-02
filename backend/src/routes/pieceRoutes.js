@@ -1,9 +1,11 @@
 const express = require('express');
 const router = express.Router();
 const pieceController = require('../controllers/pieceController');
+const flagController = require('../controllers/flagController');
 const validateApiKey = require('../middleware/apiKeyMiddleware');
 const { validateToken } = require('../middleware/authMiddleware');
 const { validatePieceInput, validateSaleToggle } = require('../middleware/pieceValidationMiddleware');
+const { validateFlagInput, validateFlagResponse } = require('../middleware/validationMiddleware');
 
 router.use(validateApiKey);
 
@@ -17,11 +19,15 @@ router.post('/delete_piece', validateToken, pieceController.deletePiece);
 router.post('/toggle_live_status', validateToken, pieceController.toggleLiveStatus);
 router.get('/piece/:pieceId', pieceController.getPieceById);
 
-
 // Add new route for toggling sale status
 router.post('/toggle_for_sale', validateToken, validateSaleToggle, pieceController.toggleForSale);
 // new route for getting pieces by Title
 router.post('/search_pieces', pieceController.searchPieces);
 
+
+// Flag-related routes
+router.post('/:pieceId/flag', validateToken, validateFlagInput, flagController.flagPiece);
+router.post('/:pieceId/flag-response', validateToken, validateFlagResponse, flagController.respondToFlag);
+router.get('/flagged', validateToken, flagController.getFlaggedPieces);
 
 module.exports = router;

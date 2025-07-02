@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:frames_app/providers/notification_provider.dart';
 import 'package:frames_app/providers/user_provider.dart';
+import 'package:frames_app/ui/Screens/flagged_pieces_screen.dart';
 import 'package:frames_app/ui/Screens/home_screen.dart';
 import 'package:frames_app/ui/Screens/login_screen.dart'; // Add this import
 import 'package:frames_app/ui/Screens/notification_screen.dart';
@@ -128,6 +129,31 @@ class MenuScreen extends ConsumerWidget {
                   child: const Text('Transactions'),
                 ),
               ),
+               SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const FlaggedPiecesScreen(),
+                      ),
+                    );
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.orange[50],
+                    foregroundColor: Colors.orange[700],
+                  ),
+                  child: const Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.flag_outlined, size: 20),
+                      SizedBox(width: 8),
+                      Text('Flagged Pieces'),
+                    ],
+                  ),
+                ),
+              ),
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
@@ -173,6 +199,7 @@ class MenuScreen extends ConsumerWidget {
                   child: const Text('Logout'),
                 ),
               ),
+             
             ],
           ),
         ),

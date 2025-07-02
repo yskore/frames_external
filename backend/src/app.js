@@ -30,6 +30,7 @@ const {
 
 const { initializeFirebaseApp } = require('./utils/notificationUtils');
 const { initCronJobs } = require('./utils/cronJobs');
+const { runMigrations } = require('./utils/migrations');
 
 try {
   initializeFirebaseApp();
@@ -37,6 +38,11 @@ try {
 } catch (error) {
   console.error('Failed to initialize Firebase:', error);
 }
+
+// Run migrations on startup
+runMigrations().catch(error => {
+  console.error('Failed to run migrations:', error);
+});
 
 try {
   initCronJobs();

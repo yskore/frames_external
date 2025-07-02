@@ -13,7 +13,7 @@ final pieceRepositoryProvider = Provider<PieceRepository>((ref) {
 class PieceRepository {
   final ApiService _apiService = ApiService();
 
-Future<ApiResponse> updatePieceInfo({
+  Future<ApiResponse> updatePieceInfo({
     required String pieceOwner,
     required String oldPieceTitle,
     required String newPieceTitle,
@@ -134,34 +134,37 @@ Future<ApiResponse> updatePieceInfo({
     }
   }
 
-  Future<({String? error, AnchorModel? data})> getAnchorByPieceId(String pieceId) async {
-  try {
-    final response = await _apiService.post(
-      'get_anchor_by_piece_id',
-      data: {'pieceId': pieceId},
-    );
+  Future<({String? error, AnchorModel? data})> getAnchorByPieceId(
+      String pieceId) async {
+    try {
+      final response = await _apiService.post(
+        'get_anchor_by_piece_id',
+        data: {'pieceId': pieceId},
+      );
 
-    if (response.isSuccess && response.data != null) {
-      // Extract the anchor data from the nested structure
-      if (response.data!.containsKey('anchor')) {
-        // The actual anchor data is inside the 'anchor' field
-        return (error: null,
-         data: AnchorModel.fromJson(response.data!['anchor']));
-      } else {
-        print('Unexpected response structure: ${response.data}');
-        return (error: "Unexpected response structure", data: null);
+      if (response.isSuccess && response.data != null) {
+        // Extract the anchor data from the nested structure
+        if (response.data!.containsKey('anchor')) {
+          // The actual anchor data is inside the 'anchor' field
+          return (
+            error: null,
+            data: AnchorModel.fromJson(response.data!['anchor'])
+          );
+        } else {
+          print('Unexpected response structure: ${response.data}');
+          return (error: "Unexpected response structure", data: null);
+        }
       }
+      return (error: response.message ?? "", data: null);
+    } catch (e) {
+      if (kDebugMode) {
+        print('Get anchor by piece ID error: $e');
+      }
+      return (error: e.toString(), data: null);
     }
-    return (error: response.message ?? "", data: null);
-  } catch (e) {
-    if (kDebugMode) {
-      print('Get anchor by piece ID error: $e');
-    }
-    return (error: e.toString(), data: null);
   }
-}
 
-Future<ApiResponse> createPiece({
+  Future<ApiResponse> createPiece({
     required String pieceObject,
     required String pieceOwner,
     required String pieceTitle,
@@ -260,7 +263,7 @@ Future<ApiResponse> createPiece({
     }
   }
 
- Future<ApiResponse> getPieceById(String pieceId) async {
+  Future<ApiResponse> getPieceById(String pieceId) async {
     try {
       final response = await _apiService.get(
         'piece/$pieceId',
@@ -282,7 +285,7 @@ Future<ApiResponse> createPiece({
     }
   }
 
-Future<ApiResponse> incrementImpressions(String pieceId) async {
+  Future<ApiResponse> incrementImpressions(String pieceId) async {
     try {
       final response = await _apiService.post(
         'increment_impression',
@@ -308,7 +311,7 @@ Future<ApiResponse> incrementImpressions(String pieceId) async {
     }
   }
 
- Future<int> getPieceImpressions(String pieceId) async {
+  Future<int> getPieceImpressions(String pieceId) async {
     try {
       final response = await _apiService.get(
         'piece_impressions/$pieceId',
@@ -350,19 +353,131 @@ Future<ApiResponse> incrementImpressions(String pieceId) async {
   }
 
   Future<ApiResponse> searchPieces(String query) async {
-  try {
-    final response = await _apiService.post(
-      'search_pieces',
-      data: {'query': query},
-    );
+    try {
+      final response = await _apiService.post(
+        'search_pieces',
+        data: {'query': query},
+      );
 
-    return response;
-  } catch (e) {
-    if (kDebugMode) {
-      print('Search pieces error: $e');
+      return response;
+    } catch (e) {
+      if (kDebugMode) {
+        print('Search pieces error: $e');
+      }
+      return ApiResponse.error('Failed to search pieces: $e');
     }
-    return ApiResponse.error('Failed to search pieces: $e');
   }
-}
 
+  Future<ApiResponse> flagPiece({
+    required String pieceId,
+    required String flagType,
+  }) async {
+    try {
+      final response = await _apiService.post(
+        'flag-piece',
+        data: {
+          'piece_id': pieceId,
+          'flagType': flagType,
+        },
+      );
+
+      if (kDebugMode) {
+        if (response.isSuccess) {
+          print('Piece flagged successfully: $pieceId with type: $flagType');
+        } else {
+          print('Failed to flag piece: ${response.message}');
+        }
+      }
+
+      return response;
+    } catch (e) {
+      if (kDebugMode) {
+        print('Flag piece error: $e');
+      }
+      return ApiResponse.error('Failed to flag piece: $e');
+    }
+  }
+
+  Future<ApiResponse> getMyFlaggedPieces() async {
+    try {
+      final response = await _apiService.get('my-flagged-pieces');
+
+      if (kDebugMode) {
+        if (response.isSuccess) {
+          print('My flagged pieces fetched successfully');
+        } else {
+          print('Failed to fetch flagged pieces: ${response.message}');
+        }
+      }
+
+      return response;
+    } catch (e) {
+      if (kDebugMode) {
+        print('Get my flagged pieces error: $e');
+      }
+      return ApiResponse.error('Failed to get flagged pieces: $e');
+    }
+  }
+
+  Future<ApiResponse> respondToFlag({
+    required String flagId,
+    required String action,
+    String? evidence,
+    String? comments,
+  }) async {
+    try {
+      final Map<String, dynamic> requestData = {
+        'action': action,
+      };
+
+      if (evidence != null) {
+        requestData['evidence'] = evidence;
+      }
+
+      if (comments != null) {
+        requestData['comments'] = comments;
+      }
+
+      final response = await _apiService.post(
+        'respond-to-flag/$flagId',
+        data: requestData,
+      );
+
+      if (kDebugMode) {
+        if (response.isSuccess) {
+          print('Flag response submitted successfully: $action');
+        } else {
+          print('Failed to respond to flag: ${response.message}');
+        }
+      }
+
+      return response;
+    } catch (e) {
+      if (kDebugMode) {
+        print('Respond to flag error: $e');
+      }
+      return ApiResponse.error('Failed to respond to flag: $e');
+    }
+  }
+
+  Future<ApiResponse> getPieceFlags(String pieceId) async {
+    try {
+      final response = await _apiService.get('piece-flags/$pieceId');
+
+      if (kDebugMode) {
+        if (response.isSuccess) {
+          print('Piece flags fetched successfully');
+        } else {
+          print('Failed to fetch piece flags: ${response.message}');
+        }
+      }
+
+      return response;
+    } catch (e) {
+      if (kDebugMode) {
+        print('Get piece flags error: $e');
+      }
+      return ApiResponse.error('Failed to get piece flags: $e');
+    }
+  }
 }
