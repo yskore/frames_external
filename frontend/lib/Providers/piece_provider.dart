@@ -22,16 +22,19 @@ final pieceProvider = StateNotifierProvider<PieceNotifier, void>((ref) {
   final pieceRepository = ref.read(pieceRepositoryProvider);
   final loadingNotifier = ref.read(loadingProvider.notifier);
   final userNotifier = ref.read(userProvider.notifier);
+  final messageNotifier = ref.read(messageProvider.notifier);
   final errorNotifier = ref.read(errorProvider.notifier);
 
-  return PieceNotifier(
-      pieceRepository, loadingNotifier, errorNotifier, userNotifier, ref);
+  return PieceNotifier(pieceRepository, loadingNotifier, messageNotifier,
+      errorNotifier, userNotifier, ref);
 });
 
 class PieceNotifier extends StateNotifier<void> {
   final PieceRepository _pieceRepository;
   final LoadingNotifier _loadingNotifier;
   final ErrorNotifier _errorNotifier;
+  final MessageNotifier _messageNotifier;
+
   final UserNotifier _userNotifier;
   final Ref _ref;
   final _storageService = StorageService();
@@ -39,6 +42,7 @@ class PieceNotifier extends StateNotifier<void> {
   PieceNotifier(
     this._pieceRepository,
     this._loadingNotifier,
+    this._messageNotifier,
     this._errorNotifier,
     this._userNotifier,
     this._ref,
@@ -235,19 +239,38 @@ class PieceNotifier extends StateNotifier<void> {
       _loadingNotifier.setLoading(true);
       _errorNotifier.clearError();
 
+      String apiFlagType;
+      switch (flagType.toLowerCase()) {
+        case 'piracy':
+        case 'pi':
+          apiFlagType = 'PI';
+          break;
+        case 'inappropriate':
+        case 'in':
+          apiFlagType = 'IN';
+          break;
+        default:
+          _errorNotifier.setError(
+              'Invalid flag type. Must be "Inappropriate" or "Piracy".');
+          return false;
+      }
+
       final response = await _pieceRepository.flagPiece(
         pieceId: pieceId,
-        flagType: flagType,
+        flagType: apiFlagType,
       );
 
       if (response.isSuccess) {
         return true;
       }
 
+      throw response.message ?? 'Failed to flag piece';
+
       _errorNotifier.setError(response.message ?? 'Failed to flag piece');
       return false;
     } catch (e) {
       _errorNotifier.setError('Error flagging piece: $e');
+      rethrow;
       return false;
     } finally {
       _loadingNotifier.setLoading(false);
