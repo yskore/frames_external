@@ -144,7 +144,9 @@ class PieceFlagManager {
       );
 
       if (context.mounted) {
-        Navigator.of(context).pop(); // Close flag dialog
+        Navigator.of(context)
+          ..pop()
+          ..pop();
 
         if (success) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -153,7 +155,9 @@ class PieceFlagManager {
                 children: [
                   Icon(Icons.check_circle, color: Colors.white),
                   SizedBox(width: 8),
-                  Text('Thank you for your report. We will review it shortly.'),
+                  Expanded(
+                      child: Text(
+                          'Thank you for your report. We will review it shortly.')),
                 ],
               ),
               backgroundColor: Colors.green,
@@ -161,10 +165,12 @@ class PieceFlagManager {
             ),
           );
         }
-        // Error handling is managed by the piece provider through errorProvider
       }
     } catch (e) {
       if (context.mounted) {
+        Navigator.of(context)
+          ..pop()
+          ..pop();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Failed to submit flag: $e'),
