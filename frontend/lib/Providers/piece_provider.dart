@@ -266,12 +266,12 @@ class PieceNotifier extends StateNotifier<void> {
 
       throw response.message ?? 'Failed to flag piece';
 
-      _errorNotifier.setError(response.message ?? 'Failed to flag piece');
-      return false;
+      // _errorNotifier.setError(response.message ?? 'Failed to flag piece');
+      // return false;
     } catch (e) {
       _errorNotifier.setError('Error flagging piece: $e');
       rethrow;
-      return false;
+      // return false;
     } finally {
       _loadingNotifier.setLoading(false);
     }

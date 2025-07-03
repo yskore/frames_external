@@ -64,7 +64,7 @@ class FlaggedPiecesNotifier extends StateNotifier<List<FlaggedPiece>> {
 
       if (response.isSuccess) {
         // Remove the flagged piece from the list
-        state = state.where((piece) => piece.flagId != flagId).toList();
+        state = state.where((piece) => piece.pieceId != flagId).toList();
         return true;
       } else {
         _errorNotifier.setError(response.message ?? 'Failed to accept flag');
@@ -93,7 +93,7 @@ class FlaggedPiecesNotifier extends StateNotifier<List<FlaggedPiece>> {
 
       if (response.isSuccess) {
         // Remove the flagged piece from the list since it's now under dispute
-        state = state.where((piece) => piece.flagId != flagId).toList();
+        state = state.where((piece) => piece.pieceId != flagId).toList();
         return true;
       } else {
         _errorNotifier.setError(response.message ?? 'Failed to dispute flag');
