@@ -15,7 +15,7 @@ class PieceEditManager {
   final TextEditingController priceController;
   final TextEditingController paymentDetailsController;
   final TextEditingController currencyController;
-  final String ownership;
+  final String Function() getCurrentOwnership;
   final Function(bool) setLoading;
   final Function(Piece) updatePiece;
   bool currentForSaleState; 
@@ -30,7 +30,7 @@ class PieceEditManager {
     required this.priceController,
     required this.paymentDetailsController,
     required this.currencyController,
-    required this.ownership,
+    required this.getCurrentOwnership,
     required this.setLoading,
     required this.updatePiece,
   }) : currentForSaleState = piece.pieceForSale,
@@ -112,7 +112,7 @@ void openCurrencyPicker(BuildContext context) {
         pieceDescription: descriptionController.text,
         pieceForSale: currentForSaleState,  // Use the tracked state
         piecePrice: double.tryParse(priceController.text) ?? 0.0,
-        ownership: ownership,
+        ownership: getCurrentOwnership(),
         paymentDetails: paymentDetails,
         currency: currencyController.text,
         isHidden: currentHiddenState,        // ADD
@@ -129,6 +129,7 @@ void openCurrencyPicker(BuildContext context) {
           pieceForSale: currentForSaleState,  // Include the updated state
           isHidden: currentHiddenState,      // ADD
           showRadius: currentShowRadius,
+          ownership: getCurrentOwnership(),
         );
         
         updatePiece(updatedPiece);
