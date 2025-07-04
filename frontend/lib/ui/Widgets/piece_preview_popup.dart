@@ -128,7 +128,7 @@ class _PiecePreviewPopupState extends ConsumerState<PiecePreviewPopup> {
       priceController: _priceController,
       paymentDetailsController: _paymentDetailsController,
       currencyController: _currencyController,
-      ownership: _ownership,
+      getCurrentOwnership: () => _ownership,
       setLoading: (loading) => setState(() => _isLoading = loading),
       updatePiece: (updatedPiece) => setState(() {
         _piece = updatedPiece;
