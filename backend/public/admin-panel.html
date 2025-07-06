@@ -1,0 +1,654 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Frames Admin Panel - Dispute Management</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: #f5f5f7;
+            color: #1d1d1f;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 2rem;
+            border-radius: 12px;
+            margin-bottom: 2rem;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        .login-section, .admin-section {
+            background: white;
+            border-radius: 12px;
+            padding: 2rem;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+            margin-bottom: 2rem;
+        }
+
+        .login-form {
+            max-width: 400px;
+            margin: 0 auto;
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            color: #333;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e1e5e9;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s ease;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .btn {
+            display: inline-block;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            text-align: center;
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #5a6fd8;
+            transform: translateY(-1px);
+        }
+
+        .btn-approve {
+            background: #34d399;
+            color: white;
+            margin-right: 8px;
+        }
+
+        .btn-approve:hover {
+            background: #10b981;
+        }
+
+        .btn-reject {
+            background: #f87171;
+            color: white;
+        }
+
+        .btn-reject:hover {
+            background: #ef4444;
+        }
+
+        .btn-logout {
+            background: #6b7280;
+            color: white;
+            float: right;
+        }
+
+        .btn-logout:hover {
+            background: #4b5563;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+            text-align: center;
+        }
+
+        .stat-number {
+            font-size: 2rem;
+            font-weight: 700;
+            color: #667eea;
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-label {
+            color: #6b7280;
+            font-size: 0.9rem;
+        }
+
+        .dispute-card {
+            background: white;
+            border: 1px solid #e1e5e9;
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+        }
+
+        .dispute-header {
+            display: flex;
+            justify-content: between;
+            align-items: flex-start;
+            margin-bottom: 1rem;
+        }
+
+        .dispute-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: #1d1d1f;
+            margin-bottom: 0.5rem;
+        }
+
+        .dispute-meta {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .meta-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: #6b7280;
+            font-size: 0.9rem;
+        }
+
+        .flag-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 500;
+            text-transform: uppercase;
+        }
+
+        .flag-inappropriate {
+            background: #fef2f2;
+            color: #dc2626;
+        }
+
+        .flag-piracy {
+            background: #fffbeb;
+            color: #d97706;
+        }
+
+        .dispute-content {
+            margin-bottom: 1.5rem;
+        }
+
+        .content-section {
+            margin-bottom: 1rem;
+        }
+
+        .content-label {
+            font-weight: 500;
+            color: #374151;
+            margin-bottom: 0.5rem;
+        }
+
+        .content-text {
+            color: #6b7280;
+            padding: 0.75rem;
+            background: #f9fafb;
+            border-radius: 6px;
+            border-left: 3px solid #667eea;
+        }
+
+        .evidence-link {
+            color: #667eea;
+            text-decoration: none;
+        }
+
+        .evidence-link:hover {
+            text-decoration: underline;
+        }
+
+        .dispute-actions {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 2rem;
+            color: #6b7280;
+        }
+
+        .error {
+            background: #fef2f2;
+            color: #dc2626;
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+        }
+
+        .success {
+            background: #f0fdf4;
+            color: #16a34a;
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 3rem;
+            color: #6b7280;
+        }
+
+        .empty-state-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            opacity: 0.5;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 10px;
+            }
+            
+            .header h1 {
+                font-size: 2rem;
+            }
+            
+            .dispute-meta {
+                flex-direction: column;
+                gap: 0.5rem;
+            }
+            
+            .dispute-actions {
+                flex-direction: column;
+            }
+            
+            .btn {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>🛡️ Frames Admin Panel</h1>
+            <p>Content Moderation & Dispute Management System</p>
+        </div>
+
+        <!-- Login Section -->
+        <div id="login-section" class="login-section">
+            <h2 style="text-align: center; margin-bottom: 2rem;">Admin Login</h2>
+            <div class="login-form">
+                <div class="form-group">
+                    <label for="username">Username</label>
+                    <input type="text" id="username" placeholder="Enter admin username" required>
+                </div>
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <input type="password" id="password" placeholder="Enter admin password" required>
+                </div>
+                <button class="btn btn-primary" style="width: 100%;" onclick="login()">
+                    Login to Admin Panel
+                </button>
+            </div>
+            <div id="login-error" class="error hidden"></div>
+        </div>
+
+        <!-- Admin Dashboard -->
+        <div id="admin-section" class="admin-section hidden">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+                <h2>Dispute Management Dashboard</h2>
+                <button class="btn btn-logout" onclick="logout()">Logout</button>
+            </div>
+
+            <!-- Stats Dashboard -->
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-number" id="total-disputes">-</div>
+                    <div class="stat-label">Total Pending Disputes</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="piracy-disputes">-</div>
+                    <div class="stat-label">Piracy Claims</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="inappropriate-disputes">-</div>
+                    <div class="stat-label">Inappropriate Content</div>
+                </div>
+            </div>
+
+            <!-- Messages -->
+            <div id="message-container"></div>
+
+            <!-- Disputes List -->
+            <div>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                    <h3>Pending Disputes</h3>
+                    <button class="btn btn-primary" onclick="loadDisputes()">🔄 Refresh</button>
+                </div>
+                
+                <div id="loading" class="loading hidden">
+                    <p>Loading disputes...</p>
+                </div>
+                
+                <div id="disputes-list"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Configuration - Use same domain as the admin panel
+        const API_BASE_URL = window.location.origin;
+        const API_KEY = 'frames_prod_api_key_2024';
+        const API_HEADER = 'X-API-Key';
+        
+        let authToken = '';
+        let disputes = [];
+
+        // Utility functions
+        function showElement(id) {
+            document.getElementById(id).classList.remove('hidden');
+        }
+
+        function hideElement(id) {
+            document.getElementById(id).classList.add('hidden');
+        }
+
+        function showMessage(message, type = 'error') {
+            const container = document.getElementById('message-container');
+            container.innerHTML = `<div class="${type}">${message}</div>`;
+            setTimeout(() => {
+                container.innerHTML = '';
+            }, 5000);
+        }
+
+        // Authentication functions
+        async function login() {
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value.trim();
+
+            if (!username || !password) {
+                showMessage('Please enter both username and password');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        [API_HEADER]: API_KEY
+                    },
+                    body: JSON.stringify({ username, password })
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.success) {
+                    authToken = data.data.accessToken;
+                    
+                    // Check if user is admin by trying to access admin endpoint
+                    const adminCheck = await fetch(`${API_BASE_URL}/admin/flag-disputes`, {
+                        headers: {
+                            'Authorization': `Bearer ${authToken}`,
+                            [API_HEADER]: API_KEY
+                        }
+                    });
+
+                    if (adminCheck.ok) {
+                        hideElement('login-section');
+                        showElement('admin-section');
+                        await loadDisputes();
+                    } else {
+                        showMessage('Access denied. Admin privileges required.');
+                        authToken = '';
+                    }
+                } else {
+                    showMessage(data.message || 'Login failed');
+                }
+            } catch (error) {
+                console.error('Login error:', error);
+                showMessage('Login failed. Please check your connection.');
+            }
+        }
+
+        function logout() {
+            authToken = '';
+            hideElement('admin-section');
+            showElement('login-section');
+            document.getElementById('username').value = '';
+            document.getElementById('password').value = '';
+            document.getElementById('disputes-list').innerHTML = '';
+        }
+
+        // Dispute management functions
+        async function loadDisputes() {
+            if (!authToken) return;
+
+            showElement('loading');
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/admin/flag-disputes`, {
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`,
+                        [API_HEADER]: API_KEY
+                    }
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.success) {
+                    disputes = data.data.disputes;
+                    renderDisputes();
+                    updateStats();
+                } else {
+                    showMessage(data.message || 'Failed to load disputes');
+                }
+            } catch (error) {
+                console.error('Load disputes error:', error);
+                showMessage('Failed to load disputes. Please check your connection.');
+            } finally {
+                hideElement('loading');
+            }
+        }
+
+        function updateStats() {
+            const total = disputes.length;
+            const piracy = disputes.filter(d => d.Flag_type === 'PI').length;
+            const inappropriate = disputes.filter(d => d.Flag_type === 'IN').length;
+
+            document.getElementById('total-disputes').textContent = total;
+            document.getElementById('piracy-disputes').textContent = piracy;
+            document.getElementById('inappropriate-disputes').textContent = inappropriate;
+        }
+
+        function renderDisputes() {
+            const container = document.getElementById('disputes-list');
+            
+            if (disputes.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">📝</div>
+                        <h3>No Pending Disputes</h3>
+                        <p>All disputes have been resolved. Great job!</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = disputes.map(dispute => `
+                <div class="dispute-card" id="dispute-${dispute.Dispute_id}">
+                    <div class="dispute-header">
+                        <div>
+                            <div class="dispute-title">📄 ${dispute.Piece_title}</div>
+                            <div class="dispute-meta">
+                                <div class="meta-item">
+                                    <span>👤</span>
+                                    <span>Owner: <strong>${dispute.Piece_owner}</strong></span>
+                                </div>
+                                <div class="meta-item">
+                                    <span>🏷️</span>
+                                    <span class="flag-badge ${dispute.Flag_type === 'PI' ? 'flag-piracy' : 'flag-inappropriate'}">
+                                        ${dispute.Flag_type === 'PI' ? 'Piracy' : 'Inappropriate'}
+                                    </span>
+                                </div>
+                                <div class="meta-item">
+                                    <span>📅</span>
+                                    <span>${new Date(dispute.timestamp).toLocaleDateString()}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="dispute-content">
+                        ${dispute.Ownership_evidence ? `
+                            <div class="content-section">
+                                <div class="content-label">🔗 Evidence Provided:</div>
+                                <div class="content-text">
+                                    <a href="${dispute.Ownership_evidence}" target="_blank" class="evidence-link">
+                                        View Evidence →
+                                    </a>
+                                </div>
+                            </div>
+                        ` : ''}
+
+                        ${dispute.Comments ? `
+                            <div class="content-section">
+                                <div class="content-label">💬 Owner's Comments:</div>
+                                <div class="content-text">${dispute.Comments}</div>
+                            </div>
+                        ` : ''}
+
+                        ${!dispute.Ownership_evidence && !dispute.Comments ? `
+                            <div class="content-section">
+                                <div class="content-text" style="color: #9ca3af; font-style: italic;">
+                                    No additional evidence or comments provided
+                                </div>
+                            </div>
+                        ` : ''}
+                    </div>
+
+                    <div class="dispute-actions">
+                        <button class="btn btn-approve" onclick="resolveDispute('${dispute.Dispute_id}', 'accept')">
+                            ✅ Accept Dispute (Keep Piece)
+                        </button>
+                        <button class="btn btn-reject" onclick="resolveDispute('${dispute.Dispute_id}', 'reject')">
+                            ❌ Reject Dispute (Delete Piece)
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        async function resolveDispute(disputeId, decision) {
+            if (!confirm(`Are you sure you want to ${decision} this dispute?`)) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/admin/resolve-flag-dispute/${disputeId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`,
+                        [API_HEADER]: API_KEY
+                    },
+                    body: JSON.stringify({ decision })
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.success) {
+                    showMessage(`Dispute ${decision}ed successfully!`, 'success');
+                    
+                    // Remove resolved dispute from UI
+                    const disputeElement = document.getElementById(`dispute-${disputeId}`);
+                    if (disputeElement) {
+                        disputeElement.style.opacity = '0.5';
+                        disputeElement.style.pointerEvents = 'none';
+                        setTimeout(() => {
+                            disputeElement.remove();
+                            // Update local disputes array
+                            disputes = disputes.filter(d => d.Dispute_id !== disputeId);
+                            updateStats();
+                            
+                            // Check if no disputes left
+                            if (disputes.length === 0) {
+                                renderDisputes();
+                            }
+                        }, 1000);
+                    }
+                } else {
+                    showMessage(data.message || `Failed to ${decision} dispute`);
+                }
+            } catch (error) {
+                console.error('Resolve dispute error:', error);
+                showMessage(`Failed to ${decision} dispute. Please check your connection.`);
+            }
+        }
+
+        // Keyboard shortcuts
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Enter' && !document.getElementById('login-section').classList.contains('hidden')) {
+                login();
+            }
+        });
+
+        // Initialize page
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('Frames Admin Panel loaded');
+        });
+    </script>
+</body>
+</html>
