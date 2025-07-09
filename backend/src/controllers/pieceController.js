@@ -1,7 +1,7 @@
-
 const Piece = require('../models/pieces');
 const Anchor = require('../models/anchors');
 const user_profile = require('../models/user_profile');
+const Flag = require('../models/flag');
 const mongoose = require('mongoose');
 const { createFeedEntryForSubscribers } = require('./feedController');
 
@@ -257,6 +257,20 @@ exports.toggleLiveStatus = async (req, res) => {
         }
 
         if (live_status === true) {
+            // Check if piece is flagged before allowing it to go live
+            if (piece.flag_status && piece.flag_status !== 'normal' && piece.flag_status !== 'resolved') {
+                console.log(`Piece ${piece_id} is flagged and cannot be made live. Flag status: ${piece.flag_status}`);
+                await session.abortTransaction();
+                return res.status(403).json({
+                    success: false,
+                    message: 'This piece cannot be made live due to content moderation restrictions',
+                    data: {
+                        flagStatus: piece.flag_status,
+                        flagType: piece.flag_type
+                    }
+                });
+            }
+
             const updatedPiece = await Piece.findOneAndUpdate(
                 { Piece_id: piece_id },
                 { live_status: true },

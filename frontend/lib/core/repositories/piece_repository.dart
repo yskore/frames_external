@@ -479,4 +479,28 @@ class PieceRepository {
       return ApiResponse.error('Failed to get piece flags: $e');
     }
   }
+
+  Future<ApiResponse> acknowledgeDisputeResolution(String pieceId) async {
+    try {
+      final response = await _apiService.post(
+        'pieces/$pieceId/acknowledge-dispute',
+        data: {},
+      );
+
+      if (kDebugMode) {
+        if (response.isSuccess) {
+          print('Dispute resolution acknowledged successfully');
+        } else {
+          print('Failed to acknowledge dispute resolution: ${response.message}');
+        }
+      }
+
+      return response;
+    } catch (e) {
+      if (kDebugMode) {
+        print('Acknowledge dispute resolution error: $e');
+      }
+      return ApiResponse.error('Failed to acknowledge dispute resolution: $e');
+    }
+  }
 }

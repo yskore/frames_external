@@ -4,7 +4,7 @@ const OwnershipHistory = require("../models/ownership_history");
 const user_profile = require("../models/user_profile");
 const Dispute = require("../models/dispute");
 const mongoose = require("mongoose");
-const { sendBothNotifications } = require('../utils/notificationUtils');
+const { sendBothNotifications, sendFlagNotification } = require('../utils/notificationUtils');
 
 exports.getDisputedOffers = async (req, res) => {
     try {
@@ -180,13 +180,18 @@ exports.resolveFlagDispute = async (req, res) => {
                 { 
                     flag_status: 'resolved',
                     flag_type: null,
+                    dispute_resolution: {
+                        status: 'accepted',
+                        resolved_at: new Date(),
+                        acknowledged_by_owner: false
+                    },
                     $unset: { flag_expiration: 1, dispute_id: 1 }
                 },
                 { session }
             );
 
             // Send notification to piece owner
-            sendBothNotifications({
+            sendFlagNotification({
                 userId: dispute.Piece_owner,
                 notificationType: 'dispute_accepted',
                 data: {
@@ -206,13 +211,18 @@ exports.resolveFlagDispute = async (req, res) => {
                 { 
                     flag_status: 'deleted',
                     deleted_at: new Date(),
-                    live_status: false
+                    live_status: false,
+                    dispute_resolution: {
+                        status: 'rejected',
+                        resolved_at: new Date(),
+                        acknowledged_by_owner: false
+                    }
                 },
                 { session }
             );
 
             // Send notification to piece owner
-            sendBothNotifications({
+            sendFlagNotification({
                 userId: dispute.Piece_owner,
                 notificationType: 'dispute_rejected',
                 data: {

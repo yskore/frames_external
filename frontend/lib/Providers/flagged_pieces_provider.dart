@@ -35,7 +35,7 @@ class FlaggedPiecesNotifier extends StateNotifier<List<FlaggedPiece>> {
 
       if (response.isSuccess && response.data != null) {
         final List<dynamic> flaggedPiecesJson =
-            response.data!['flagged_pieces'] ?? [];
+            response.data!['flaggedPieces'] ?? [];
         final flaggedPieces = flaggedPiecesJson
             .map((json) => FlaggedPiece.fromJson(json))
             .toList();
@@ -101,6 +101,29 @@ class FlaggedPiecesNotifier extends StateNotifier<List<FlaggedPiece>> {
       }
     } catch (e) {
       _errorNotifier.setError('Error disputing flag: $e');
+      return false;
+    } finally {
+      _loadingNotifier.setLoading(false);
+    }
+  }
+
+  Future<bool> acknowledgeDisputeResolution(String pieceId) async {
+    try {
+      _loadingNotifier.setLoading(true);
+      _errorNotifier.clearError();
+
+      final response = await _pieceRepository.acknowledgeDisputeResolution(pieceId);
+
+      if (response.isSuccess) {
+        // Remove the piece from the list since it's now acknowledged
+        state = state.where((piece) => piece.pieceId != pieceId).toList();
+        return true;
+      } else {
+        _errorNotifier.setError(response.message ?? 'Failed to acknowledge dispute resolution');
+        return false;
+      }
+    } catch (e) {
+      _errorNotifier.setError('Error acknowledging dispute resolution: $e');
       return false;
     } finally {
       _loadingNotifier.setLoading(false);

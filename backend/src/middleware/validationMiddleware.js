@@ -52,7 +52,7 @@ const validateFlagInput = (req, res, next) => {
 };
 
 const validateFlagResponse = (req, res, next) => {
-    const { action, evidence, comments } = req.body;
+    const { action, evidence, comments, evidence_image_url } = req.body;
 
     // Action validation
     if (!action || !['accept', 'dispute'].includes(action)) {
@@ -62,12 +62,12 @@ const validateFlagResponse = (req, res, next) => {
         });
     }
 
-    // If disputing, validate evidence or comments
+    // If disputing, validate evidence, comments, or evidence_image_url
     if (action === 'dispute') {
-        if (!evidence && !comments) {
+        if (!evidence && !comments && !evidence_image_url) {
             return res.status(400).json({
                 success: false,
-                message: 'When disputing, you must provide either evidence or comments'
+                message: 'When disputing, you must provide evidence, comments, or evidence image'
             });
         }
 
@@ -84,6 +84,14 @@ const validateFlagResponse = (req, res, next) => {
             return res.status(400).json({
                 success: false,
                 message: 'Comments must be a string and not exceed 1000 characters'
+            });
+        }
+
+        // Validate evidence image URL if provided
+        if (evidence_image_url && typeof evidence_image_url !== 'string') {
+            return res.status(400).json({
+                success: false,
+                message: 'Evidence image URL must be a valid string'
             });
         }
     }

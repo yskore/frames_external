@@ -89,6 +89,21 @@ const PieceSchema = new mongoose.Schema({
   deleted_at: {
     type: Date,
     required: false
+  },
+  dispute_resolution: {
+    status: {
+      type: String,
+      enum: ['accepted', 'rejected'],
+      required: false
+    },
+    resolved_at: {
+      type: Date,
+      required: false
+    },
+    acknowledged_by_owner: {
+      type: Boolean,
+      default: false
+    }
   }
 });
 

@@ -156,6 +156,20 @@ exports.createAnchor = async (req, res) => {
                 });
             }
 
+            // Check if piece is flagged and cannot be made live
+            if (existingPiece.flag_status && existingPiece.flag_status !== 'normal' && existingPiece.flag_status !== 'resolved') {
+                console.log(`[${clientId}] Piece ${pieceId} is flagged and cannot be made live. Flag status: ${existingPiece.flag_status}`);
+                await session.abortTransaction();
+                return res.status(403).json({
+                    success: false,
+                    message: 'This piece cannot be made live due to content moderation restrictions',
+                    data: {
+                        flagStatus: existingPiece.flag_status,
+                        flagType: existingPiece.flag_type
+                    }
+                });
+            }
+
             if (existingPiece.live_status) {
                 console.log(`[${clientId}] Piece ${pieceId} is already live`);
 

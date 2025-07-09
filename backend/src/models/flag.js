@@ -30,6 +30,10 @@ const flagSchema = new mongoose.Schema({
         type: Date,
         default: Date.now,
         required: true
+    },
+    evidence_image_url: {
+        type: String,
+        default: ''
     }
 }, { timestamps: true });
 

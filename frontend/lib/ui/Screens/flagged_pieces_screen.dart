@@ -95,10 +95,16 @@ class _FlaggedPiecesScreenState extends ConsumerState<FlaggedPiecesScreen> {
             Row(
               children: [
                 Icon(
-                  flaggedPiece.isActiveFlagged ? Icons.warning : Icons.flag,
-                  color: flaggedPiece.isActiveFlagged
-                      ? Colors.red[700]
-                      : Colors.orange[700],
+                  flaggedPiece.hasUnacknowledgedResolution
+                      ? Icons.info
+                      : flaggedPiece.isActiveFlagged
+                          ? Icons.warning
+                          : Icons.flag,
+                  color: flaggedPiece.hasUnacknowledgedResolution
+                      ? Colors.blue[700]
+                      : flaggedPiece.isActiveFlagged
+                          ? Colors.red[700]
+                          : Colors.orange[700],
                   size: 24,
                 ),
                 const SizedBox(width: 8),
@@ -117,109 +123,172 @@ class _FlaggedPiecesScreenState extends ConsumerState<FlaggedPiecesScreen> {
 
             const SizedBox(height: 12),
 
-            // Flag details
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: _getStatusColor(flaggedPiece.flagStatus)[50],
-                border: Border.all(
-                    color: _getStatusColor(flaggedPiece.flagStatus)[200]!),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (flaggedPiece.flagType != null) ...[
-                    Text(
-                      'Flagged as: ${flaggedPiece.flagTypeDisplay}',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: _getStatusColor(flaggedPiece.flagStatus)[800],
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                  ],
-                  Text(
-                    'Status: ${flaggedPiece.flagStatusDisplay}',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: _getStatusColor(flaggedPiece.flagStatus)[700],
-                    ),
-                  ),
-                  if (flaggedPiece.flagExpiration != null) ...[
-                    const SizedBox(height: 4),
-                    Text(
-                      'Expires: ${_formatDate(flaggedPiece.flagExpiration!)}',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: _getStatusColor(flaggedPiece.flagStatus)[700],
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
+            // Show dispute resolution if available and unacknowledged
+            if (flaggedPiece.hasUnacknowledgedResolution)
+              _buildDisputeResolutionCard(flaggedPiece)
+            else
+              _buildFlagDetailsCard(flaggedPiece),
 
             const SizedBox(height: 16),
 
-            // Action buttons - only show for active flags
-            if (flaggedPiece.isActiveFlagged && !flaggedPiece.isDeleted)
-              Row(
-                children: [
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      onPressed: () => _showAcceptDeleteDialog(flaggedPiece),
-                      icon: const Icon(Icons.delete_forever, size: 18),
-                      label: const Text('Accept & Delete'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.red[50],
-                        foregroundColor: Colors.red[700],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      onPressed: () => _showDisputeDialog(flaggedPiece),
-                      icon: const Icon(Icons.gavel, size: 18),
-                      label: const Text('Dispute'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.blue[50],
-                        foregroundColor: Colors.blue[700],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-
-            // Show info for resolved/disputed flags
-            if (!flaggedPiece.isActiveFlagged)
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.grey[100],
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Row(
-                  children: [
-                    Icon(Icons.info_outline, size: 16, color: Colors.grey[600]),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        _getStatusMessage(flaggedPiece.flagStatus),
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey[600],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+            // Action buttons
+            if (flaggedPiece.hasUnacknowledgedResolution)
+              _buildAcknowledgeButton(flaggedPiece)
+            else if (flaggedPiece.isActiveFlagged && !flaggedPiece.isDeleted)
+              _buildActionButtons(flaggedPiece)
+            else
+              _buildInfoCard(flaggedPiece),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildDisputeResolutionCard(FlaggedPiece flaggedPiece) {
+    final resolution = flaggedPiece.disputeResolution!;
+    final isAccepted = resolution.status == 'accepted';
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isAccepted ? Colors.green[50] : Colors.red[50],
+        border: Border.all(
+          color: isAccepted ? Colors.green[200]! : Colors.red[200]!,
+        ),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                isAccepted ? Icons.check_circle : Icons.cancel,
+                color: isAccepted ? Colors.green[700] : Colors.red[700],
+                size: 20,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                resolution.statusDisplay,
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: isAccepted ? Colors.green[700] : Colors.red[700],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            isAccepted
+                ? 'Good news! Your dispute was accepted by the moderation team. Your piece has been restored.'
+                : 'Your dispute was rejected by the moderation team. The original flag decision stands.',
+            style: TextStyle(
+              fontSize: 14,
+              color: isAccepted ? Colors.green[800] : Colors.red[800],
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Resolved: ${_formatDate(resolution.resolvedAt)}',
+            style: TextStyle(
+              fontSize: 12,
+              color: Colors.grey[600],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFlagDetailsCard(FlaggedPiece flaggedPiece) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: _getStatusColor(flaggedPiece.flagStatus)[50],
+        border: Border.all(
+            color: _getStatusColor(flaggedPiece.flagStatus)[200]!),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (flaggedPiece.flagType != null) ...[
+            Text(
+              'Flagged as: ${flaggedPiece.flagTypeDisplay}',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: _getStatusColor(flaggedPiece.flagStatus)[800],
+              ),
+            ),
+            const SizedBox(height: 4),
+          ],
+          Text(
+            'Status: ${flaggedPiece.flagStatusDisplay}',
+            style: TextStyle(
+              fontSize: 12,
+              color: _getStatusColor(flaggedPiece.flagStatus)[700],
+            ),
+          ),
+          if (flaggedPiece.flagExpiration != null) ...[
+            const SizedBox(height: 4),
+            Text(
+              'Expires: ${_formatDate(flaggedPiece.flagExpiration!)}',
+              style: TextStyle(
+                fontSize: 12,
+                color: _getStatusColor(flaggedPiece.flagStatus)[700],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAcknowledgeButton(FlaggedPiece flaggedPiece) {
+    return SizedBox(
+      width: double.infinity,
+      child: ElevatedButton.icon(
+        onPressed: () => _acknowledgeDisputeResolution(flaggedPiece),
+        icon: const Icon(Icons.check, size: 18),
+        label: const Text('Acknowledge'),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.blue[50],
+          foregroundColor: Colors.blue[700],
+          padding: const EdgeInsets.symmetric(vertical: 12),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildActionButtons(FlaggedPiece flaggedPiece) {
+    return Row(
+      children: [
+        Expanded(
+          child: ElevatedButton.icon(
+            onPressed: () => _showAcceptDeleteDialog(flaggedPiece),
+            icon: const Icon(Icons.delete_forever, size: 18),
+            label: const Text('Accept & Delete'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red[50],
+              foregroundColor: Colors.red[700],
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: ElevatedButton.icon(
+            onPressed: () => _showDisputeDialog(flaggedPiece),
+            icon: const Icon(Icons.gavel, size: 18),
+            label: const Text('Dispute'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.blue[50],
+              foregroundColor: Colors.blue[700],
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -460,6 +529,21 @@ class _FlaggedPiecesScreenState extends ConsumerState<FlaggedPiecesScreen> {
       );
       // Refresh the list
       ref.read(flaggedPiecesProvider.notifier).loadMyFlaggedPieces();
+    }
+  }
+
+  Future<void> _acknowledgeDisputeResolution(FlaggedPiece flaggedPiece) async {
+    final success = await ref
+        .read(flaggedPiecesProvider.notifier)
+        .acknowledgeDisputeResolution(flaggedPiece.pieceId);
+
+    if (success && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Dispute resolution acknowledged'),
+          backgroundColor: Colors.green,
+        ),
+      );
     }
   }
 }

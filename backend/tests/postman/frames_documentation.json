@@ -557,7 +557,7 @@
 							"mode": "raw",
 							"raw": "{\"piece_id\":\"piece123\",\"live_status\":false}"
 						},
-						"description": "Toggles a piece's live status. When set to false, removes associated anchor and updates user's live piece count. (Requires authentication)"
+						"description": "Toggles a piece's live status. When set to false, removes associated anchor and updates user's live piece count. When set to true, checks if piece has 3 or more flags and prevents going live if flagged. (Requires authentication)"
 					}
 				},
 				{
@@ -1237,7 +1237,7 @@
 					"name": "Flag Piece",
 					"request": {
 						"method": "POST",
-						"url": "http://localhost:8080/flag-piece",
+						"url": "http://localhost:8080/pieces/:pieceId/flag",
 						"header": [
 							{
 								"key": "Content-Type",
@@ -1254,34 +1254,22 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\"piece_id\":\"piece123\",\"flagType\":\"IN\"}"
+							"raw": "{\"flagType\":\"IN\"}"
 						},
+						"variable": [
+							{
+								"key": "pieceId",
+								"value": "piece123"
+							}
+						],
 						"description": "Flag a piece for inappropriate content (IN) or piracy (PI). Users cannot flag their own pieces. (Requires authentication)"
 					}
 				},
 				{
-					"name": "Get Piece Flags",
-					"request": {
-						"method": "GET",
-						"url": "http://localhost:8080/piece-flags/:piece_id",
-						"header": [
-							{
-								"key": "X-API-Key",
-								"value": "{{api_key}}"
-							},
-							{
-								"key": "Authorization",
-								"value": "Bearer {{jwt_token}}"
-							}
-						],
-						"description": "Get all flags for a specific piece. Only piece owner can access this. (Requires authentication)"
-					}
-				},
-				{
-					"name": "Respond to Flag",
+					"name": "Respond to Flag (JSON)",
 					"request": {
 						"method": "POST",
-						"url": "http://localhost:8080/respond-to-flag/:flag_id",
+						"url": "http://localhost:8080/pieces/:pieceId/flag-response",
 						"header": [
 							{
 								"key": "Content-Type",
@@ -1300,14 +1288,20 @@
 							"mode": "raw",
 							"raw": "{\"action\":\"dispute\",\"evidence\":\"https://example.com/evidence.jpg\",\"comments\":\"This is my original work\"}"
 						},
-						"description": "Respond to a flag with accept or dispute. For inappropriate flags: accept deletes piece, dispute creates dispute record. For piracy flags: accept changes ownership to '00', dispute requires evidence/comments. (Requires authentication)"
+						"variable": [
+							{
+								"key": "pieceId",
+								"value": "piece123"
+							}
+						],
+						"description": "Respond to a flag with accept or dispute using JSON data. For inappropriate flags: accept deletes piece, dispute creates dispute record. For piracy flags: accept changes ownership to '00', dispute requires evidence/comments. (Requires authentication)"
 					}
 				},
 				{
-					"name": "Get My Flagged Pieces",
+					"name": "Respond to Flag (File Upload)",
 					"request": {
-						"method": "GET",
-						"url": "http://localhost:8080/my-flagged-pieces",
+						"method": "POST",
+						"url": "http://localhost:8080/pieces/:pieceId/flag-response",
 						"header": [
 							{
 								"key": "X-API-Key",
@@ -1318,7 +1312,75 @@
 								"value": "Bearer {{jwt_token}}"
 							}
 						],
-						"description": "Get all pieces owned by authenticated user that have received 3 or more flags and need response. (Requires authentication)"
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "image",
+									"type": "file",
+									"src": "/path/to/evidence.jpg"
+								},
+								{
+									"key": "action",
+									"value": "dispute",
+									"type": "text"
+								},
+								{
+									"key": "comments",
+									"value": "This is my original work with proof attached",
+									"type": "text"
+								}
+							]
+						},
+						"variable": [
+							{
+								"key": "pieceId",
+								"value": "piece123"
+							}
+						],
+						"description": "Respond to a flag with file upload as evidence. Allows uploading image evidence when disputing flags. File will be stored in flag_disputes folder. For inappropriate flags: accept deletes piece, dispute creates dispute record. For piracy flags: accept changes ownership to '00', dispute requires evidence/comments. (Requires authentication)"
+					}
+				},
+				{
+					"name": "Get Flagged Pieces",
+					"request": {
+						"method": "GET",
+						"url": "http://localhost:8080/pieces/flagged",
+						"header": [
+							{
+								"key": "X-API-Key",
+								"value": "{{api_key}}"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"description": "Get all pieces owned by authenticated user that have received 3 or more flags and need response, including pieces with unacknowledged dispute resolutions. (Requires authentication)"
+					}
+				},
+				{
+					"name": "Acknowledge Dispute Resolution",
+					"request": {
+						"method": "POST",
+						"url": "http://localhost:8080/pieces/:pieceId/acknowledge-dispute",
+						"header": [
+							{
+								"key": "X-API-Key",
+								"value": "{{api_key}}"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"variable": [
+							{
+								"key": "pieceId",
+								"value": "piece123"
+							}
+						],
+						"description": "Acknowledge that you have seen and understood the admin's decision on your dispute. This removes the piece from your flagged pieces list. (Requires authentication)"
 					}
 				}
 			]

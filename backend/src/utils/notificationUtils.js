@@ -30,7 +30,15 @@ const notificationTypeMap = {
   'liked_piece': 'user_liked_piece',
   'subscribed': 'user_subscribed',
   'sold_piece': 'user_made_offer',
-  'purchased_piece': 'user_made_offer'
+  'purchased_piece': 'user_made_offer',
+
+  // Flag-related notifications - these should use general notification settings
+  'piece_flagged_inappropriate': 'general_notifications',
+  'piece_flagged_piracy': 'general_notifications',
+  'dispute_accepted': 'general_notifications',
+  'dispute_rejected': 'general_notifications',
+  'dispute_resolution_reminder': 'general_notifications',
+  'piece_deleted_flag': 'general_notifications'
 };
 
 // Initialize Firebase Admin SDK if not already initialized
@@ -398,6 +406,36 @@ const prepareNotificationContent = (type, data) => {
         body: `${data.fromUsername || 'Someone'} purchased the piece "${data.pieceTitle || 'Untitled'}"`
       };
 
+    case 'dispute_accepted':
+      return {
+        title: 'Dispute Accepted',
+        body: `Your dispute for "${data.pieceTitle || 'Untitled'}" has been accepted by administration. Your piece remains active.`
+      };
+
+    case 'dispute_rejected':
+      return {
+        title: 'Dispute Rejected',
+        body: `Your dispute for "${data.pieceTitle || 'Untitled'}" has been rejected. The piece has been removed due to ${data.flagType === 'IN' ? 'inappropriate content' : 'copyright violation'}.`
+      };
+
+    case 'piece_flagged_inappropriate':
+      return {
+        title: 'Piece Flagged - Action Required',
+        body: `Your piece "${data.pieceTitle || 'Untitled'}" has been flagged for inappropriate content. You have 48 hours to respond or it will be automatically removed.`
+      };
+
+    case 'piece_flagged_piracy':
+      return {
+        title: 'Piece Flagged - Action Required',
+        body: `Your piece "${data.pieceTitle || 'Untitled'}" has been flagged for copyright violation. Please respond with evidence of ownership.`
+      };
+
+    case 'dispute_resolution_reminder':
+      return {
+        title: 'Dispute Resolution - Action Required',
+        body: `The dispute for your piece "${data.pieceTitle || 'Untitled'}" has been ${data.resolutionStatus}. Please review and acknowledge the decision.`
+      };
+
     default:
       return {
         title: 'Frames App Notification',
@@ -554,12 +592,79 @@ const sendFeedNotification = async (options) => {
   }
 };
 
+/**
+ * Send notification for flag-related events - always uses regular notification email
+ * 
+ * @param {Object} options - Notification options
+ * @param {string} options.userId - Username of recipient
+ * @param {string} options.notificationType - Type of notification
+ * @param {Object} options.data - Data relevant to the notification
+ * @param {string} options.priority - Priority of the notification (high, normal)
+ * @returns {Promise<Object>} - Results of notification attempt
+ */
+const sendFlagNotification = async (options) => {
+  try {
+    const userProfile = await UserProfile.findOne({ username: options.userId });
+    const userBasic = await user_basic.findOne({ username: options.userId });
+
+    if (!userProfile && !userBasic) {
+      console.error(`User ${options.userId} not found for notification`);
+      return { success: false, message: 'User not found' };
+    }
+
+
+    const content = prepareNotificationContent(options.notificationType, options.data);
+
+    let pushResult = { success: false };
+
+    // Try push notification first
+    if (userProfile && userProfile.push_token) {
+      pushResult = await sendPushNotification({
+        userId: options.userId,
+        token: userProfile.push_token,
+        title: content.title,
+        body: content.body,
+        data: options.data,
+        priority: options.priority || 'high' 
+      });
+    }
+
+    if (userBasic && userBasic.email) {
+      const emailResult = await sendNotificationEmail({
+        email: userBasic.email,
+        subject: content.title,
+        message: content.body,
+        data: options.data
+      });
+
+      return {
+        success: true,
+        method: pushResult.success ? 'both' : 'email',
+        results: {
+          push: pushResult,
+          email: emailResult
+        }
+      };
+    }
+
+    return {
+      success: pushResult.success,
+      method: 'push',
+      result: pushResult
+    };
+  } catch (error) {
+    console.error('Error in sendFlagNotification:', error);
+    return { success: false, error: error.message };
+  }
+};
+
 module.exports = {
   initializeFirebaseApp,
   sendPushNotification,
   sendNotification,
   sendBothNotifications,
   sendFeedNotification,
+  sendFlagNotification,
   stringifyData,
   testPushNotification
 };

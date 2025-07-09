@@ -9,6 +9,7 @@ class FlaggedPiece {
   final DateTime? deletedAt;
   final DateTime creationDate;
   final bool liveStatus;
+  final DisputeResolution? disputeResolution;
 
   FlaggedPiece({
     required this.pieceId,
@@ -21,6 +22,7 @@ class FlaggedPiece {
     this.deletedAt,
     required this.creationDate,
     required this.liveStatus,
+    this.disputeResolution,
   });
 
   factory FlaggedPiece.fromJson(Map<String, dynamic> json) {
@@ -40,6 +42,9 @@ class FlaggedPiece {
       creationDate: DateTime.tryParse(json['Piece_creation_date'] ?? '') ??
           DateTime.now(),
       liveStatus: json['live_status'] ?? false,
+      disputeResolution: json['dispute_resolution'] != null
+          ? DisputeResolution.fromJson(json['dispute_resolution'])
+          : null,
     );
   }
 
@@ -102,5 +107,39 @@ class FlaggedPiece {
   bool get isFlagExpired {
     if (flagExpiration == null) return false;
     return DateTime.now().isAfter(flagExpiration!);
+  }
+
+  bool get hasUnacknowledgedResolution =>
+      disputeResolution != null && !disputeResolution!.acknowledgedByOwner;
+}
+
+class DisputeResolution {
+  final String status; // 'accepted' or 'rejected'
+  final DateTime resolvedAt;
+  final bool acknowledgedByOwner;
+
+  DisputeResolution({
+    required this.status,
+    required this.resolvedAt,
+    required this.acknowledgedByOwner,
+  });
+
+  factory DisputeResolution.fromJson(Map<String, dynamic> json) {
+    return DisputeResolution(
+      status: json['status'] ?? '',
+      resolvedAt: DateTime.parse(json['resolved_at']),
+      acknowledgedByOwner: json['acknowledged_by_owner'] ?? false,
+    );
+  }
+
+  String get statusDisplay {
+    switch (status) {
+      case 'accepted':
+        return 'Dispute Accepted';
+      case 'rejected':
+        return 'Dispute Rejected';
+      default:
+        return 'Unknown Status';
+    }
   }
 }

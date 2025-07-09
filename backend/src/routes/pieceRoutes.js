@@ -6,6 +6,7 @@ const validateApiKey = require('../middleware/apiKeyMiddleware');
 const { validateToken } = require('../middleware/authMiddleware');
 const { validatePieceInput, validateSaleToggle } = require('../middleware/pieceValidationMiddleware');
 const { validateFlagInput, validateFlagResponse } = require('../middleware/validationMiddleware');
+const storageController = require('../controllers/storageController');
 
 router.use(validateApiKey);
 
@@ -27,7 +28,11 @@ router.post('/search_pieces', pieceController.searchPieces);
 
 // Flag-related routes
 router.post('/:pieceId/flag', validateToken, validateFlagInput, flagController.flagPiece);
-router.post('/:pieceId/flag-response', validateToken, validateFlagResponse, flagController.respondToFlag);
+router.post('/:pieceId/flag-response', validateToken, (req, res, next) => {
+    req.body.folderName = 'flag_disputes'; 
+    next();
+}, storageController.uploadImage, validateFlagResponse, flagController.respondToFlag);
 router.get('/flagged', validateToken, flagController.getFlaggedPieces);
+router.post('/:pieceId/acknowledge-dispute', validateToken, flagController.acknowledgeDisputeResolution);
 
 module.exports = router;

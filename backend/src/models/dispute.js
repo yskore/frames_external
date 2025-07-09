@@ -56,6 +56,10 @@ const disputeSchema = new mongoose.Schema({
     resolved_by: {
         type: String,
         ref: 'user_basic'
+    },
+    user_responded: {
+        type: Boolean,
+        default: true // Set to true when dispute is created
     }
 }, { timestamps: true });
 
