@@ -33,6 +33,7 @@ dependencies:
   flutter_local_notifications: ^15.1.0
   shared_preferences: ^2.5.3
   currency_picker: ^2.0.21
+  file_picker: ^10.2.0
 
 dev_dependencies:
   flutter_test:

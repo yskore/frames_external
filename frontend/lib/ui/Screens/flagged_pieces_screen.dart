@@ -1,7 +1,9 @@
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:frames_app/Providers/flagged_pieces_provider.dart';
 import 'package:frames_app/models/flagged_piece_model.dart';
+import 'package:image_picker/image_picker.dart';
 
 class FlaggedPiecesScreen extends ConsumerStatefulWidget {
   const FlaggedPiecesScreen({super.key});
@@ -12,6 +14,8 @@ class FlaggedPiecesScreen extends ConsumerStatefulWidget {
 }
 
 class _FlaggedPiecesScreenState extends ConsumerState<FlaggedPiecesScreen> {
+  final ImagePicker _picker = ImagePicker();
+
   @override
   void initState() {
     super.initState();
@@ -206,8 +210,8 @@ class _FlaggedPiecesScreenState extends ConsumerState<FlaggedPiecesScreen> {
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: _getStatusColor(flaggedPiece.flagStatus)[50],
-        border: Border.all(
-            color: _getStatusColor(flaggedPiece.flagStatus)[200]!),
+        border:
+            Border.all(color: _getStatusColor(flaggedPiece.flagStatus)[200]!),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Column(
@@ -311,6 +315,31 @@ class _FlaggedPiecesScreenState extends ConsumerState<FlaggedPiecesScreen> {
     );
   }
 
+  Widget _buildInfoCard(FlaggedPiece flaggedPiece) {
+    return Container(
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: Colors.grey[100],
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.info_outline, size: 16, color: Colors.grey[600]),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              _getStatusMessage(flaggedPiece.flagStatus),
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.grey[600],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   MaterialColor _getStatusColor(String status) {
     switch (status) {
       case 'pending_action':
@@ -404,94 +433,167 @@ class _FlaggedPiecesScreenState extends ConsumerState<FlaggedPiecesScreen> {
   void _showDisputeDialog(FlaggedPiece flaggedPiece) {
     final evidenceController = TextEditingController();
     final commentsController = TextEditingController();
+    String? selectedFilePath;
 
     showDialog(
       context: context,
       builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Row(
-            children: [
-              Icon(Icons.gavel, color: Colors.blue),
-              SizedBox(width: 8),
-              Text('Dispute Flag'),
-            ],
-          ),
-          content: SizedBox(
-            width: double.maxFinite,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Disputing flag for "${flaggedPiece.pieceTitle}"'),
-                const SizedBox(height: 16),
-                const Text(
-                  'Evidence URL (optional):',
-                  style: TextStyle(fontWeight: FontWeight.w600),
-                ),
-                const SizedBox(height: 4),
-                TextField(
-                  controller: evidenceController,
-                  decoration: const InputDecoration(
-                    hintText: 'https://example.com/evidence.jpg',
-                    border: OutlineInputBorder(),
-                    contentPadding: EdgeInsets.all(12),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                const Text(
-                  'Comments:',
-                  style: TextStyle(fontWeight: FontWeight.w600),
-                ),
-                const SizedBox(height: 4),
-                TextField(
-                  controller: commentsController,
-                  maxLines: 3,
-                  decoration: const InputDecoration(
-                    hintText: 'Explain why this flag is incorrect...',
-                    border: OutlineInputBorder(),
-                    contentPadding: EdgeInsets.all(12),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.blue[50],
-                    border: Border.all(color: Colors.blue[200]!),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Text(
-                    'Your dispute will be reviewed by our moderation team.',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              title: const Row(
+                children: [
+                  Icon(Icons.gavel, color: Colors.blue),
+                  SizedBox(width: 8),
+                  Text('Dispute Flag'),
+                ],
+              ),
+              content: SizedBox(
+                width: double.maxFinite,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Disputing flag for "${flaggedPiece.pieceTitle}"'),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'Evidence URL (optional):',
+                      style: TextStyle(fontWeight: FontWeight.w600),
                     ),
+                    const SizedBox(height: 4),
+                    TextField(
+                      controller: evidenceController,
+                      decoration: const InputDecoration(
+                        hintText: 'https://example.com/evidence.jpg',
+                        border: OutlineInputBorder(),
+                        contentPadding: EdgeInsets.all(12),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'Upload Evidence File (optional):',
+                      style: TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            onPressed: () async {
+                              FilePickerResult? result =
+                                  await FilePicker.platform.pickFiles(
+                                type: FileType.custom,
+                                allowedExtensions: [
+                                  'jpg',
+                                  'jpeg',
+                                  'png',
+                                  'pdf'
+                                ],
+                                allowMultiple: false,
+                              );
+
+                              if (result != null) {
+                                setState(() {
+                                  selectedFilePath = result.files.single.path;
+                                });
+                              }
+                            },
+                            icon: const Icon(Icons.attach_file),
+                            label: Text(selectedFilePath != null
+                                ? 'File Selected'
+                                : 'Select File'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: selectedFilePath != null
+                                  ? Colors.green[50]
+                                  : Colors.grey[50],
+                              foregroundColor: selectedFilePath != null
+                                  ? Colors.green[700]
+                                  : Colors.grey[700],
+                            ),
+                          ),
+                        ),
+                        if (selectedFilePath != null) ...[
+                          const SizedBox(width: 8),
+                          IconButton(
+                            onPressed: () {
+                              setState(() {
+                                selectedFilePath = null;
+                              });
+                            },
+                            icon: const Icon(Icons.clear),
+                            color: Colors.red,
+                          ),
+                        ],
+                      ],
+                    ),
+                    if (selectedFilePath != null) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        'Selected: ${selectedFilePath!.split('/').last}',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.green[700],
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 16),
+                    const Text(
+                      'Comments:',
+                      style: TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                    const SizedBox(height: 4),
+                    TextField(
+                      controller: commentsController,
+                      maxLines: 3,
+                      decoration: const InputDecoration(
+                        hintText: 'Explain why this flag is incorrect...',
+                        border: OutlineInputBorder(),
+                        contentPadding: EdgeInsets.all(12),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.blue[50],
+                        border: Border.all(color: Colors.blue[200]!),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Text(
+                        'Your dispute will be reviewed by our moderation team. You can provide either a URL or upload a file as evidence.',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  onPressed: () async {
+                    Navigator.of(context).pop();
+                    await _submitDispute(
+                      flaggedPiece,
+                      evidenceController.text,
+                      commentsController.text,
+                      filePath: selectedFilePath,
+                    );
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.blue,
+                    foregroundColor: Colors.white,
                   ),
+                  child: const Text('Submit Dispute'),
                 ),
               ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              onPressed: () async {
-                Navigator.of(context).pop();
-                await _submitDispute(
-                  flaggedPiece,
-                  evidenceController.text,
-                  commentsController.text,
-                );
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.blue,
-                foregroundColor: Colors.white,
-              ),
-              child: const Text('Submit Dispute'),
-            ),
-          ],
+            );
+          },
         );
       },
     );
@@ -515,10 +617,11 @@ class _FlaggedPiecesScreenState extends ConsumerState<FlaggedPiecesScreen> {
   }
 
   Future<void> _submitDispute(
-      FlaggedPiece flaggedPiece, String evidence, String comments) async {
-    final success = await ref
-        .read(flaggedPiecesProvider.notifier)
-        .disputeFlag(flaggedPiece.pieceId, evidence, comments);
+      FlaggedPiece flaggedPiece, String evidence, String comments,
+      {String? filePath}) async {
+    final success = await ref.read(flaggedPiecesProvider.notifier).disputeFlag(
+        flaggedPiece.pieceId, evidence, comments,
+        filePath: filePath);
 
     if (success && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(

@@ -32,10 +32,10 @@ exports.flagPiece = async (req, res) => {
         }
 
         // Check if user already flagged this piece
-        // const existingFlag = await Flag.hasUserFlaggedPiece(pieceId, username);
-        // if (existingFlag) {
-        //     throw new Error('You have already flagged this piece');
-        // }
+        const existingFlag = await Flag.hasUserFlaggedPiece(pieceId, username);
+        if (existingFlag) {
+        throw new Error('You have already flagged this piece');
+        }
 
         // Create flag record
         const flagId = uuidv4();

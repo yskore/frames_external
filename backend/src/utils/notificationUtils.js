@@ -32,7 +32,6 @@ const notificationTypeMap = {
   'sold_piece': 'user_made_offer',
   'purchased_piece': 'user_made_offer',
 
-  // Flag-related notifications - these should use general notification settings
   'piece_flagged_inappropriate': 'general_notifications',
   'piece_flagged_piracy': 'general_notifications',
   'dispute_accepted': 'general_notifications',

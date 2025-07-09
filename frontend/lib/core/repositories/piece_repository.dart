@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:frames_app/models/anchor_model.dart';
@@ -423,33 +425,58 @@ class PieceRepository {
     required String action,
     String? evidence,
     String? comments,
+    String? filePath, // Add file path parameter
   }) async {
     try {
-      final Map<String, dynamic> requestData = {
-        'action': action,
-      };
+      // If we have a file to upload, use multipart form data
+      if (filePath != null && filePath.isNotEmpty) {
+        final response = await _apiService.postMultipart(
+          '$flagId/flag-response',
+          files: {'image': File(filePath)},
+          data: {
+            'action': action,
+            if (comments != null) 'comments': comments,
+          },
+        );
 
-      if (evidence != null) {
-        requestData['evidence'] = evidence;
-      }
-
-      if (comments != null) {
-        requestData['comments'] = comments;
-      }
-      final response = await _apiService.post(
-        '$flagId/flag-response',
-        data: requestData,
-      );
-
-      if (kDebugMode) {
-        if (response.isSuccess) {
-          print('Flag response submitted successfully: $action');
-        } else {
-          print('Failed to respond to flag: ${response.message}');
+        if (kDebugMode) {
+          if (response.isSuccess) {
+            print('Flag response with file submitted successfully: $action');
+          } else {
+            print('Failed to respond to flag with file: ${response.message}');
+          }
         }
-      }
 
-      return response;
+        return response;
+      } else {
+        // No file, use regular JSON request
+        final Map<String, dynamic> requestData = {
+          'action': action,
+        };
+
+        if (evidence != null) {
+          requestData['evidence'] = evidence;
+        }
+
+        if (comments != null) {
+          requestData['comments'] = comments;
+        }
+
+        final response = await _apiService.post(
+          '$flagId/flag-response',
+          data: requestData,
+        );
+
+        if (kDebugMode) {
+          if (response.isSuccess) {
+            print('Flag response submitted successfully: $action');
+          } else {
+            print('Failed to respond to flag: ${response.message}');
+          }
+        }
+
+        return response;
+      }
     } catch (e) {
       if (kDebugMode) {
         print('Respond to flag error: $e');
@@ -491,7 +518,8 @@ class PieceRepository {
         if (response.isSuccess) {
           print('Dispute resolution acknowledged successfully');
         } else {
-          print('Failed to acknowledge dispute resolution: ${response.message}');
+          print(
+              'Failed to acknowledge dispute resolution: ${response.message}');
         }
       }
 

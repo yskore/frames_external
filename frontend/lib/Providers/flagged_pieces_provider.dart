@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:frames_app/Providers/error_provider.dart';
 import 'package:frames_app/Providers/loading_provider.dart';
@@ -79,7 +80,7 @@ class FlaggedPiecesNotifier extends StateNotifier<List<FlaggedPiece>> {
   }
 
   Future<bool> disputeFlag(
-      String flagId, String evidence, String comments) async {
+      String flagId, String evidence, String comments, {String? filePath}) async {
     try {
       _loadingNotifier.setLoading(true);
       _errorNotifier.clearError();
@@ -89,6 +90,7 @@ class FlaggedPiecesNotifier extends StateNotifier<List<FlaggedPiece>> {
         action: 'dispute',
         evidence: evidence.isNotEmpty ? evidence : null,
         comments: comments.isNotEmpty ? comments : null,
+        filePath: filePath,
       );
 
       if (response.isSuccess) {
