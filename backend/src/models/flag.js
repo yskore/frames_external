@@ -42,12 +42,11 @@ flagSchema.index({ Piece_id: 1, Flag_type: 1 });
 flagSchema.index({ Piece_owner: 1 });
 flagSchema.index({ Flag_raised_by: 1 });
 
-// Static method to count flags by piece and type
-flagSchema.statics.countFlagsByPieceAndType = async function(pieceId, flagType) {
-    return this.countDocuments({ Piece_id: pieceId, Flag_type: flagType });
+flagSchema.statics.countFlagsByPieceAndType = async function(pieceId, flagType, session = null) {
+    const query = this.countDocuments({ Piece_id: pieceId, Flag_type: flagType });
+    return session ? query.session(session) : query;
 };
 
-// Static method to check if user already flagged a piece
 flagSchema.statics.hasUserFlaggedPiece = async function(pieceId, username) {
     const flag = await this.findOne({ 
         Piece_id: pieceId, 

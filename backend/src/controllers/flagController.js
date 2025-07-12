@@ -51,7 +51,10 @@ exports.flagPiece = async (req, res) => {
         await newFlag.save({ session });
 
         // Count total flags of this type for the piece
-        const flagCount = await Flag.countFlagsByPieceAndType(pieceId, flagType);
+        const flagCount = await Flag.countDocuments({ 
+            Piece_id: pieceId, 
+            Flag_type: flagType 
+        }).session(session);
         console.log(`[FLAG DEBUG] Piece ${pieceId} - Flag type ${flagType} count: ${flagCount}`);
 
         // Check if threshold reached (3 flags)
