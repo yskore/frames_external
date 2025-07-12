@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:frames_app/Providers/error_provider.dart';
 import 'package:frames_app/Providers/loading_provider.dart';
@@ -37,10 +36,12 @@ class FlaggedPiecesNotifier extends StateNotifier<List<FlaggedPiece>> {
       if (response.isSuccess && response.data != null) {
         final List<dynamic> flaggedPiecesJson =
             response.data!['flaggedPieces'] ?? [];
+        print('Flagged pieces JSON: $flaggedPiecesJson');
         final flaggedPieces = flaggedPiecesJson
             .map((json) => FlaggedPiece.fromJson(json))
             .toList();
 
+        print('Parsed flagged pieces: $flaggedPieces');
         state = flaggedPieces;
       } else {
         _errorNotifier
@@ -79,8 +80,8 @@ class FlaggedPiecesNotifier extends StateNotifier<List<FlaggedPiece>> {
     }
   }
 
-  Future<bool> disputeFlag(
-      String flagId, String evidence, String comments, {String? filePath}) async {
+  Future<bool> disputeFlag(String flagId, String evidence, String comments,
+      {String? filePath}) async {
     try {
       _loadingNotifier.setLoading(true);
       _errorNotifier.clearError();
@@ -114,14 +115,16 @@ class FlaggedPiecesNotifier extends StateNotifier<List<FlaggedPiece>> {
       _loadingNotifier.setLoading(true);
       _errorNotifier.clearError();
 
-      final response = await _pieceRepository.acknowledgeDisputeResolution(pieceId);
+      final response =
+          await _pieceRepository.acknowledgeDisputeResolution(pieceId);
 
       if (response.isSuccess) {
         // Remove the piece from the list since it's now acknowledged
         state = state.where((piece) => piece.pieceId != pieceId).toList();
         return true;
       } else {
-        _errorNotifier.setError(response.message ?? 'Failed to acknowledge dispute resolution');
+        _errorNotifier.setError(
+            response.message ?? 'Failed to acknowledge dispute resolution');
         return false;
       }
     } catch (e) {

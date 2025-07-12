@@ -88,6 +88,7 @@ class _FlaggedPiecesScreenState extends ConsumerState<FlaggedPiecesScreen> {
   }
 
   Widget _buildFlaggedPieceCard(FlaggedPiece flaggedPiece) {
+    print('resoulution: ${flaggedPiece.hasUnacknowledgedResolution}');
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
       child: Padding(
@@ -194,7 +195,7 @@ class _FlaggedPiecesScreenState extends ConsumerState<FlaggedPiecesScreen> {
           ),
           const SizedBox(height: 8),
           Text(
-            'Resolved: ${_formatDate(resolution.resolvedAt)}',
+            'Resolved: ${resolution.resolvedAt != null ? _formatDate(resolution.resolvedAt!) : 'Not yet resolved'}',
             style: TextStyle(
               fontSize: 12,
               color: Colors.grey[600],

@@ -110,24 +110,28 @@ class FlaggedPiece {
   }
 
   bool get hasUnacknowledgedResolution =>
-      disputeResolution != null && !disputeResolution!.acknowledgedByOwner;
+      disputeResolution != null &&
+      disputeResolution!.status.isNotEmpty &&
+      !disputeResolution!.acknowledgedByOwner;
 }
 
 class DisputeResolution {
   final String status; // 'accepted' or 'rejected'
-  final DateTime resolvedAt;
+  final DateTime? resolvedAt;
   final bool acknowledgedByOwner;
 
   DisputeResolution({
     required this.status,
-    required this.resolvedAt,
+    this.resolvedAt,
     required this.acknowledgedByOwner,
   });
 
   factory DisputeResolution.fromJson(Map<String, dynamic> json) {
     return DisputeResolution(
       status: json['status'] ?? '',
-      resolvedAt: DateTime.parse(json['resolved_at']),
+      resolvedAt: json['resolved_at'] != null
+          ? DateTime.tryParse(json['resolved_at'])
+          : null,
       acknowledgedByOwner: json['acknowledged_by_owner'] ?? false,
     );
   }
