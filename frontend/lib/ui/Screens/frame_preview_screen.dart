@@ -1,20 +1,20 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_unity_widget/flutter_unity_widget.dart';
+import 'package:frames_app/Providers/piece_provider.dart';
+import 'package:frames_app/core/mixins/message_mixin.dart';
+import 'package:frames_app/core/services/image_flip_service.dart';
+import 'package:frames_app/core/services/unity_scene_service.dart';
 import 'package:frames_app/providers/user_provider.dart';
 import 'package:frames_app/ui/Screens/home_screen.dart';
 import 'package:frames_app/ui/Screens/user_profile_screen.dart';
 import 'package:frames_app/ui/Widgets/ownership_selection.dart';
 import 'package:frames_app/ui/Widgets/unified_unity_view.dart';
-import 'package:frames_app/core/services/unity_scene_service.dart';
-import 'package:frames_app/core/services/image_flip_service.dart';
-import 'package:intl/intl.dart';
-import 'package:flutter/material.dart';
-import 'package:flutter_unity_widget/flutter_unity_widget.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:frames_app/Providers/error_provider.dart';
-import 'package:frames_app/Providers/piece_provider.dart';
 
 class FramePreviewScreen extends ConsumerStatefulWidget {
   final String frameName;
@@ -32,7 +32,8 @@ class FramePreviewScreen extends ConsumerStatefulWidget {
   _FramePreviewScreenState createState() => _FramePreviewScreenState();
 }
 
-class _FramePreviewScreenState extends ConsumerState<FramePreviewScreen> {
+class _FramePreviewScreenState extends ConsumerState<FramePreviewScreen>
+    with MessageMixin {
   // State variables
   bool _isLoading = true;
   bool _isClosing = false;
@@ -61,7 +62,7 @@ class _FramePreviewScreenState extends ConsumerState<FramePreviewScreen> {
     _currentImageUrl = widget.imageUrl; // Initialize with original image
     _loadUserData();
     prepareDataForUnity();
-    
+
     // Load the Unity scene when the widget is built
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadPreviewScene();
@@ -82,7 +83,7 @@ class _FramePreviewScreenState extends ConsumerState<FramePreviewScreen> {
     });
   }
 
-    void _handleHidePieceChanged(bool value) {
+  void _handleHidePieceChanged(bool value) {
     setState(() {
       _isHidden = value;
       if (!value) {
@@ -103,20 +104,20 @@ class _FramePreviewScreenState extends ConsumerState<FramePreviewScreen> {
     try {
       final user = ref.read(userProvider);
       if (user?.username == null) {
-        ref.read(errorProvider.notifier).setError('[LOGS] Failed to load user data.');
+        showError('[LOGS] Failed to load user data.');
         setState(() {
           _isLoading = false;
         });
         return;
       }
     } catch (e) {
-      ref.read(errorProvider.notifier).setError('[LOGS] Error loading user data: $e');
+      showError('[LOGS] Error loading user data: $e');
       setState(() {
         _isLoading = false;
       });
     }
   }
-  
+
   void prepareDataForUnity() {
     try {
       _preparedJsonMessage = jsonEncode({
@@ -132,7 +133,7 @@ class _FramePreviewScreenState extends ConsumerState<FramePreviewScreen> {
       setErrorMessage('Error preparing data for Unity: $e');
     }
   }
-  
+
   // Unity Scene Management with SceneManager
   void _loadPreviewScene() async {
     setState(() {
@@ -141,23 +142,24 @@ class _FramePreviewScreenState extends ConsumerState<FramePreviewScreen> {
 
     try {
       final sceneManager = ref.read(unitySceneManagerProvider);
-      
+
       if (sceneManager.isUnityInitialized) {
         // Check if already in preview scene
         if (sceneManager.currentScene != UnitySceneType.previewScene) {
           print('[LOGS] Loading preview scene from SceneManager');
-          
+
           // Load the preview scene
-          final success = await sceneManager.loadScene(UnitySceneType.previewScene);
-          
+          final success =
+              await sceneManager.loadScene(UnitySceneType.previewScene);
+
           if (success) {
             setState(() {
               _isLoading = false;
             });
-            
+
             // Send piece data to Unity after a slight delay
             Future.delayed(const Duration(milliseconds: 500), () {
-             // _sendPieceDataToUnity();
+              // _sendPieceDataToUnity();
             });
           } else {
             setErrorMessage('Failed to load preview scene');
@@ -167,11 +169,12 @@ class _FramePreviewScreenState extends ConsumerState<FramePreviewScreen> {
           setState(() {
             _isLoading = false;
           });
-          
-        //  _sendPieceDataToUnity();
+
+          //  _sendPieceDataToUnity();
         }
       } else {
-        print('[LOGS] Unity not initialized yet, will wait for UnityWidget creation');
+        print(
+            '[LOGS] Unity not initialized yet, will wait for UnityWidget creation');
       }
     } catch (e) {
       setErrorMessage('Error loading preview scene: $e');
@@ -181,19 +184,19 @@ class _FramePreviewScreenState extends ConsumerState<FramePreviewScreen> {
   void _sendPieceDataToUnity() {
     try {
       final sceneManager = ref.read(unitySceneManagerProvider);
-      
+
       if (sceneManager.isUnityInitialized) {
         final controller = sceneManager.getController();
-        
+
         if (controller != null) {
           print('[LOGS] Sending piece data to Unity for piece preview');
-          
+
           controller.postMessage(
             'GameManager',
             'ReceiveDataFromFlutter',
             _preparedJsonMessage!,
           );
-          
+
           print('[LOGS] Piece data sent to Unity successfully');
         } else {
           print('[LOGS] Unity controller is null');
@@ -209,10 +212,10 @@ class _FramePreviewScreenState extends ConsumerState<FramePreviewScreen> {
   void _sendUnityCommand(String command, [String? message]) {
     try {
       final sceneManager = ref.read(unitySceneManagerProvider);
-      
+
       if (sceneManager.isUnityInitialized) {
         final controller = sceneManager.getController();
-        
+
         if (controller != null) {
           if (message != null) {
             controller.postMessage('GameManager', command, message);
@@ -237,12 +240,13 @@ class _FramePreviewScreenState extends ConsumerState<FramePreviewScreen> {
       print('[FLIPMONITOR] Starting horizontal flip...');
       print('[FLIPMONITOR] Current image URL: $_currentImageUrl');
       print('[FLIPMONITOR] Horizontal flipped state: $_isHorizontalFlipped');
-      
+
       if (_isHorizontalFlipped) {
         // Unflip - revert to original or vertically flipped version
         if (_isVerticalFlipped) {
           // Keep vertical flip, remove horizontal
-          String flippedImageUrl = await ImageFlipService.flipVertical(widget.imageUrl);
+          String flippedImageUrl =
+              await ImageFlipService.flipVertical(widget.imageUrl);
           _currentImageUrl = flippedImageUrl;
         } else {
           // Revert to completely original
@@ -251,19 +255,19 @@ class _FramePreviewScreenState extends ConsumerState<FramePreviewScreen> {
         _isHorizontalFlipped = false;
       } else {
         // Flip horizontally
-        String flippedImageUrl = await ImageFlipService.flipHorizontal(_currentImageUrl);
+        String flippedImageUrl =
+            await ImageFlipService.flipHorizontal(_currentImageUrl);
         _currentImageUrl = flippedImageUrl;
         _isHorizontalFlipped = true;
       }
-      
+
       print('[FLIPMONITOR] Updated current URL: $_currentImageUrl');
       print('[FLIPMONITOR] Updated horizontal state: $_isHorizontalFlipped');
-      
+
       // Clear Unity scene and wait for reset confirmation
       _sendUnityCommand('ResetUnityScene');
-      
+
       print('[FLIPMONITOR] Horizontal flip completed');
-      
     } catch (e) {
       print('[FLIPMONITOR] Error flipping image horizontally: $e');
       setErrorMessage('Error flipping image horizontally: $e');
@@ -279,12 +283,13 @@ class _FramePreviewScreenState extends ConsumerState<FramePreviewScreen> {
       print('[FLIPMONITOR] Starting vertical flip...');
       print('[FLIPMONITOR] Current image URL: $_currentImageUrl');
       print('[FLIPMONITOR] Vertical flipped state: $_isVerticalFlipped');
-      
+
       if (_isVerticalFlipped) {
         // Unflip - revert to original or horizontally flipped version
         if (_isHorizontalFlipped) {
           // Keep horizontal flip, remove vertical
-          String flippedImageUrl = await ImageFlipService.flipHorizontal(widget.imageUrl);
+          String flippedImageUrl =
+              await ImageFlipService.flipHorizontal(widget.imageUrl);
           _currentImageUrl = flippedImageUrl;
         } else {
           // Revert to completely original
@@ -293,26 +298,25 @@ class _FramePreviewScreenState extends ConsumerState<FramePreviewScreen> {
         _isVerticalFlipped = false;
       } else {
         // Flip vertically
-        String flippedImageUrl = await ImageFlipService.flipVertical(_currentImageUrl);
+        String flippedImageUrl =
+            await ImageFlipService.flipVertical(_currentImageUrl);
         _currentImageUrl = flippedImageUrl;
         _isVerticalFlipped = true;
       }
-      
+
       print('[FLIPMONITOR] Updated current URL: $_currentImageUrl');
       print('[FLIPMONITOR] Updated vertical state: $_isVerticalFlipped');
-      
+
       // Clear Unity scene and wait for reset confirmation
       _sendUnityCommand('ResetUnityScene');
-      
+
       print('[FLIPMONITOR] Vertical flip completed');
-      
     } catch (e) {
       print('[FLIPMONITOR] Error flipping image vertically: $e');
       setErrorMessage('Error flipping image vertically: $e');
     }
   }
 
-  
   // Handle Unity messages from UnifiedUnityView
   void _handleUnityMessage(String message) {
     print('Received message from Unity: $message');
@@ -348,11 +352,12 @@ class _FramePreviewScreenState extends ConsumerState<FramePreviewScreen> {
               _isLoading = false;
             });
             print('Current scene loaded: $activeScene');
-            
+
             // Send piece data after scene is loaded
-           // _sendPieceDataToUnity();
+            // _sendPieceDataToUnity();
           } else {
-            print('Wrong scene loaded: $activeScene - switching to frames_test');
+            print(
+                'Wrong scene loaded: $activeScene - switching to frames_test');
             _switchToFramesTestScene();
           }
         } else if (message == 'SCENE_SWITCHED') {
@@ -360,16 +365,16 @@ class _FramePreviewScreenState extends ConsumerState<FramePreviewScreen> {
             _isLoading = false;
           });
           print('Scene switched to frames_test');
-          
+
           // Send piece data after scene is switched
-         //_sendPieceDataToUnity();
+          //_sendPieceDataToUnity();
         }
     }
   }
 
   void _switchToFramesTestScene() {
     final sceneManager = ref.read(unitySceneManagerProvider);
-    
+
     if (sceneManager.isUnityInitialized) {
       sceneManager.loadScene(UnitySceneType.previewScene);
       print('_switchToFramesTestScene called using SceneManager');
@@ -386,10 +391,10 @@ class _FramePreviewScreenState extends ConsumerState<FramePreviewScreen> {
       }
     });
   }
-  
+
   Future<void> _handleClosing() async {
-    if (_isClosing) return;  // Prevent multiple closing attempts
-    
+    if (_isClosing) return; // Prevent multiple closing attempts
+
     setState(() {
       _isClosing = true;
     });
@@ -397,16 +402,16 @@ class _FramePreviewScreenState extends ConsumerState<FramePreviewScreen> {
     try {
       // Clean up temporary files
       await ImageFlipService.cleanupTempFiles();
-      
+
       // Use the SceneManager to safely dispose the controller
       final sceneManager = ref.read(unitySceneManagerProvider);
       if (sceneManager.isUnityInitialized) {
         await sceneManager.safeDisposeController();
       }
-      
+
       // Short delay to ensure everything is cleaned up
       await Future.delayed(const Duration(milliseconds: 100));
-      
+
       if (mounted) {
         Navigator.push(
           context,
@@ -431,12 +436,12 @@ class _FramePreviewScreenState extends ConsumerState<FramePreviewScreen> {
     print('Error: $message');
   }
 
-   Widget _buildHiddenPieceSection() {
+  Widget _buildHiddenPieceSection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const SizedBox(height: 20),
-        
+
         // Hide piece toggle
         Row(
           children: [
@@ -456,7 +461,7 @@ class _FramePreviewScreenState extends ConsumerState<FramePreviewScreen> {
             ),
           ],
         ),
-        
+
         if (_isHidden) ...[
           const SizedBox(height: 8),
           const Text(
@@ -468,7 +473,7 @@ class _FramePreviewScreenState extends ConsumerState<FramePreviewScreen> {
             ),
           ),
           const SizedBox(height: 16),
-          
+
           // Show radius section
           const Text(
             'Location Display (0-500 meters)',
@@ -478,7 +483,7 @@ class _FramePreviewScreenState extends ConsumerState<FramePreviewScreen> {
             ),
           ),
           const SizedBox(height: 8),
-          
+
           Row(
             children: [
               Expanded(
@@ -487,8 +492,8 @@ class _FramePreviewScreenState extends ConsumerState<FramePreviewScreen> {
                   min: 0,
                   max: 500,
                   divisions: 10,
-                  label: _showRadius == 0 
-                      ? 'Exact location' 
+                  label: _showRadius == 0
+                      ? 'Exact location'
                       : '${_showRadius}m radius',
                   onChanged: _handleRadiusChanged,
                 ),
@@ -496,8 +501,8 @@ class _FramePreviewScreenState extends ConsumerState<FramePreviewScreen> {
               SizedBox(
                 width: 100,
                 child: Text(
-                  _showRadius == 0 
-                      ? 'Exact location' 
+                  _showRadius == 0
+                      ? 'Exact location'
                       : '${_showRadius}m radius',
                   style: const TextStyle(
                     fontWeight: FontWeight.bold,
@@ -506,7 +511,7 @@ class _FramePreviewScreenState extends ConsumerState<FramePreviewScreen> {
               ),
             ],
           ),
-          
+
           const SizedBox(height: 8),
           Text(
             _showRadius == 0
@@ -530,8 +535,7 @@ class _FramePreviewScreenState extends ConsumerState<FramePreviewScreen> {
       _formKey.currentState!.save();
 
       if (_image == null) {
-        ref.read(errorProvider.notifier)
-           .setError('Please select a display picture');
+        showError('Please select a display picture');
         return false;
       }
 
@@ -576,7 +580,7 @@ class _FramePreviewScreenState extends ConsumerState<FramePreviewScreen> {
   @override
   Widget build(BuildContext context) {
     final user = ref.watch(userProvider);
-    
+
     return PopScope(
       canPop: false, // Prevent automatic popping
       onPopInvoked: (didPop) async {
@@ -601,7 +605,7 @@ class _FramePreviewScreenState extends ConsumerState<FramePreviewScreen> {
                   style: const TextStyle(color: Colors.red),
                 ),
               ),
-            
+
             // Unity View
             SizedBox(
               height: 300, // Fixed height for Unity view
@@ -612,17 +616,18 @@ class _FramePreviewScreenState extends ConsumerState<FramePreviewScreen> {
                     initialScene: UnitySceneType.previewScene,
                     onUnityMessage: _handleUnityMessage,
                     onUnitySceneLoaded: (scene) {
-                      if (scene?.name == UnitySceneType.previewScene.sceneName) {
+                      if (scene?.name ==
+                          UnitySceneType.previewScene.sceneName) {
                         setState(() {
                           _isLoading = false;
                         });
-                        
+
                         // Send piece data once scene is loaded
                         _sendPieceDataToUnity();
                       }
                     },
                   ),
-                  
+
                   // Loading overlay
                   if (_isLoading)
                     Container(
@@ -634,10 +639,11 @@ class _FramePreviewScreenState extends ConsumerState<FramePreviewScreen> {
                 ],
               ),
             ),
-            
+
             // Image flip controls
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
@@ -646,8 +652,10 @@ class _FramePreviewScreenState extends ConsumerState<FramePreviewScreen> {
                     icon: const Icon(Icons.flip),
                     label: Text(_isHorizontalFlipped ? 'Unflip H' : 'Flip H'),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: _isHorizontalFlipped ? Colors.blue : null,
-                      foregroundColor: _isHorizontalFlipped ? Colors.white : null,
+                      backgroundColor:
+                          _isHorizontalFlipped ? Colors.blue : null,
+                      foregroundColor:
+                          _isHorizontalFlipped ? Colors.white : null,
                     ),
                   ),
                   ElevatedButton.icon(
@@ -662,7 +670,7 @@ class _FramePreviewScreenState extends ConsumerState<FramePreviewScreen> {
                 ],
               ),
             ),
-            
+
             // Form section
             Expanded(
               child: SingleChildScrollView(
@@ -674,7 +682,8 @@ class _FramePreviewScreenState extends ConsumerState<FramePreviewScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         TextFormField(
-                          decoration: const InputDecoration(labelText: 'Piece Name'),
+                          decoration:
+                              const InputDecoration(labelText: 'Piece Name'),
                           validator: (value) {
                             if (value == null || value.isEmpty) {
                               return 'Please enter a name for the piece';
@@ -686,7 +695,8 @@ class _FramePreviewScreenState extends ConsumerState<FramePreviewScreen> {
                           },
                         ),
                         TextFormField(
-                          decoration: const InputDecoration(labelText: 'Description'),
+                          decoration:
+                              const InputDecoration(labelText: 'Description'),
                           maxLines: 3,
                           validator: (value) {
                             if (value == null || value.isEmpty) {
@@ -699,7 +709,7 @@ class _FramePreviewScreenState extends ConsumerState<FramePreviewScreen> {
                           },
                         ),
                         const SizedBox(height: 20),
-                        
+
                         // Ownership Selection Widget
                         OwnershipSelectionWidget(
                           initialValue: _ownership,
@@ -708,7 +718,7 @@ class _FramePreviewScreenState extends ConsumerState<FramePreviewScreen> {
                         ),
                         _buildHiddenPieceSection(),
                         const SizedBox(height: 20),
-                        
+
                         const Text('Piece Display Picture'),
                         const SizedBox(height: 10),
                         _image == null
@@ -725,37 +735,42 @@ class _FramePreviewScreenState extends ConsumerState<FramePreviewScreen> {
                               setState(() {
                                 _isLoading = true;
                               });
-                              
-                              final success = await _savePiece();
-                              
-                              if (success) {
-                                print("[TEST] Success: Piece saved successfully");
-                                // First safely dispose the Unity controller
-                                final sceneManager = ref.read(unitySceneManagerProvider);
-                                if (sceneManager.isUnityInitialized) {
 
-                                  print("[TEST] isUnityInitialized = True: Disposing Unity controller");
+                              final success = await _savePiece();
+
+                              if (success) {
+                                print(
+                                    "[TEST] Success: Piece saved successfully");
+                                // First safely dispose the Unity controller
+                                final sceneManager =
+                                    ref.read(unitySceneManagerProvider);
+                                if (sceneManager.isUnityInitialized) {
+                                  print(
+                                      "[TEST] isUnityInitialized = True: Disposing Unity controller");
                                   try {
                                     await sceneManager.safeDisposeController();
                                   } catch (e) {
-                                    print('Error disposing Unity controller: $e');
+                                    print(
+                                        'Error disposing Unity controller: $e');
                                   }
                                 }
-                                
+
                                 // Clean up temporary files
                                 await ImageFlipService.cleanupTempFiles();
-                                
+
                                 // Navigate to profile after Unity is fully disposed
                                 if (mounted) {
-                                  print("[TEST] mounted so Navigating to UserProfileScreen");
+                                  print(
+                                      "[TEST] mounted so Navigating to UserProfileScreen");
                                   Navigator.of(context).pushReplacement(
                                     MaterialPageRoute(
-                                      builder: (context) => const UserProfileScreen(),
+                                      builder: (context) =>
+                                          const UserProfileScreen(),
                                     ),
                                   );
-                                }
-                                else {
-                                  print("[TEST] Not mounted so not navigating to UserProfileScreen");
+                                } else {
+                                  print(
+                                      "[TEST] Not mounted so not navigating to UserProfileScreen");
                                 }
                               } else {
                                 setState(() {
