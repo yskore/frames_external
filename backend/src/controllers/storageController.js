@@ -185,6 +185,108 @@ exports.uploadImage = [
   }
 ];
 
+exports.uploadImageOptional = [
+  upload.single('image'),
+  async (req, res, next) => {
+    try {
+      // If no file uploaded, just continue to next middleware
+      if (!req.file) {
+        req.uploadedFileUrl = null;
+        req.uploadedData = null;
+        return next();
+      }
+
+      // Get folder name from request or use default
+      const folderName = req.body.folderName || 'default';
+      // Get resource ID from request (e.g., piece_id, user_id, etc.)
+      const resourceId = req.body.resourceId || req.user.username;
+      const resourceType = req.body.resourceType || 'default';
+
+      // Create a key for the user's image
+      const imageKey = `${resourceType}_${resourceId}`;
+
+      // Upload file to Google Cloud Storage
+      const gcs = getGCSClient();
+      const bucket = gcs.bucket(bucketName);
+      const gcsFileName = `${folderName}/${Date.now()}_${path.basename(req.file.path)}`;
+
+      // Check if there's a previous image to delete
+      if (userImageMap.has(imageKey)) {
+        const oldFileName = userImageMap.get(imageKey);
+        try {
+          // Delete the old file from Google Cloud Storage
+          await bucket.file(oldFileName).delete();
+          console.log(`Successfully deleted old image: ${oldFileName}`);
+        } catch (deleteError) {
+          console.error(`Error deleting old image ${oldFileName}:`, deleteError);
+          // Continue with upload even if delete fails
+        }
+      }
+
+      await bucket.upload(req.file.path, {
+        destination: gcsFileName,
+        metadata: {
+          contentType: req.file.mimetype,
+        },
+      });
+
+      // Make the file publicly accessible
+      await bucket.file(gcsFileName).makePublic();
+
+      // Generate public URL
+      const imageUrl = `https://storage.googleapis.com/${bucketName}/${gcsFileName}`;
+
+      // Save the new filename for this user/resource
+      userImageMap.set(imageKey, gcsFileName);
+
+      // Clean up local file
+      fs.unlinkSync(req.file.path);
+
+      // Prepare response data
+      const responseData = {
+        imageUrl: imageUrl,
+        fileName: gcsFileName,
+        resourceId: resourceId,
+        resourceType: resourceType
+      };
+
+      // Attach data to request for next middleware
+      req.uploadedFileUrl = imageUrl;
+      req.uploadedData = responseData;
+
+      // Check if we should respond directly or continue to next middleware
+      const respondDirectly = req.query.directResponse === 'true' ||
+        req.body.directResponse === true ||
+        req.directResponse === true;
+
+      if (respondDirectly) {
+        // Respond directly to the client
+        return res.status(200).json({
+          success: true,
+          message: 'Image uploaded successfully',
+          data: responseData
+        });
+      } else {
+        // Continue to next middleware
+        next();
+      }
+
+    } catch (error) {
+      console.error('Error uploading file:', error);
+      // Clean up local file if exists
+      if (req.file && fs.existsSync(req.file.path)) {
+        fs.unlinkSync(req.file.path);
+      }
+
+      res.status(500).json({
+        success: false,
+        message: 'Failed to upload image',
+        error: error.message
+      });
+    }
+  }
+];
+
 exports.deleteImage = async (req, res) => {
   try {
     const { fileName, resourceId, resourceType } = req.body;

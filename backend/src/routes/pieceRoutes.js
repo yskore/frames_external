@@ -31,7 +31,7 @@ router.post('/:pieceId/flag', validateToken, validateFlagInput, flagController.f
 router.post('/:pieceId/flag-response', validateToken, (req, res, next) => {
     req.body.folderName = 'flag_disputes'; 
     next();
-}, storageController.uploadImage, validateFlagResponse, flagController.respondToFlag);
+}, storageController.uploadImageOptional, validateFlagResponse, flagController.respondToFlag);
 router.get('/flagged', validateToken, flagController.getFlaggedPieces);
 router.post('/:pieceId/acknowledge-dispute', validateToken, flagController.acknowledgeDisputeResolution);
 

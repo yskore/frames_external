@@ -34,7 +34,7 @@ exports.flagPiece = async (req, res) => {
         // Check if user already flagged this piece
         const existingFlag = await Flag.hasUserFlaggedPiece(pieceId, username);
         if (existingFlag) {
-        throw new Error('You have already flagged this piece');
+            throw new Error('You have already flagged this piece');
         }
 
         // Create flag record
@@ -49,6 +49,21 @@ exports.flagPiece = async (req, res) => {
         });
 
         await newFlag.save({ session });
+
+        // Send notification to piece owner about the flag
+        sendFlagNotification({
+            userId: piece.Piece_owner,
+            notificationType: flagType === 'IN' ? 'piece_flagged_inappropriate' : 'piece_flagged_piracy',
+            data: {
+                pieceId: piece.Piece_id,
+                pieceTitle: piece.Piece_title,
+                flagType: flagType === 'IN' ? 'inappropriate' : 'piracy',
+                flaggedBy: username,
+                message: `Your piece has been flagged as ${flagType === 'IN' ? 'inappropriate' : 'piracy'}`,
+                timestamp: new Date().toISOString()
+            },
+            priority: 'normal'
+        }).catch(err => console.error('Error sending flag notification:', err));
 
         // Count total flags of this type for the piece
         const flagCount = await Flag.countDocuments({ 
@@ -200,7 +215,7 @@ exports.respondToFlag = async (req, res) => {
         const piece = await Piece.findOne({ 
             Piece_id: pieceId,
             Piece_owner: username,
-            flag_status: 'pending_action'
+            flag_status: { $in: ['pending_action', 'disputed'] }
         }).session(session);
 
         if (!piece) {
@@ -216,6 +231,15 @@ exports.respondToFlag = async (req, res) => {
 
         if (existingDispute && action === 'dispute') {
             throw new Error('You have already disputed the flags for this piece. Please wait for admin review.');
+        }
+
+        // If user previously disputed but now wants to accept, remove the dispute
+        if (existingDispute && action === 'accept') {
+            await Dispute.findOneAndDelete({
+                Piece_id: pieceId,
+                Piece_owner: username,
+                Dispute_status: 'Raised'
+            }).session(session);
         }
 
         if (piece.flag_type === 'IN') {
@@ -309,18 +333,7 @@ exports.createDispute = async (piece, flagType, evidence, comments, evidence_ima
 };
 
 exports.deletePieceForFlag = async (piece, session) => {
-    // Mark piece as deleted due to flag
-    await Piece.findOneAndUpdate(
-        { Piece_id: piece.Piece_id },
-        { 
-            flag_status: 'deleted',
-            deleted_at: new Date(),
-            live_status: false
-        },
-        { session }
-    );
-
-    // Send notification to owner
+    // Send notification to owner before deletion
     sendFlagNotification({
         userId: piece.Piece_owner,
         notificationType: 'piece_deleted_flag',
@@ -331,6 +344,21 @@ exports.deletePieceForFlag = async (piece, session) => {
             timestamp: new Date().toISOString()
         }
     }).catch(err => console.error('Error sending notification:', err));
+
+    // Completely delete the piece from database
+    await Piece.findOneAndDelete(
+        { Piece_id: piece.Piece_id },
+        { session }
+    );
+
+    // Update user's live pieces count if the piece was live
+    if (piece.live_status) {
+        await user_profile.findOneAndUpdate(
+            { username: piece.Piece_owner },
+            { $inc: { Live_pieces: -1 } },
+            { session }
+        );
+    }
 };
 
 // Auto-delete expired flagged pieces (run as scheduled job)

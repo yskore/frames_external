@@ -204,24 +204,19 @@ exports.resolveFlagDispute = async (req, res) => {
             }).catch(err => console.error('Error sending notification:', err));
 
         } else if (decision === 'reject') {
-            // Reject dispute - delete the piece
+            // Reject dispute - completely delete the piece from database
             dispute.Dispute_status = 'Rejected';
-            await Piece.findOneAndUpdate(
-                { Piece_id: dispute.Piece_id },
-                { 
-                    flag_status: 'deleted',
-                    deleted_at: new Date(),
-                    live_status: false,
-                    dispute_resolution: {
-                        status: 'rejected',
-                        resolved_at: new Date(),
-                        acknowledged_by_owner: false
-                    }
-                },
-                { session }
-            );
+            
+            // Update user's live pieces count if the piece was live
+            if (piece.live_status) {
+                await user_profile.findOneAndUpdate(
+                    { username: piece.Piece_owner },
+                    { $inc: { Live_pieces: -1 } },
+                    { session }
+                );
+            }
 
-            // Send notification to piece owner
+            // Send notification to piece owner before deletion
             sendFlagNotification({
                 userId: dispute.Piece_owner,
                 notificationType: 'dispute_rejected',
@@ -233,6 +228,12 @@ exports.resolveFlagDispute = async (req, res) => {
                     timestamp: new Date().toISOString()
                 }
             }).catch(err => console.error('Error sending notification:', err));
+
+            // Completely delete the piece from database
+            await Piece.findOneAndDelete(
+                { Piece_id: dispute.Piece_id },
+                { session }
+            );
 
         } else {
             throw new Error("Invalid decision. Must be 'accept' or 'reject'");
@@ -263,3 +264,20 @@ exports.resolveFlagDispute = async (req, res) => {
         session.endSession();
     }
 };
+
+// Remove this helper function as it's no longer needed
+// const getActivePiecesFilter = () => {
+//     return {
+//         $and: [
+//             { flag_status: { $ne: 'deleted' } },
+//             { live_status: { $ne: false } },
+//             { 
+//                 $or: [
+//                     { flag_status: { $exists: false } },
+//                     { flag_status: 'resolved' },
+//                     { flag_status: null }
+//                 ]
+//             }
+//         ]
+//     };
+// };
