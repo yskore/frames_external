@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:frames_app/core/cubits/loading_cubit.dart';
+import 'package:frames_app/core/mixins/loading_mixin.dart';
 import 'package:frames_app/models/subscription_model.dart';
-import 'package:frames_app/providers/loading_provider.dart';
 import 'package:frames_app/providers/subscription_provider.dart';
 import 'package:frames_app/ui/Screens/other_user_profile_screen.dart';
 
@@ -12,7 +14,8 @@ class SubscribersScreen extends ConsumerStatefulWidget {
   ConsumerState<SubscribersScreen> createState() => _SubscribersScreenState();
 }
 
-class _SubscribersScreenState extends ConsumerState<SubscribersScreen> {
+class _SubscribersScreenState extends ConsumerState<SubscribersScreen>
+    with LoadingMixin {
   @override
   void initState() {
     super.initState();
@@ -26,7 +29,7 @@ class _SubscribersScreenState extends ConsumerState<SubscribersScreen> {
   @override
   Widget build(BuildContext context) {
     final subscribers = ref.watch(subscribersProvider);
-    final isLoading = ref.watch(loadingProvider);
+    final isLoading = context.watch<LoadingCubit>().state.isLoading;
 
     return Scaffold(
       appBar: AppBar(

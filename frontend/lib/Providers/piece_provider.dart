@@ -2,8 +2,8 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:frames_app/Providers/error_provider.dart';
-import 'package:frames_app/Providers/loading_provider.dart';
+import 'package:frames_app/core/mixins/loading_mixin.dart';
+import 'package:frames_app/core/mixins/message_mixin.dart';
 import 'package:frames_app/core/network/api_response.dart';
 import 'package:frames_app/core/repositories/piece_repository.dart';
 import 'package:frames_app/core/services/storage_service.dart';
@@ -20,20 +20,14 @@ final framesProvider = StateProvider<List<Frame>>((ref) => []);
 
 final pieceProvider = StateNotifierProvider<PieceNotifier, void>((ref) {
   final pieceRepository = ref.read(pieceRepositoryProvider);
-  final loadingNotifier = ref.read(loadingProvider.notifier);
   final userNotifier = ref.read(userProvider.notifier);
-  final messageNotifier = ref.read(messageProvider.notifier);
-  final errorNotifier = ref.read(errorProvider.notifier);
 
-  return PieceNotifier(pieceRepository, loadingNotifier, messageNotifier,
-      errorNotifier, userNotifier, ref);
+  return PieceNotifier(pieceRepository, userNotifier, ref);
 });
 
-class PieceNotifier extends StateNotifier<void> {
+class PieceNotifier extends StateNotifier<void>
+    with LoadingMixin, MessageMixin {
   final PieceRepository _pieceRepository;
-  final LoadingNotifier _loadingNotifier;
-  final ErrorNotifier _errorNotifier;
-  final MessageNotifier _messageNotifier;
 
   final UserNotifier _userNotifier;
   final Ref _ref;
@@ -41,9 +35,6 @@ class PieceNotifier extends StateNotifier<void> {
 
   PieceNotifier(
     this._pieceRepository,
-    this._loadingNotifier,
-    this._messageNotifier,
-    this._errorNotifier,
     this._userNotifier,
     this._ref,
   ) : super(null);
@@ -66,8 +57,8 @@ class PieceNotifier extends StateNotifier<void> {
     int showRadius = 0,
   }) async {
     try {
-      _loadingNotifier.setLoading(true);
-      _errorNotifier.clearError();
+      setLoading(true);
+      clearError();
 
       final String pieceImageUrl = await _storageService.uploadPieceImage(
         pieceImage,
@@ -118,30 +109,30 @@ class PieceNotifier extends StateNotifier<void> {
         return true;
       }
 
-      _errorNotifier.setError(response.message ?? 'Failed to create piece');
+      showError(response.message ?? 'Failed to create piece');
       return false;
     } catch (e) {
-      _errorNotifier.setError('Error creating piece: $e');
+      showError('Error creating piece: $e');
       return false;
     } finally {
-      _loadingNotifier.setLoading(false);
+      setLoading(false);
     }
   }
 
   Future<String?> uploadPieceImage(File imageFile) async {
     try {
-      _loadingNotifier.setLoading(true);
-      _errorNotifier.clearError();
+      setLoading(true);
+      clearError();
       return await _storageService.uploadPieceImage(
         imageFile,
         kPieceBucketName,
         kTempPieceFolderName,
       );
     } catch (e) {
-      _errorNotifier.setError('Error uploading piece image: $e');
+      showError('Error uploading piece image: $e');
       return null;
     } finally {
-      _loadingNotifier.setLoading(false);
+      setLoading(false);
     }
   }
 
@@ -149,8 +140,8 @@ class PieceNotifier extends StateNotifier<void> {
     try {
       final currentFrames = _ref.read(framesProvider);
       if (currentFrames.isEmpty) {
-        _loadingNotifier.setLoading(true);
-        _errorNotifier.clearError();
+        setLoading(true);
+        clearError();
       }
 
       final response = await _pieceRepository.fetchFrames();
@@ -166,20 +157,20 @@ class PieceNotifier extends StateNotifier<void> {
         return true;
       }
 
-      _errorNotifier.setError(response.message ?? 'Failed to fetch frames');
+      showError(response.message ?? 'Failed to fetch frames');
       return false;
     } catch (e) {
-      _errorNotifier.setError('Error fetching frames: $e');
+      showError('Error fetching frames: $e');
       return false;
     } finally {
-      _loadingNotifier.setLoading(false);
+      setLoading(false);
     }
   }
 
   Future<Map<String, dynamic>?> getPieceDetails(String pieceId) async {
     try {
-      _loadingNotifier.setLoading(true);
-      _errorNotifier.clearError();
+      setLoading(true);
+      clearError();
 
       final response = await _pieceRepository.getPieceById(pieceId);
       print('TEST: Full response: $response');
@@ -204,30 +195,29 @@ class PieceNotifier extends StateNotifier<void> {
         }
       }
 
-      _errorNotifier
-          .setError(response.message ?? 'Failed to get piece details');
+      showError(response.message ?? 'Failed to get piece details');
       return null;
     } catch (e) {
-      _errorNotifier.setError('Error getting piece details: $e');
+      showError('Error getting piece details: $e');
       return null;
     } finally {
-      _loadingNotifier.setLoading(false);
+      setLoading(false);
     }
   }
 
   Future<ApiResponse> searchPieces(String query) async {
     try {
-      // _loadingNotifier.setLoading(true);
-      _errorNotifier.clearError();
+      // setLoading(true);
+      clearError();
 
       final response = await _pieceRepository.searchPieces(query);
 
       return response;
     } catch (e) {
-      _errorNotifier.setError('Error searching pieces: ${e.toString()}');
+      showError('Error searching pieces: ${e.toString()}');
       return ApiResponse.error('Error searching pieces: ${e.toString()}');
     } finally {
-      // _loadingNotifier.setLoading(false);
+      // setLoading(false);
     }
   }
 
@@ -236,8 +226,8 @@ class PieceNotifier extends StateNotifier<void> {
     required String flagType,
   }) async {
     try {
-      _loadingNotifier.setLoading(true);
-      _errorNotifier.clearError();
+      setLoading(true);
+      clearError();
 
       String apiFlagType;
       switch (flagType.toLowerCase()) {
@@ -250,8 +240,7 @@ class PieceNotifier extends StateNotifier<void> {
           apiFlagType = 'IN';
           break;
         default:
-          _errorNotifier.setError(
-              'Invalid flag type. Must be "Inappropriate" or "Piracy".');
+          showError('Invalid flag type. Must be "Inappropriate" or "Piracy".');
           return false;
       }
 
@@ -264,16 +253,14 @@ class PieceNotifier extends StateNotifier<void> {
         return true;
       }
 
-      throw response.message ?? 'Failed to flag piece';
-
-      // _errorNotifier.setError(response.message ?? 'Failed to flag piece');
-      // return false;
+      showError(response.message ?? 'Failed to flag piece');
+      return false;
     } catch (e) {
-      _errorNotifier.setError('Error flagging piece: $e');
-      rethrow;
-      // return false;
+      showError('Error flagging piece: $e');
+
+      return false;
     } finally {
-      _loadingNotifier.setLoading(false);
+      setLoading(false);
     }
   }
 }

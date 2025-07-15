@@ -1,10 +1,10 @@
 import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:frames_app/core/mixins/loading_mixin.dart';
+import 'package:frames_app/core/mixins/message_mixin.dart';
 import 'package:frames_app/core/repositories/offer_repository.dart';
 import 'package:frames_app/models/offer_model.dart';
-import 'package:frames_app/providers/error_provider.dart';
-import 'package:frames_app/providers/loading_provider.dart';
 
 // Provider for the offer repository
 final offerRepositoryProvider = Provider<OfferRepository>((ref) {
@@ -14,15 +14,9 @@ final offerRepositoryProvider = Provider<OfferRepository>((ref) {
 final madeOffersProvider =
     StateNotifierProvider<OfferNotifier, List<OfferModel>>((ref) {
   final offerRepository = ref.watch(offerRepositoryProvider);
-  final loadingNotifier = ref.watch(loadingProvider.notifier);
-  final errorNotifier = ref.watch(errorProvider.notifier);
-  final messageNotifier = ref.watch(messageProvider.notifier);
 
   return OfferNotifier(
     offerRepository: offerRepository,
-    loadingNotifier: loadingNotifier,
-    errorNotifier: errorNotifier,
-    messageNotifier: messageNotifier,
     isMadeOffers: true,
   );
 });
@@ -30,16 +24,10 @@ final madeOffersProvider =
 final receivedOffersProvider =
     StateNotifierProvider<OfferNotifier, List<OfferModel>>((ref) {
   final offerRepository = ref.watch(offerRepositoryProvider);
-  final loadingNotifier = ref.watch(loadingProvider.notifier);
-  final errorNotifier = ref.watch(errorProvider.notifier);
-  final messageNotifier = ref.watch(messageProvider.notifier);
 
   return OfferNotifier(
     offerRepository: offerRepository,
-    loadingNotifier: loadingNotifier,
-    errorNotifier: errorNotifier,
     isMadeOffers: false,
-    messageNotifier: messageNotifier,
   );
 });
 
@@ -48,31 +36,20 @@ final pieceOffersProvider =
     StateNotifierProvider.family<PieceOfferNotifier, List<OfferModel>, String>(
         (ref, pieceId) {
   final offerRepository = ref.watch(offerRepositoryProvider);
-  final loadingNotifier = ref.watch(loadingProvider.notifier);
-  final errorNotifier = ref.watch(errorProvider.notifier);
-  final messageNotifier = ref.watch(messageProvider.notifier);
 
   return PieceOfferNotifier(
     offerRepository: offerRepository,
-    loadingNotifier: loadingNotifier,
-    messageNotifier: messageNotifier,
-    errorNotifier: errorNotifier,
     pieceId: pieceId,
   );
 });
 
-class OfferNotifier extends StateNotifier<List<OfferModel>> {
+class OfferNotifier extends StateNotifier<List<OfferModel>>
+    with MessageMixin, LoadingMixin {
   final OfferRepository offerRepository;
-  final LoadingNotifier loadingNotifier;
-  final ErrorNotifier errorNotifier;
-  final MessageNotifier messageNotifier;
   final bool isMadeOffers;
 
   OfferNotifier({
     required this.offerRepository,
-    required this.loadingNotifier,
-    required this.errorNotifier,
-    required this.messageNotifier,
     required this.isMadeOffers,
   }) : super([]) {
     // DO NOT call loadOffers() directly here - this is causing the error
@@ -82,8 +59,8 @@ class OfferNotifier extends StateNotifier<List<OfferModel>> {
 
   Future<void> loadOffers() async {
     try {
-      loadingNotifier.setLoading(true);
-      errorNotifier.clearError();
+      setLoading(true);
+      clearError();
 
       final response = isMadeOffers
           ? await offerRepository.getMadeOffers()
@@ -116,14 +93,14 @@ class OfferNotifier extends StateNotifier<List<OfferModel>> {
           state = allOffers;
         }
       } else {
-        errorNotifier.setError(response.message ?? 'Failed to load offers');
+        showError(response.message ?? 'Failed to load offers');
         state = [];
       }
     } catch (e) {
-      errorNotifier.setError('Error loading offers: $e');
+      showError('Error loading offers: $e');
       state = [];
     } finally {
-      loadingNotifier.setLoading(false);
+      setLoading(false);
     }
   }
 
@@ -131,8 +108,8 @@ class OfferNotifier extends StateNotifier<List<OfferModel>> {
     required String pieceId,
   }) async {
     try {
-      loadingNotifier.setLoading(true);
-      errorNotifier.clearError();
+      setLoading(true);
+      clearError();
 
       final response = await offerRepository.createOffer(
         pieceId: pieceId,
@@ -140,175 +117,169 @@ class OfferNotifier extends StateNotifier<List<OfferModel>> {
 
       if (response.isSuccess) {
         await loadOffers();
-        messageNotifier.setSuccess('Offer submitted successfully');
+        showSuccess('Offer submitted successfully');
         return true;
       } else {
-        errorNotifier.setError(response.message ?? 'Failed to create offer');
+        showError(response.message ?? 'Failed to create offer');
         return false;
       }
     } catch (e) {
-      errorNotifier.setError('Error creating offer: $e');
+      showError('Error creating offer: $e');
       return false;
     } finally {
-      loadingNotifier.setLoading(false);
+      setLoading(false);
     }
   }
 
   Future<bool> acceptOffer(String offerId) async {
     try {
-      loadingNotifier.setLoading(true);
-      errorNotifier.clearError();
+      setLoading(true);
+      clearError();
 
       final response = await offerRepository.acceptOffer(offerId);
 
       if (response.isSuccess) {
         await loadOffers();
-        messageNotifier.setSuccess('Offer accepted successfully');
+        showSuccess('Offer accepted successfully');
         return true;
       } else {
-        errorNotifier.setError(response.message ?? 'Failed to accept offer');
+        showError(response.message ?? 'Failed to accept offer');
         return false;
       }
     } catch (e) {
-      errorNotifier.setError('Error accepting offer: $e');
+      showError('Error accepting offer: $e');
       return false;
     } finally {
-      loadingNotifier.setLoading(false);
+      setLoading(false);
     }
   }
 
   Future<bool> declineOffer(String offerId) async {
     try {
-      loadingNotifier.setLoading(true);
-      errorNotifier.clearError();
+      setLoading(true);
+      clearError();
 
       final response = await offerRepository.declineOffer(offerId);
 
       if (response.isSuccess) {
         await loadOffers();
-        messageNotifier.setSuccess('Offer declined successfully');
+        showSuccess('Offer declined successfully');
 
         return true;
       } else {
-        errorNotifier.setError(response.message ?? 'Failed to decline offer');
+        showError(response.message ?? 'Failed to decline offer');
         return false;
       }
     } catch (e) {
-      errorNotifier.setError('Error declining offer: $e');
+      showError('Error declining offer: $e');
       return false;
     } finally {
-      loadingNotifier.setLoading(false);
+      setLoading(false);
     }
   }
 
   Future<bool> cancelOffer(String offerId) async {
     try {
-      loadingNotifier.setLoading(true);
-      errorNotifier.clearError();
+      setLoading(true);
+      clearError();
 
       final response = await offerRepository.cancelOffer(offerId);
 
       if (response.isSuccess) {
         await loadOffers();
-        messageNotifier.setSuccess('Offer canceled successfully');
+        showSuccess('Offer canceled successfully');
         return true;
       } else {
-        errorNotifier.setError(response.message ?? 'Failed to cancel offer');
+        showError(response.message ?? 'Failed to cancel offer');
         return false;
       }
     } catch (e) {
-      errorNotifier.setError('Error canceling offer: $e');
+      showError('Error canceling offer: $e');
       return false;
     } finally {
-      loadingNotifier.setLoading(false);
+      setLoading(false);
     }
   }
 
   Future<bool> submitPaymentProof(String offerId, File proofImage) async {
     try {
-      loadingNotifier.setLoading(true);
-      errorNotifier.clearError();
+      setLoading(true);
+      clearError();
 
       final response =
           await offerRepository.submitPaymentProof(offerId, proofImage);
 
       if (response.isSuccess) {
         await loadOffers();
-        messageNotifier.setSuccess('Payment proof submitted successfully');
+        showSuccess('Payment proof submitted successfully');
         return true;
       } else {
-        errorNotifier
-            .setError(response.message ?? 'Failed to submit payment proof');
+        showError(response.message ?? 'Failed to submit payment proof');
         return false;
       }
     } catch (e) {
-      errorNotifier.setError('Error submitting payment proof: $e');
+      showError('Error submitting payment proof: $e');
       return false;
     } finally {
-      loadingNotifier.setLoading(false);
+      setLoading(false);
     }
   }
 
   Future<bool> confirmPayment(String offerId) async {
     try {
-      loadingNotifier.setLoading(true);
-      errorNotifier.clearError();
+      setLoading(true);
+      clearError();
 
       final response = await offerRepository.confirmPayment(offerId);
 
       if (response.isSuccess) {
         await loadOffers();
-        messageNotifier.setSuccess('Payment confirmed successfully');
+        showSuccess('Payment confirmed successfully');
 
         return true;
       } else {
-        errorNotifier.setError(response.message ?? 'Failed to confirm payment');
+        showError(response.message ?? 'Failed to confirm payment');
         return false;
       }
     } catch (e) {
-      errorNotifier.setError('Error confirming payment: $e');
+      showError('Error confirming payment: $e');
       return false;
     } finally {
-      loadingNotifier.setLoading(false);
+      setLoading(false);
     }
   }
 
   Future<bool> denyPayment(String offerId, String reason) async {
     try {
-      loadingNotifier.setLoading(true);
-      errorNotifier.clearError();
+      setLoading(true);
+      clearError();
 
       final response = await offerRepository.denyPayment(offerId, reason);
 
       if (response.isSuccess) {
         await loadOffers();
-        messageNotifier.setSuccess('Payment denied successfully');
+        showSuccess('Payment denied successfully');
         return true;
       } else {
-        errorNotifier.setError(response.message ?? 'Failed to deny payment');
+        showError(response.message ?? 'Failed to deny payment');
         return false;
       }
     } catch (e) {
-      errorNotifier.setError('Error denying payment: $e');
+      showError('Error denying payment: $e');
       return false;
     } finally {
-      loadingNotifier.setLoading(false);
+      setLoading(false);
     }
   }
 }
 
-class PieceOfferNotifier extends StateNotifier<List<OfferModel>> {
+class PieceOfferNotifier extends StateNotifier<List<OfferModel>>
+    with LoadingMixin, MessageMixin {
   final OfferRepository offerRepository;
-  final LoadingNotifier loadingNotifier;
-  final ErrorNotifier errorNotifier;
-  final MessageNotifier messageNotifier;
   final String pieceId;
 
   PieceOfferNotifier({
     required this.offerRepository,
-    required this.messageNotifier,
-    required this.loadingNotifier,
-    required this.errorNotifier,
     required this.pieceId,
   }) : super([]) {
     // DO NOT call loadOffers() directly here - this is causing the error
@@ -317,8 +288,8 @@ class PieceOfferNotifier extends StateNotifier<List<OfferModel>> {
 
   Future<void> loadOffers() async {
     try {
-      loadingNotifier.setLoading(true);
-      errorNotifier.clearError();
+      setLoading(true);
+      clearError();
 
       final response = await offerRepository.getPieceOffers(pieceId);
 
@@ -331,15 +302,14 @@ class PieceOfferNotifier extends StateNotifier<List<OfferModel>> {
 
         state = offers;
       } else {
-        errorNotifier
-            .setError(response.message ?? 'Failed to load piece offers');
+        showError(response.message ?? 'Failed to load piece offers');
         state = [];
       }
     } catch (e) {
-      errorNotifier.setError('Error loading piece offers: $e');
+      showError('Error loading piece offers: $e');
       state = [];
     } finally {
-      loadingNotifier.setLoading(false);
+      setLoading(false);
     }
   }
 }

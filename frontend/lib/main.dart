@@ -1,15 +1,16 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:frames_app/Providers/user_provider.dart';
 import 'package:frames_app/core/auth/token_manager.dart';
 import 'package:frames_app/core/config/app_config.dart';
+import 'package:frames_app/core/cubits/loading_cubit.dart';
+import 'package:frames_app/core/cubits/message_cubit.dart';
 import 'package:frames_app/core/network/dio_client.dart';
 import 'package:frames_app/core/repositories/notification_repository.dart';
 import 'package:frames_app/core/services/notification_service.dart';
-import 'package:frames_app/providers/error_provider.dart';
-import 'package:frames_app/providers/loading_provider.dart';
 import 'package:frames_app/ui/Screens/login_screen.dart';
 import 'package:frames_app/ui/Screens/splash_screen.dart';
 
@@ -43,7 +44,15 @@ void main() async {
       NotificationService().initialize(),
     ]);
 
-    runApp(const ProviderScope(child: MainApp()));
+    runApp(
+      MultiBlocProvider(
+        providers: [
+          BlocProvider<MessageCubit>.value(value: MessageCubit.instance),
+          BlocProvider<LoadingCubit>.value(value: LoadingCubit.instance),
+        ],
+        child: const ProviderScope(child: MainApp()),
+      ),
+    );
   } catch (e) {
     runApp(const SizedBox());
   }
@@ -69,9 +78,7 @@ class _MainAppState extends ConsumerState<MainApp> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       // Listen for token expiration
       DioClient().onTokenExpired.listen((_) {
-        ref
-            .read(errorProvider.notifier)
-            .setError('Session expired. Please login');
+        MessageCubit.instance.setError('Session expired. Please login');
 
         _navigatorKey.currentState?.pushAndRemoveUntil(
           MaterialPageRoute(
@@ -93,65 +100,66 @@ class _MainAppState extends ConsumerState<MainApp> {
 
   @override
   Widget build(BuildContext context) {
-    ref.listen(errorProvider, (previous, next) {
-      if (next != null) {
-        _scaffoldMessengerKey.currentState?.showSnackBar(
-          SnackBar(
-            content: Text(
-              next,
-              textAlign: TextAlign.center,
+    return BlocListener<MessageCubit, MessageState>(
+      listener: (context, state) {
+        if (state.error != null) {
+          _scaffoldMessengerKey.currentState?.showSnackBar(
+            SnackBar(
+              content: Text(
+                state.error!,
+                textAlign: TextAlign.center,
+              ),
+              backgroundColor: Colors.red,
             ),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    });
-
-    ref.listen(messageProvider, (previous, next) {
-      if (next != null) {
-        Color backgroundColor;
-        switch (next.type) {
-          case MessageType.info:
-            backgroundColor = Colors.blue;
-            break;
-          case MessageType.success:
-            backgroundColor = Colors.green;
-            break;
+          );
         }
 
-        _scaffoldMessengerKey.currentState?.showSnackBar(
-          SnackBar(
-            content: Text(
-              next.text,
-              textAlign: TextAlign.center,
-            ),
-            backgroundColor: backgroundColor,
-          ),
-        );
-      }
-    });
+        if (state.message != null) {
+          Color backgroundColor;
+          switch (state.message!.type) {
+            case MessageType.info:
+              backgroundColor = Colors.blue;
+              break;
+            case MessageType.success:
+              backgroundColor = Colors.green;
+              break;
+            case MessageType.error:
+              backgroundColor = Colors.red;
+              break;
+          }
 
-    return MaterialApp(
-      scaffoldMessengerKey: _scaffoldMessengerKey,
-      navigatorKey: _navigatorKey,
-      title: 'FRAMES',
-      theme: ThemeData(
-        primarySwatch: Colors.blue,
-        useMaterial3: true,
-      ),
-      builder: (context, child) {
-        return Consumer(
-          builder: (context, ref, _) {
-            final isLoading = ref.watch(loadingProvider);
-            return LoadingOverlay(
-              isLoading: isLoading,
-              loadingText: 'Loading...',
-              child: child!,
-            );
-          },
-        );
+          _scaffoldMessengerKey.currentState?.showSnackBar(
+            SnackBar(
+              content: Text(
+                state.message!.text,
+                textAlign: TextAlign.center,
+              ),
+              backgroundColor: backgroundColor,
+            ),
+          );
+        }
       },
-      home: const SplashScreen(),
+      child: MaterialApp(
+        scaffoldMessengerKey: _scaffoldMessengerKey,
+        navigatorKey: _navigatorKey,
+        title: 'FRAMES',
+        theme: ThemeData(
+          primarySwatch: Colors.blue,
+          useMaterial3: true,
+        ),
+        builder: (context, child) {
+          return BlocBuilder<LoadingCubit, LoadingState>(
+            builder: (context, loadingState) {
+              return LoadingOverlay(
+                isLoading: loadingState.isLoading,
+                loadingText: 'Loading...',
+                child: child!,
+              );
+            },
+          );
+        },
+        home: const SplashScreen(),
+      ),
     );
   }
 }

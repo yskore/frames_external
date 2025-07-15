@@ -2,14 +2,14 @@ import 'dart:developer';
 import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:frames_app/core/mixins/loading_mixin.dart';
+import 'package:frames_app/core/mixins/message_mixin.dart';
 import 'package:frames_app/core/network/api_response.dart';
 import 'package:frames_app/core/repositories/profile_repository.dart';
 import 'package:frames_app/core/services/notification_service.dart';
 import 'package:frames_app/core/services/storage_service.dart';
 import 'package:frames_app/models/anchor_model.dart';
 import 'package:frames_app/models/piece_model.dart';
-import 'package:frames_app/providers/error_provider.dart';
-import 'package:frames_app/providers/loading_provider.dart';
 
 import '../core/repositories/user_repository.dart';
 import '../models/user_model.dart';
@@ -28,11 +28,11 @@ final profileRepositoryProvider = Provider<ProfileRepository>((ref) {
 final userProvider = StateNotifierProvider<UserNotifier, UserModel?>((ref) {
   final userRepository = ref.read(userRepositoryProvider);
   final profileRepository = ref.read(profileRepositoryProvider);
-  final loadingNotifier = ref.read(loadingProvider.notifier);
-  final errorNotifier = ref.read(errorProvider.notifier);
 
   return UserNotifier(
-      userRepository, profileRepository, loadingNotifier, errorNotifier);
+    userRepository,
+    profileRepository,
+  );
 });
 
 final userProfileProvider = Provider<UserModel?>((ref) {
@@ -43,20 +43,20 @@ final userNotifierProvider = Provider<UserNotifier>((ref) {
   return ref.watch(userProvider.notifier);
 });
 
-class UserNotifier extends StateNotifier<UserModel?> {
+class UserNotifier extends StateNotifier<UserModel?>
+    with MessageMixin, LoadingMixin {
   final UserRepository _userRepository;
   final ProfileRepository _profileRepository;
-  final LoadingNotifier _loadingNotifier;
-  final ErrorNotifier _errorNotifier;
 
-  UserNotifier(this._userRepository, this._profileRepository,
-      this._loadingNotifier, this._errorNotifier)
-      : super(null);
+  UserNotifier(
+    this._userRepository,
+    this._profileRepository,
+  ) : super(null);
 
   Future<bool> login(String username, String password) async {
     try {
-      _loadingNotifier.setLoading(true);
-      _errorNotifier.clearError();
+      setLoading(true);
+      clearError();
 
       // Get the push token
       final pushToken = NotificationService().token;
@@ -70,20 +70,20 @@ class UserNotifier extends StateNotifier<UserModel?> {
       if (response.isSuccess) {
         return await getUserProfile(username);
       }
-      _errorNotifier.setError(response.message);
+      showError(response.message);
       return false;
     } catch (e) {
-      _errorNotifier.setError('Failed to login: $e');
+      showError('Failed to login: $e');
       return false;
     } finally {
-      _loadingNotifier.setLoading(false);
+      setLoading(false);
     }
   }
 
   Future<bool> getUserProfile(String username) async {
     try {
-      _loadingNotifier.setLoading(true);
-      _errorNotifier.clearError();
+      setLoading(true);
+      clearError();
       final response = await _userRepository.getUserProfile(username);
 
       if (response.isSuccess && response.data != null) {
@@ -93,17 +93,17 @@ class UserNotifier extends StateNotifier<UserModel?> {
 
           return await _fetchProfileDetails(username);
         } else {
-          _errorNotifier.setError('User data not found in response');
+          showError('User data not found in response');
           return false;
         }
       }
-      _errorNotifier.setError(response.message);
+      showError(response.message);
       return false;
     } catch (e) {
-      _errorNotifier.setError('Failed to get user profile: $e');
+      showError('Failed to get user profile: $e');
       return false;
     } finally {
-      _loadingNotifier.setLoading(false);
+      setLoading(false);
     }
   }
 
@@ -111,7 +111,7 @@ class UserNotifier extends StateNotifier<UserModel?> {
       {bool showLoading = true}) async {
     try {
       if (showLoading) {
-        _loadingNotifier.setLoading(true);
+        setLoading(true);
       }
 
       final response = await _profileRepository.getUserProfile(username);
@@ -132,19 +132,19 @@ class UserNotifier extends StateNotifier<UserModel?> {
           ]);
           return true;
         } catch (e) {
-          _errorNotifier.setError(e.toString());
+          showError(e.toString());
           return false;
         }
       }
 
-      _errorNotifier.setError(response.message);
+      showError(response.message);
       return false;
     } catch (e) {
-      _errorNotifier.setError('Failed to load profile details: $e');
+      showError('Failed to load profile details: $e');
       return false;
     } finally {
       if (showLoading) {
-        _loadingNotifier.setLoading(false);
+        setLoading(false);
       }
     }
   }
@@ -194,8 +194,8 @@ class UserNotifier extends StateNotifier<UserModel?> {
 
   Future<bool> signup(Map<String, dynamic> userData) async {
     try {
-      _loadingNotifier.setLoading(true);
-      _errorNotifier.clearError();
+      setLoading(true);
+      clearError();
       final response = await _userRepository.signup(userData);
 
       if (response.isSuccess) {
@@ -204,20 +204,20 @@ class UserNotifier extends StateNotifier<UserModel?> {
         //   return await createUserProfile(userData['username']);
         // }
       }
-      _errorNotifier.setError(response.message);
+      showError(response.message);
       return false;
     } catch (e) {
-      _errorNotifier.setError('Failed to sign up: $e');
+      showError('Failed to sign up: $e');
       return false;
     } finally {
-      _loadingNotifier.setLoading(false);
+      setLoading(false);
     }
   }
 
   Future<bool> createUserProfile(String username) async {
     try {
-      _loadingNotifier.setLoading(true);
-      _errorNotifier.clearError();
+      setLoading(true);
+      clearError();
 
       final response = await _profileRepository.createUserProfile(username);
 
@@ -225,21 +225,21 @@ class UserNotifier extends StateNotifier<UserModel?> {
         return true;
       }
 
-      _errorNotifier.setError(response.message ?? 'Failed to create profile');
+      showError(response.message ?? 'Failed to create profile');
       return false;
     } catch (e) {
-      _errorNotifier.setError('Failed to create user profile: $e');
+      showError('Failed to create user profile: $e');
       return false;
     } finally {
-      _loadingNotifier.setLoading(false);
+      setLoading(false);
     }
   }
 
   Future<bool> updateUserProfile(
       String username, String bio, File? profileImage) async {
     try {
-      _loadingNotifier.setLoading(true);
-      _errorNotifier.clearError();
+      setLoading(true);
+      clearError();
 
       String? imageUrl;
 
@@ -257,78 +257,77 @@ class UserNotifier extends StateNotifier<UserModel?> {
         return true;
       }
 
-      _errorNotifier.setError(response.message ?? 'Failed to update profile');
+      showError(response.message ?? 'Failed to update profile');
       return false;
     } catch (e) {
-      _errorNotifier.setError('Failed to update profile: $e');
+      showError('Failed to update profile: $e');
       return false;
     } finally {
-      _loadingNotifier.setLoading(false);
+      setLoading(false);
     }
   }
 
   Future<bool> sendVerificationCode(String email) async {
     try {
-      _loadingNotifier.setLoading(true);
-      _errorNotifier.clearError();
+      setLoading(true);
+      clearError();
 
       final response = await _userRepository.sendOTP(email.toLowerCase());
 
       if (!response.isSuccess) {
-        _errorNotifier
-            .setError(response.message ?? 'Failed to send verification code');
+        showError(response.message ?? 'Failed to send verification code');
         return false;
       }
 
       return true;
     } catch (e) {
-      _errorNotifier.setError('Error sending verification code: $e');
+      showError('Error sending verification code: $e');
       return false;
     } finally {
-      _loadingNotifier.setLoading(false);
+      setLoading(false);
     }
   }
 
   Future<bool> verifyOTP(String email, String otp) async {
     try {
-      _loadingNotifier.setLoading(true);
-      _errorNotifier.clearError();
+      setLoading(true);
+      clearError();
 
       final response =
           await _userRepository.verifyOTP(email.toLowerCase(), otp);
 
       if (!response.isSuccess) {
-        _errorNotifier.setError(response.message ?? 'Failed to verify code');
+        showError(response.message ?? 'Failed to verify code');
         return false;
       }
 
       return true;
     } catch (e) {
-      _errorNotifier.setError('Error verifying code: $e');
+      showError('Error verifying code: $e');
       return false;
     } finally {
-      _loadingNotifier.setLoading(false);
+      setLoading(false);
     }
   }
 
   Future<bool> checkUserExistsAndSendOTP(String username, String email) async {
     try {
-      _loadingNotifier.setLoading(true);
-      _errorNotifier.clearError();
+      setLoading(true);
+      clearError();
 
       final response = await _userRepository.userExists(username, email);
 
       if (!response.isSuccess) {
-        _errorNotifier.setError(response.message);
+        showError(response.message);
         return false;
       }
 
       return await sendVerificationCode(email.toLowerCase());
     } catch (e) {
-      _errorNotifier.setError('Error: $e');
+      showError('Error: $e');
       return false;
     } finally {
-      _loadingNotifier.setLoading(false);
+      setLoading(false);
     }
   }
 
@@ -340,7 +339,7 @@ class UserNotifier extends StateNotifier<UserModel?> {
   Future<void> refreshUserPieces() async {
     if (state == null) return;
     try {
-      _loadingNotifier.setLoading(false);
+      setLoading(false);
 
       if (state != null) {
         state = state!.copyWith(pieces: []);
@@ -358,9 +357,9 @@ class UserNotifier extends StateNotifier<UserModel?> {
         state = currentUser;
       }
     } catch (e) {
-      _errorNotifier.setError('Failed to refresh pieces: $e');
+      showError('Failed to refresh pieces: $e');
     } finally {
-      _loadingNotifier.setLoading(false);
+      setLoading(false);
     }
   }
 
@@ -374,47 +373,46 @@ class UserNotifier extends StateNotifier<UserModel?> {
       final response = await _userRepository.updatePushToken(token);
 
       if (!response.isSuccess) {
-        _errorNotifier
-            .setError(response.message ?? 'Failed to update push token');
+        showError(response.message ?? 'Failed to update push token');
         return false;
       }
 
       return true;
     } catch (e) {
-      _errorNotifier.setError('Error updating push token: $e');
+      showError('Error updating push token: $e');
       return false;
     }
   }
 
   Future<ApiResponse> searchUsers(String query) async {
     try {
-      // _loadingNotifier.setLoading(true);
-      _errorNotifier.clearError();
+      // setLoading(true);
+      clearError();
 
       final response = await _userRepository.searchUsers(query);
 
       return response;
     } catch (e) {
-      _errorNotifier.setError('Error searching users: ${e.toString()}');
+      showError('Error searching users: ${e.toString()}');
       return ApiResponse.error('Error searching users: ${e.toString()}');
     } finally {
-      // _loadingNotifier.setLoading(false);
+      // setLoading(false);
     }
   }
 
   Future<ApiResponse> getProfileWithPieces(String username) async {
     try {
-      // _loadingNotifier.setLoading(true);
-      // _errorNotifier.clearError();
+      // setLoading(true);
+      // clearError();
 
       final response = await _userRepository.getProfileWithPieces(username);
 
       return response;
     } catch (e) {
-      _errorNotifier.setError('Error fetching profile: ${e.toString()}');
+      showError('Error fetching profile: ${e.toString()}');
       return ApiResponse.error('Error fetching profile: ${e.toString()}');
     } finally {
-      // _loadingNotifier.setLoading(false);
+      // setLoading(false);
     }
   }
 }

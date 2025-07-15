@@ -4,20 +4,18 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:frames_app/core/mixins/message_mixin.dart';
 import 'package:frames_app/core/repositories/anchor_repository.dart';
 import 'package:frames_app/core/repositories/piece_repository.dart';
 import 'package:frames_app/core/services/unity_scene_service.dart';
 import 'package:frames_app/models/piece_model.dart';
-import 'package:frames_app/providers/error_provider.dart';
 import 'package:frames_app/providers/user_provider.dart';
 import 'package:frames_app/ui/Screens/user_profile_screen.dart';
-import 'package:frames_app/ui/Widgets/AR_Piece_placement.dart';
 import 'package:frames_app/ui/Widgets/piece_edit_section.dart';
 import 'package:frames_app/ui/Widgets/piece_flag_manager.dart';
 import 'package:frames_app/ui/Widgets/piece_info_section.dart';
 import 'package:frames_app/ui/Widgets/piece_location_manager.dart';
 import 'package:frames_app/ui/Widgets/piece_offer_manager.dart';
-import 'package:frames_app/ui/Widgets/piece_unity_viewer.dart';
 
 class PiecePreviewPopup extends ConsumerStatefulWidget {
   final Piece piece;
@@ -37,7 +35,8 @@ class PiecePreviewPopup extends ConsumerStatefulWidget {
   _PiecePreviewPopupState createState() => _PiecePreviewPopupState();
 }
 
-class _PiecePreviewPopupState extends ConsumerState<PiecePreviewPopup> {
+class _PiecePreviewPopupState extends ConsumerState<PiecePreviewPopup>
+    with MessageMixin {
   // State variables
   bool _isLoading = true;
   bool _isEditing = false;
@@ -307,11 +306,9 @@ class _PiecePreviewPopupState extends ConsumerState<PiecePreviewPopup> {
         return;
       }
 
-      ref
-          .read(errorProvider.notifier)
-          .setError(response.message ?? 'Failed to delete piece');
+      showError(response.message ?? 'Failed to delete piece');
     } catch (e) {
-      ref.read(errorProvider.notifier).setError('Failed to delete piece: $e');
+      showError('Failed to delete piece: $e');
     } finally {
       if (mounted) {
         setState(() {
@@ -337,23 +334,23 @@ class _PiecePreviewPopupState extends ConsumerState<PiecePreviewPopup> {
               },
               child: const Text('Close'),
             ),
-            TextButton(
-              onPressed: () async {
-                final String pieceDataToPass = widget.pieceData;
-                final String usernameToPass = username!;
+            // TextButton(
+            //   onPressed: () async {
+            //     final String pieceDataToPass = widget.pieceData;
+            //     final String usernameToPass = username!;
 
-                if (mounted) {
-                  Navigator.of(context).pop(); // pop alert dialog
-                  Navigator.of(context).pop(); // pop piece preview popup
-
-                  Navigator.of(context).push(MaterialPageRoute(
-                      builder: (context) => UnityARViewPlacement(
-                          pieceData: pieceDataToPass,
-                          username: usernameToPass)));
-                }
-              },
-              child: const Text('Proceed'),
-            ),
+            //     if (mounted) {
+            //       Navigator.of(context).pop(); // pop alert dialog
+            //       Navigator.of(context).pop(); // pop piece preview popup
+            //         //TODO:remove
+            //     //   Navigator.of(context).push(MaterialPageRoute(
+            //     //       builder: (context) => UnityARViewPlacement(
+            //     //           pieceData: pieceDataToPass,
+            //     //           username: usernameToPass)));
+            //     // }
+            //   },
+            //   child: const Text('Proceed'),
+            // ),
           ],
         );
       },
@@ -412,11 +409,9 @@ class _PiecePreviewPopupState extends ConsumerState<PiecePreviewPopup> {
                       );
                       return;
                     }
-                    ref.read(errorProvider.notifier).setError(response.message);
+                    showError(response.message);
                   } catch (e) {
-                    ref
-                        .read(errorProvider.notifier)
-                        .setError('Failed to turn piece offline: $e');
+                    showError('Failed to turn piece offline: $e');
                   } finally {
                     if (mounted) {
                       setState(() {
@@ -545,20 +540,21 @@ class _PiecePreviewPopupState extends ConsumerState<PiecePreviewPopup> {
                       ),
 
                     // Unity View component with smaller, adaptive height
-                    SizedBox(
-                      height: _isFullScreen
-                          ? MediaQuery.of(context).size.height * 0.7
-                          : (maxHeight * 0.3).clamp(150.0, 300.0),
-                      child: _shouldShowUnityView()
-                          ? PieceUnityViewer(
-                              pieceData: widget.pieceData,
-                              isFullScreen: _isFullScreen,
-                              onUnityMessage: _handleUnityMessage,
-                              onErrorMessage: _setErrorMessage,
-                              isLoading: _isLoading,
-                            )
-                          : _buildHiddenPieceView(), // NEW: Show hidden message instead
-                    ),
+                    //TODO:remove
+                    // SizedBox(
+                    //   height: _isFullScreen
+                    //       ? MediaQuery.of(context).size.height * 0.7
+                    //       : (maxHeight * 0.3).clamp(150.0, 300.0),
+                    //   child: _shouldShowUnityView()
+                    //       ? PieceUnityViewer(
+                    //           pieceData: widget.pieceData,
+                    //           isFullScreen: _isFullScreen,
+                    //           onUnityMessage: _handleUnityMessage,
+                    //           onErrorMessage: _setErrorMessage,
+                    //           isLoading: _isLoading,
+                    //         )
+                    //       : _buildHiddenPieceView(), // NEW: Show hidden message instead
+                    // ),
 
                     // Scrollable details section
                     if (!_isFullScreen)

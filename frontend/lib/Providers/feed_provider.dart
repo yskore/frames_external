@@ -1,8 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:frames_app/core/mixins/loading_mixin.dart';
+import 'package:frames_app/core/mixins/message_mixin.dart';
 import 'package:frames_app/core/repositories/feed_repository.dart';
 import 'package:frames_app/models/feed_entry_model.dart';
-import 'package:frames_app/providers/error_provider.dart';
-import 'package:frames_app/providers/loading_provider.dart';
 
 final feedRepositoryProvider = Provider<FeedRepository>((ref) {
   return FeedRepository();
@@ -11,10 +11,8 @@ final feedRepositoryProvider = Provider<FeedRepository>((ref) {
 final feedProvider =
     StateNotifierProvider<FeedNotifier, List<FeedEntry>>((ref) {
   final feedRepository = ref.read(feedRepositoryProvider);
-  final loadingNotifier = ref.read(loadingProvider.notifier);
-  final errorNotifier = ref.read(errorProvider.notifier);
 
-  return FeedNotifier(feedRepository, loadingNotifier, errorNotifier);
+  return FeedNotifier(feedRepository);
 });
 
 final unreadFeedCountProvider = Provider<int>((ref) {
@@ -22,10 +20,9 @@ final unreadFeedCountProvider = Provider<int>((ref) {
   return feedEntries.where((entry) => !entry.read).length;
 });
 
-class FeedNotifier extends StateNotifier<List<FeedEntry>> {
+class FeedNotifier extends StateNotifier<List<FeedEntry>>
+    with LoadingMixin, MessageMixin {
   final FeedRepository _feedRepository;
-  final LoadingNotifier _loadingNotifier;
-  final ErrorNotifier _errorNotifier;
 
   bool _isLoading = false;
   int _currentOffset = 0;
@@ -33,8 +30,7 @@ class FeedNotifier extends StateNotifier<List<FeedEntry>> {
   bool _hasMore = true;
   bool _isInitialized = false;
 
-  FeedNotifier(this._feedRepository, this._loadingNotifier, this._errorNotifier)
-      : super([]);
+  FeedNotifier(this._feedRepository) : super([]);
 
   bool get isInitialized => _isInitialized;
 
@@ -44,7 +40,7 @@ class FeedNotifier extends StateNotifier<List<FeedEntry>> {
     try {
       _isLoading = true;
       if (refresh) {
-        _loadingNotifier.setLoading(true);
+        setLoading(true);
         _currentOffset = 0;
         _hasMore = true;
       }
@@ -70,10 +66,10 @@ class FeedNotifier extends StateNotifier<List<FeedEntry>> {
 
       _isInitialized = true;
     } catch (e) {
-      _errorNotifier.setError('Failed to load feed: $e');
+      showError('Failed to load feed: $e');
     } finally {
       _isLoading = false;
-      _loadingNotifier.setLoading(false);
+      setLoading(false);
     }
   }
 
@@ -87,29 +83,28 @@ class FeedNotifier extends StateNotifier<List<FeedEntry>> {
             if (entry.id == entryId) entry.copyWith(read: true) else entry,
         ];
       } else {
-        _errorNotifier.setError(response.message ?? 'Failed to mark as read');
+        showError(response.message ?? 'Failed to mark as read');
       }
     } catch (e) {
-      _errorNotifier.setError('Error marking as read: $e');
+      showError('Error marking as read: $e');
     }
   }
 
   Future<void> markAllAsRead() async {
     try {
-      _loadingNotifier.setLoading(true);
+      setLoading(true);
 
       final response = await _feedRepository.markAllAsRead();
 
       if (response.success) {
         state = state.map((entry) => entry.copyWith(read: true)).toList();
       } else {
-        _errorNotifier
-            .setError(response.message ?? 'Failed to mark all as read');
+        showError(response.message ?? 'Failed to mark all as read');
       }
     } catch (e) {
-      _errorNotifier.setError('Error marking all as read: $e');
+      showError('Error marking all as read: $e');
     } finally {
-      _loadingNotifier.setLoading(false);
+      setLoading(false);
     }
   }
 
@@ -120,11 +115,10 @@ class FeedNotifier extends StateNotifier<List<FeedEntry>> {
       if (response.success) {
         state = state.where((entry) => entry.id != entryId).toList();
       } else {
-        _errorNotifier
-            .setError(response.message ?? 'Failed to delete feed entry');
+        showError(response.message ?? 'Failed to delete feed entry');
       }
     } catch (e) {
-      _errorNotifier.setError('Error deleting feed entry: $e');
+      showError('Error deleting feed entry: $e');
     }
   }
 

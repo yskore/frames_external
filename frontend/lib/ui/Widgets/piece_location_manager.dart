@@ -1,16 +1,17 @@
 // piece_location_manager.dart
 import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:frames_app/core/mixins/message_mixin.dart';
 import 'package:frames_app/core/repositories/piece_repository.dart';
 import 'package:frames_app/core/services/map.dart';
-import 'package:frames_app/providers/error_provider.dart';
-import 'package:frames_app/providers/user_provider.dart';
 import 'package:frames_app/models/piece_model.dart';
+import 'package:frames_app/providers/user_provider.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
-class PieceLocationManager {
+class PieceLocationManager with MessageMixin {
   final WidgetRef ref;
   final String pieceId;
   final String pieceTitle;
@@ -32,20 +33,21 @@ class PieceLocationManager {
   // NEW: Calculate random point within radius for hidden pieces
   LatLng _getRandomLocationWithinRadius(LatLng center, int radiusMeters) {
     if (radiusMeters == 0) return center; // Use exact location if radius is 0
-    
+
     final random = Random();
-    
+
     // Convert radius from meters to degrees (approximate)
-    final radiusDegrees = radiusMeters / 111000.0; // Rough conversion: 1 degree ≈ 111km
-    
+    final radiusDegrees =
+        radiusMeters / 111000.0; // Rough conversion: 1 degree ≈ 111km
+
     // Generate random angle and distance
     final angle = random.nextDouble() * 2 * pi;
     final distance = random.nextDouble() * radiusDegrees;
-    
+
     // Calculate new coordinates
     final lat = center.latitude + (distance * cos(angle));
     final lng = center.longitude + (distance * sin(angle));
-    
+
     return LatLng(lat, lng);
   }
 
@@ -55,12 +57,12 @@ class PieceLocationManager {
     if (_isCurrentUserOwner()) {
       return exactLocation;
     }
-    
+
     // If piece is hidden and has radius > 0, use random location within radius
     if (piece.isHidden && piece.showRadius > 0) {
       return _getRandomLocationWithinRadius(exactLocation, piece.showRadius);
     }
-    
+
     // For all other cases (non-hidden or hidden with radius = 0), use exact location
     return exactLocation;
   }
@@ -75,20 +77,18 @@ class PieceLocationManager {
 
     final pieceRepository = ref.read(pieceRepositoryProvider);
     final anchorResponse = await pieceRepository.getAnchorByPieceId(pieceId);
-    
+
     // Dismiss loading dialog
     Navigator.pop(context);
 
     if (anchorResponse.data != null) {
       final anchor = anchorResponse.data!;
       final exactLocation = LatLng(
-        anchor.location.coordinates[1], 
-        anchor.location.coordinates[0]
-      );
+          anchor.location.coordinates[1], anchor.location.coordinates[0]);
 
       // Determine what location to show on map
-      final displayLocation = _isCurrentUserOwner() 
-          ? exactLocation 
+      final displayLocation = _isCurrentUserOwner()
+          ? exactLocation
           : _getNavigationLocation(exactLocation);
 
       showModalBottomSheet(
@@ -106,20 +106,22 @@ class PieceLocationManager {
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Piece Location', 
-                             style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                        const Text('Piece Location',
+                            style: TextStyle(
+                                fontSize: 18, fontWeight: FontWeight.bold)),
                         // NEW: Show location type indicator
                         if (piece.isHidden && !_isCurrentUserOwner())
                           Text(
-                            piece.showRadius > 0 
+                            piece.showRadius > 0
                                 ? 'Approximate location (${piece.showRadius}m area)'
                                 : 'Exact location',
-                            style: TextStyle(fontSize: 12, color: Colors.orange),
+                            style: const TextStyle(
+                                fontSize: 12, color: Colors.orange),
                           ),
                       ],
                     ),
                     IconButton(
-                      icon: Icon(Icons.close),
+                      icon: const Icon(Icons.close),
                       onPressed: () => Navigator.pop(context),
                     ),
                   ],
@@ -135,21 +137,25 @@ class PieceLocationManager {
                       ),
                       markers: {
                         Marker(
-                          markerId: MarkerId('piece_location'),
+                          markerId: const MarkerId('piece_location'),
                           position: displayLocation,
                           infoWindow: InfoWindow(
                             title: pieceTitle,
-                            snippet: piece.isHidden && !_isCurrentUserOwner() && piece.showRadius > 0
+                            snippet: piece.isHidden &&
+                                    !_isCurrentUserOwner() &&
+                                    piece.showRadius > 0
                                 ? 'Approximate location'
                                 : 'Piece location',
                           ),
                         )
                       },
                       // NEW: Add circle for hidden pieces with radius
-                      circles: piece.isHidden && !_isCurrentUserOwner() && piece.showRadius > 0
+                      circles: piece.isHidden &&
+                              !_isCurrentUserOwner() &&
+                              piece.showRadius > 0
                           ? {
                               Circle(
-                                circleId: CircleId('piece_radius'),
+                                circleId: const CircleId('piece_radius'),
                                 center: exactLocation,
                                 radius: piece.showRadius.toDouble(),
                                 fillColor: Colors.orange.withOpacity(0.2),
@@ -166,10 +172,11 @@ class PieceLocationManager {
                       left: 16,
                       right: 16,
                       child: ElevatedButton.icon(
-                        icon: Icon(Icons.directions),
-                        label: Text('Get Directions'),
+                        icon: const Icon(Icons.directions),
+                        label: const Text('Get Directions'),
                         onPressed: () {
-                          final navigationLocation = _getNavigationLocation(exactLocation);
+                          final navigationLocation =
+                              _getNavigationLocation(exactLocation);
                           MapService.openGoogleMapsNavigation(
                             navigationLocation.latitude,
                             navigationLocation.longitude,
@@ -177,7 +184,7 @@ class PieceLocationManager {
                           );
                         },
                         style: ElevatedButton.styleFrom(
-                          padding: EdgeInsets.symmetric(vertical: 12),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
                         ),
                       ),
                     ),
@@ -190,8 +197,7 @@ class PieceLocationManager {
       );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Could not load piece location'))
-      );
+          const SnackBar(content: Text('Could not load piece location')));
     }
   }
 
@@ -200,7 +206,7 @@ class PieceLocationManager {
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) => Center(child: CircularProgressIndicator()),
+      builder: (context) => const Center(child: CircularProgressIndicator()),
     );
 
     final pieceRepository = ref.read(pieceRepositoryProvider);
@@ -208,23 +214,22 @@ class PieceLocationManager {
 
     // Dismiss loading indicator
     Navigator.pop(context);
-    
+
     if (anchorResponse.error != null) {
-      ref.read(errorProvider.notifier).setError(anchorResponse.error);
+      showError(anchorResponse.error);
     }
 
     if (anchorResponse.data != null) {
       final anchor = anchorResponse.data!;
       final exactLocation = LatLng(
-        anchor.location.coordinates[1], 
-        anchor.location.coordinates[0]
-      );
-      
+          anchor.location.coordinates[1], anchor.location.coordinates[0]);
+
       // Determine what location to share
       final shareLocation = _getNavigationLocation(exactLocation);
-      
+
       // Format coordinates for maps
-      final locationString = '${shareLocation.latitude},${shareLocation.longitude}';
+      final locationString =
+          '${shareLocation.latitude},${shareLocation.longitude}';
 
       // Copy to clipboard
       await Clipboard.setData(ClipboardData(text: locationString));
@@ -234,45 +239,45 @@ class PieceLocationManager {
         context: context,
         builder: (BuildContext context) {
           return AlertDialog(
-            title: Text('Location Copied!'),
+            title: const Text('Location Copied!'),
             content: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('The coordinates have been copied to your clipboard.'),
+                const Text(
+                    'The coordinates have been copied to your clipboard.'),
                 const SizedBox(height: 8),
                 // NEW: Show location type information
                 if (piece.isHidden && !_isCurrentUserOwner()) ...[
                   Text(
-                    piece.showRadius > 0 
+                    piece.showRadius > 0
                         ? 'Note: This is an approximate location within ${piece.showRadius}m of the actual piece.'
                         : 'This is the exact piece location.',
-                    style: TextStyle(
-                      fontSize: 12, 
+                    style: const TextStyle(
+                      fontSize: 12,
                       color: Colors.orange,
                       fontStyle: FontStyle.italic,
                     ),
                   ),
                   const SizedBox(height: 8),
                 ],
-                Text('To use:'),
-                Text('1. Open Google Maps or Apple Maps'),
-                Text('2. Paste the coordinates in the search bar'),
+                const Text('To use:'),
+                const Text('1. Open Google Maps or Apple Maps'),
+                const Text('2. Paste the coordinates in the search bar'),
               ],
             ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context),
-                child: Text('OK'),
+                child: const Text('OK'),
               ),
             ],
           );
         },
       );
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Could not share location - anchor not found'))
-      );
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Could not share location - anchor not found')));
     }
   }
 }

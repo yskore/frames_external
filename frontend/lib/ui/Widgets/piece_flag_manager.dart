@@ -135,49 +135,17 @@ class PieceFlagManager {
   }
 
   Future<void> _submitFlag(BuildContext context, String flagType) async {
-    try {
-      final pieceNotifier = ref.read(pieceProvider.notifier);
+    final pieceNotifier = ref.read(pieceProvider.notifier);
 
-      final success = await pieceNotifier.flagPiece(
-        pieceId: piece.pieceid,
-        flagType: flagType,
-      );
+    await pieceNotifier.flagPiece(
+      pieceId: piece.pieceid,
+      flagType: flagType,
+    );
 
-      if (context.mounted) {
-        Navigator.of(context)
-          ..pop()
-          ..pop();
-
-        if (success) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Row(
-                children: [
-                  Icon(Icons.check_circle, color: Colors.white),
-                  SizedBox(width: 8),
-                  Expanded(
-                      child: Text(
-                          'Thank you for your report. We will review it shortly.')),
-                ],
-              ),
-              backgroundColor: Colors.green,
-              duration: Duration(seconds: 3),
-            ),
-          );
-        }
-      }
-    } catch (e) {
-      if (context.mounted) {
-        Navigator.of(context)
-          ..pop()
-          ..pop();
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to submit flag: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
+    if (context.mounted) {
+      Navigator.of(context)
+        ..pop()
+        ..pop();
     }
   }
 }

@@ -1,8 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:frames_app/core/mixins/loading_mixin.dart';
+import 'package:frames_app/core/mixins/message_mixin.dart';
 import 'package:frames_app/core/repositories/subscription_repository.dart';
 import 'package:frames_app/models/subscription_model.dart';
-import 'package:frames_app/providers/error_provider.dart';
-import 'package:frames_app/providers/loading_provider.dart';
 
 // Provider for subscription repository
 final subscriptionRepositoryProvider = Provider<SubscriptionRepository>((ref) {
@@ -26,10 +26,8 @@ final subscriptionsProvider =
     StateNotifierProvider<SubscriptionsNotifier, List<UserSubscriptionModel>>(
         (ref) {
   final repository = ref.read(subscriptionRepositoryProvider);
-  final loadingNotifier = ref.read(loadingProvider.notifier);
-  final errorNotifier = ref.read(errorProvider.notifier);
 
-  return SubscriptionsNotifier(repository, loadingNotifier, errorNotifier);
+  return SubscriptionsNotifier(repository);
 });
 
 // Provider for user's subscribers (people who follow them)
@@ -37,26 +35,20 @@ final subscribersProvider =
     StateNotifierProvider<SubscribersNotifier, List<UserSubscriptionModel>>(
         (ref) {
   final repository = ref.read(subscriptionRepositoryProvider);
-  final loadingNotifier = ref.read(loadingProvider.notifier);
-  final errorNotifier = ref.read(errorProvider.notifier);
 
-  return SubscribersNotifier(repository, loadingNotifier, errorNotifier);
+  return SubscribersNotifier(repository);
 });
 
-class SubscriptionsNotifier extends StateNotifier<List<UserSubscriptionModel>> {
+class SubscriptionsNotifier extends StateNotifier<List<UserSubscriptionModel>>
+    with LoadingMixin, MessageMixin {
   final SubscriptionRepository _repository;
-  final LoadingNotifier _loadingNotifier;
-  final ErrorNotifier _errorNotifier;
 
-  SubscriptionsNotifier(
-      this._repository, this._loadingNotifier, this._errorNotifier)
-      : super([]);
+  SubscriptionsNotifier(this._repository) : super([]);
 
   Future<void> loadSubscriptions() async {
     try {
-      _loadingNotifier.setLoading(true);
-
-      _errorNotifier.clearError();
+      setLoading(true);
+      clearError();
 
       final response = await _repository.getMySubscriptions();
 
@@ -67,13 +59,12 @@ class SubscriptionsNotifier extends StateNotifier<List<UserSubscriptionModel>> {
             .map((json) => UserSubscriptionModel.fromJson(json))
             .toList();
       } else {
-        _errorNotifier
-            .setError(response.message ?? 'Failed to load subscriptions');
+        showError(response.message ?? 'Failed to load subscriptions');
       }
     } catch (e) {
-      _errorNotifier.setError('Error loading subscriptions: $e');
+      showError('Error loading subscriptions: $e');
     } finally {
-      _loadingNotifier.setLoading(false);
+      setLoading(false);
     }
   }
 
@@ -87,14 +78,14 @@ class SubscriptionsNotifier extends StateNotifier<List<UserSubscriptionModel>> {
         // await loadSubscriptions();
         return true;
       } else {
-        _errorNotifier.setError(response.message ?? 'Failed to follow user');
+        showError(response.message ?? 'Failed to follow user');
         return false;
       }
     } catch (e) {
-      _errorNotifier.setError('Error following user: $e');
+      showError('Error following user: $e');
       return false;
     } finally {
-      _loadingNotifier.setLoading(false);
+      setLoading(false);
     }
   }
 
@@ -108,31 +99,28 @@ class SubscriptionsNotifier extends StateNotifier<List<UserSubscriptionModel>> {
         state = state.where((user) => user.username != username).toList();
         return true;
       } else {
-        _errorNotifier.setError(response.message ?? 'Failed to unfollow user');
+        showError(response.message ?? 'Failed to unfollow user');
         return false;
       }
     } catch (e) {
-      _errorNotifier.setError('Error unfollowing user: $e');
+      showError('Error unfollowing user: $e');
       return false;
     } finally {
-      _loadingNotifier.setLoading(false);
+      setLoading(false);
     }
   }
 }
 
-class SubscribersNotifier extends StateNotifier<List<UserSubscriptionModel>> {
+class SubscribersNotifier extends StateNotifier<List<UserSubscriptionModel>>
+    with LoadingMixin, MessageMixin {
   final SubscriptionRepository _repository;
-  final LoadingNotifier _loadingNotifier;
-  final ErrorNotifier _errorNotifier;
 
-  SubscribersNotifier(
-      this._repository, this._loadingNotifier, this._errorNotifier)
-      : super([]);
+  SubscribersNotifier(this._repository) : super([]);
 
   Future<void> loadSubscribers() async {
     try {
-      _loadingNotifier.setLoading(true);
-      _errorNotifier.clearError();
+      setLoading(true);
+      clearError();
 
       final response = await _repository.getMySubscribers();
 
@@ -142,13 +130,12 @@ class SubscribersNotifier extends StateNotifier<List<UserSubscriptionModel>> {
             .map((json) => UserSubscriptionModel.fromJson(json))
             .toList();
       } else {
-        _errorNotifier
-            .setError(response.message ?? 'Failed to load subscribers');
+        showError(response.message ?? 'Failed to load subscribers');
       }
     } catch (e) {
-      _errorNotifier.setError('Error loading subscribers: $e');
+      showError('Error loading subscribers: $e');
     } finally {
-      _loadingNotifier.setLoading(false);
+      setLoading(false);
     }
   }
 }

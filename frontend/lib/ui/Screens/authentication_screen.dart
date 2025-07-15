@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:frames_app/Providers/signup_form_notifier.dart';
-import 'package:frames_app/providers/error_provider.dart';
+import 'package:frames_app/core/mixins/message_mixin.dart';
 import 'package:frames_app/providers/user_provider.dart';
 import 'package:frames_app/ui/Screens/initial_profile_setup.dart';
 
@@ -14,7 +14,8 @@ class AuthenticationScreen extends ConsumerStatefulWidget {
   _AuthenticationScreenState createState() => _AuthenticationScreenState();
 }
 
-class _AuthenticationScreenState extends ConsumerState<AuthenticationScreen> {
+class _AuthenticationScreenState extends ConsumerState<AuthenticationScreen>
+    with MessageMixin {
   final _codeController = TextEditingController();
   bool _isLoading = false;
 
@@ -22,7 +23,7 @@ class _AuthenticationScreenState extends ConsumerState<AuthenticationScreen> {
     final signupForm = ref.read(signupFormProvider);
 
     if (signupForm.email == null) {
-      ref.read(errorProvider.notifier).setError('Email address not found');
+      showError('Email address not found');
       return;
     }
 
@@ -77,9 +78,7 @@ class _AuthenticationScreenState extends ConsumerState<AuthenticationScreen> {
                   ? null
                   : () async {
                       if (_codeController.text.isEmpty) {
-                        ref
-                            .read(errorProvider.notifier)
-                            .setError('Please enter the verification code');
+                        showError('Please enter the verification code');
                         return;
                       }
 

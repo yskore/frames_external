@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:frames_app/core/cubits/loading_cubit.dart';
 import 'package:frames_app/models/subscription_model.dart';
-import 'package:frames_app/providers/loading_provider.dart';
 import 'package:frames_app/providers/subscription_provider.dart';
 import 'package:frames_app/ui/Screens/other_user_profile_screen.dart';
 
@@ -26,7 +27,7 @@ class _SubscriptionsScreenState extends ConsumerState<SubscriptionsScreen> {
   @override
   Widget build(BuildContext context) {
     final subscriptions = ref.watch(subscriptionsProvider);
-    final isLoading = ref.watch(loadingProvider);
+    final isLoading = context.watch<LoadingCubit>().state.isLoading;
 
     return Scaffold(
       appBar: AppBar(

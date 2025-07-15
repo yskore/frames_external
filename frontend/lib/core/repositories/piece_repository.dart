@@ -510,7 +510,7 @@ class PieceRepository {
   Future<ApiResponse> acknowledgeDisputeResolution(String pieceId) async {
     try {
       final response = await _apiService.post(
-        'pieces/$pieceId/acknowledge-dispute',
+        '$pieceId/acknowledge-dispute',
         data: {},
       );
 

@@ -1,13 +1,13 @@
 // piece_edit_section.dart
+import 'package:currency_picker/currency_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:frames_app/core/mixins/message_mixin.dart';
 import 'package:frames_app/core/repositories/piece_repository.dart';
 import 'package:frames_app/models/piece_model.dart';
-import 'package:frames_app/providers/error_provider.dart';
 import 'package:frames_app/providers/user_provider.dart';
-import 'package:currency_picker/currency_picker.dart';
 
-class PieceEditManager {
+class PieceEditManager with MessageMixin {
   final WidgetRef ref;
   final Piece piece;
   final TextEditingController nameController;
@@ -18,7 +18,7 @@ class PieceEditManager {
   final String Function() getCurrentOwnership;
   final Function(bool) setLoading;
   final Function(Piece) updatePiece;
-  bool currentForSaleState; 
+  bool currentForSaleState;
   bool currentHiddenState;
   int currentShowRadius;
 
@@ -33,11 +33,11 @@ class PieceEditManager {
     required this.getCurrentOwnership,
     required this.setLoading,
     required this.updatePiece,
-  }) : currentForSaleState = piece.pieceForSale,
-   currentHiddenState = piece.isHidden,
-       currentShowRadius = piece.showRadius;
+  })  : currentForSaleState = piece.pieceForSale,
+        currentHiddenState = piece.isHidden,
+        currentShowRadius = piece.showRadius;
 
- // In piece_edit_section.dart
+  // In piece_edit_section.dart
 // In piece_edit_section.dart
 
   void updateHiddenState(bool newState) {
@@ -49,31 +49,32 @@ class PieceEditManager {
     currentShowRadius = newRadius;
   }
 
-void openCurrencyPicker(BuildContext context) {
-  showCurrencyPicker(
-    context: context,
-    showFlag: true,
-    showCurrencyName: true,
-    showCurrencyCode: true,
-    onSelect: (Currency currency) {
-      currencyController.text = currency.code;
-    },
-  );
-}
+  void openCurrencyPicker(BuildContext context) {
+    showCurrencyPicker(
+      context: context,
+      showFlag: true,
+      showCurrencyName: true,
+      showCurrencyCode: true,
+      onSelect: (Currency currency) {
+        currencyController.text = currency.code;
+      },
+    );
+  }
 
   void showDeleteConfirmation(BuildContext context, Function() onDelete) {
     showDialog(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: Text('Delete Piece'),
-          content: Text('Are you sure you want to delete this piece? This action cannot be undone.'),
+          title: const Text('Delete Piece'),
+          content: const Text(
+              'Are you sure you want to delete this piece? This action cannot be undone.'),
           actions: [
             TextButton(
               onPressed: () {
                 Navigator.of(context).pop(); // Close dialog
               },
-              child: Text('Cancel'),
+              child: const Text('Cancel'),
             ),
             TextButton(
               onPressed: () {
@@ -83,7 +84,7 @@ void openCurrencyPicker(BuildContext context) {
               style: TextButton.styleFrom(
                 foregroundColor: Colors.red,
               ),
-              child: Text('Delete'),
+              child: const Text('Delete'),
             ),
           ],
         );
@@ -101,22 +102,23 @@ void openCurrencyPicker(BuildContext context) {
     try {
       final pieceRepository = ref.read(pieceRepositoryProvider);
       String? paymentDetails;
-      if (currentForSaleState) {  // Use the tracked state
+      if (currentForSaleState) {
+        // Use the tracked state
         paymentDetails = paymentDetailsController.text;
       }
-      
+
       final response = await pieceRepository.updatePieceInfo(
         pieceOwner: piece.pieceOwner,
         oldPieceTitle: piece.pieceTitle,
         newPieceTitle: nameController.text,
         pieceDescription: descriptionController.text,
-        pieceForSale: currentForSaleState,  // Use the tracked state
+        pieceForSale: currentForSaleState, // Use the tracked state
         piecePrice: double.tryParse(priceController.text) ?? 0.0,
         ownership: getCurrentOwnership(),
         paymentDetails: paymentDetails,
         currency: currencyController.text,
-        isHidden: currentHiddenState,        // ADD
-        showRadius: currentShowRadius, 
+        isHidden: currentHiddenState, // ADD
+        showRadius: currentShowRadius,
       );
 
       if (response.isSuccess) {
@@ -124,25 +126,29 @@ void openCurrencyPicker(BuildContext context) {
           pieceTitle: nameController.text,
           pieceDescription: descriptionController.text,
           piecePrice: double.tryParse(priceController.text) ?? piece.piecePrice,
-          paymentDetails: currentForSaleState ? paymentDetailsController.text : piece.paymentDetails,
+          paymentDetails: currentForSaleState
+              ? paymentDetailsController.text
+              : piece.paymentDetails,
           currency: currencyController.text,
-          pieceForSale: currentForSaleState,  // Include the updated state
-          isHidden: currentHiddenState,      // ADD
+          pieceForSale: currentForSaleState, // Include the updated state
+          isHidden: currentHiddenState, // ADD
           showRadius: currentShowRadius,
           ownership: getCurrentOwnership(),
         );
-        
+
         updatePiece(updatedPiece);
 
         // Explicitly refresh user data first - no showLoading to avoid UI flicker
-        await ref.read(userNotifierProvider).refreshUserData(showLoading: false);
-        
+        await ref
+            .read(userNotifierProvider)
+            .refreshUserData(showLoading: false);
+
         return true;
       } else {
         throw Exception(response.message ?? 'Failed to update piece');
       }
     } catch (e) {
-      ref.read(errorProvider.notifier).setError('Failed to update piece: $e');
+      showError('Failed to update piece: $e');
       return false;
     } finally {
       setLoading(false);

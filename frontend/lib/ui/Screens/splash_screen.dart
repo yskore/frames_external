@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:frames_app/core/auth/token_manager.dart';
-import 'package:frames_app/providers/loading_provider.dart';
+import 'package:frames_app/core/mixins/loading_mixin.dart';
 import 'package:frames_app/providers/user_provider.dart';
 import 'package:frames_app/ui/Screens/home_screen.dart';
 import 'package:frames_app/ui/Screens/login_screen.dart';
@@ -13,7 +13,7 @@ class SplashScreen extends ConsumerStatefulWidget {
   ConsumerState<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends ConsumerState<SplashScreen> {
+class _SplashScreenState extends ConsumerState<SplashScreen> with LoadingMixin {
   bool _redirectionInProgress = false;
 
   @override
@@ -30,7 +30,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
     _redirectionInProgress = true;
 
     // Set loading state to true
-    ref.read(loadingProvider.notifier).setLoading(true);
+    setLoading(true);
 
     // Add a small delay to show the splash screen
     await Future.delayed(const Duration(milliseconds: 800));
@@ -66,7 +66,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
     } finally {
       // Always turn off loading when done with auth check
       if (mounted) {
-        ref.read(loadingProvider.notifier).setLoading(false);
+        setLoading(false);
       }
       _redirectionInProgress = false;
     }

@@ -1,39 +1,21 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:developer';
-import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:frames_app/core/services/unity_scene_service.dart';
-import 'package:frames_app/models/piece_model.dart';
-import 'package:frames_app/models/user_profile_model.dart';
-import 'package:frames_app/models/anchor_model.dart';
+import 'package:frames_app/Providers/subscription_provider.dart';
+import 'package:frames_app/Providers/user_provider.dart';
+import 'package:frames_app/core/extensions/context_extensions.dart';
 import 'package:frames_app/core/repositories/piece_repository.dart';
-import 'package:frames_app/ui/Screens/home_screen.dart';
-import 'package:frames_app/ui/Screens/search_screen.dart';
-import 'package:frames_app/ui/Widgets/piece_preview_popup.dart';
-import 'package:frames_app/Providers/error_provider.dart';
-import 'package:frames_app/Providers/user_provider.dart';
-import 'package:frames_app/Providers/subscription_provider.dart';
-import 'package:frames_app/ui/Screens/user_subscribers_screen.dart';
-import 'package:geolocator/geolocator.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';import 'dart:convert';
-import 'dart:developer';
-
-import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:frames_app/core/services/unity_scene_service.dart';
+import 'package:frames_app/models/anchor_model.dart';
 import 'package:frames_app/models/piece_model.dart';
 import 'package:frames_app/models/user_profile_model.dart';
-import 'package:frames_app/models/anchor_model.dart';
-import 'package:frames_app/ui/Screens/home_screen.dart';
-import 'package:frames_app/ui/Screens/search_screen.dart';
-import 'package:frames_app/ui/Widgets/piece_preview_popup.dart';
-import 'package:frames_app/ui/Widgets/map_view_widget.dart';
-import 'package:frames_app/Providers/error_provider.dart';
-import 'package:frames_app/Providers/user_provider.dart';
-import 'package:frames_app/Providers/subscription_provider.dart';
 import 'package:frames_app/ui/Screens/user_subscribers_screen.dart';
+import 'package:frames_app/ui/Widgets/piece_preview_popup.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 class OtherUserProfileScreen extends ConsumerStatefulWidget {
   final String username;
@@ -58,7 +40,7 @@ class _OtherUserProfileScreenState
   String? _errorMessage;
   bool _isSubscribed = false;
   bool _isSubscribeButtonLoading = false;
-  
+
   Completer<GoogleMapController> _mapController = Completer();
   LatLng? _currentUserLocation;
 
@@ -67,7 +49,7 @@ class _OtherUserProfileScreenState
     super.initState();
     _loadProfileData();
     _requestLocationPermission();
-    
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final sceneManager = ref.read(unitySceneManagerProvider);
       if (sceneManager.isUnityInitialized) {
@@ -94,17 +76,17 @@ class _OtherUserProfileScreenState
 
   Future<void> _loadAnchors() async {
     if (_pieces == null) return;
-    
+
     final pieceRepository = ref.read(pieceRepositoryProvider);
     final anchors = <AnchorModel>[];
-    
+
     for (final piece in _pieces!.where((p) => p.liveStatus)) {
       final result = await pieceRepository.getAnchorByPieceId(piece.pieceid);
       if (result.error == null && result.data != null) {
         anchors.add(result.data!);
       }
     }
-    
+
     if (mounted) {
       setState(() {
         _anchors = anchors;
@@ -126,12 +108,12 @@ class _OtherUserProfileScreenState
           _pieces = (response.data!['pieces'] as List)
               .map((piece) => Piece.fromJson(piece))
               .toList();
-          
+
           // Initialize empty anchors list
           _anchors = [];
           _isSubscribed = response.data!['isSubscribed'] ?? false;
           _isLoading = false;
-          
+
           // Fetch anchors for live pieces
           _loadAnchors();
         });
@@ -218,7 +200,7 @@ class _OtherUserProfileScreenState
               ),
               const SizedBox(height: 16),
               ElevatedButton(
-                onPressed: _navigateBackToHome, 
+                onPressed: _navigateBackToHome,
                 child: const Text('Go Back'),
               ),
             ],
@@ -278,11 +260,11 @@ class _OtherUserProfileScreenState
           children: [
             Icon(Icons.location_off, size: 64, color: Colors.grey),
             SizedBox(height: 16),
-            Text('No live pieces placed on map', 
-                 style: TextStyle(fontSize: 18, color: Colors.grey)),
+            Text('No live pieces placed on map',
+                style: TextStyle(fontSize: 18, color: Colors.grey)),
             SizedBox(height: 8),
             Text('This user hasn\'t placed any pieces yet',
-                 style: TextStyle(color: Colors.grey)),
+                style: TextStyle(color: Colors.grey)),
           ],
         ),
       );
@@ -290,21 +272,19 @@ class _OtherUserProfileScreenState
 
     Set<Marker> markers = {};
     Set<Circle> circles = {}; // NEW: Add circles for hidden pieces
-    
+
     // Add piece markers with hidden piece filtering
     for (final anchor in _anchors!) {
       final piece = _pieces!.firstWhere((p) => p.pieceid == anchor.pieceId);
-      
+
       // Skip completely hidden pieces (isHidden = true, showRadius = 0)
       // For other hidden pieces, show according to the radius rules
       final isHidden = piece.isHidden;
       final showRadius = piece.showRadius;
-      
+
       final position = LatLng(
-        anchor.location.coordinates[1], 
-        anchor.location.coordinates[0]
-      );
-      
+          anchor.location.coordinates[1], anchor.location.coordinates[0]);
+
       if (isHidden && showRadius > 0) {
         // Hidden piece with radius > 0: show as circle for non-owners
         circles.add(
@@ -327,16 +307,14 @@ class _OtherUserProfileScreenState
           Marker(
             markerId: MarkerId(anchor.anchorId),
             position: position,
-            infoWindow: InfoWindow(
-              title: piece.pieceTitle, 
-              snippet: 'Tap to view'
-            ),
+            infoWindow:
+                InfoWindow(title: piece.pieceTitle, snippet: 'Tap to view'),
             onTap: () => _showPiecePreview(context, piece),
           ),
         );
       }
     }
-    
+
     // Add user location
     if (_currentUserLocation != null) {
       markers.add(Marker(
@@ -347,8 +325,9 @@ class _OtherUserProfileScreenState
       ));
     }
 
-    final initialPosition = _currentUserLocation ?? 
-        LatLng(_anchors!.first.location.coordinates[1], _anchors!.first.location.coordinates[0]);
+    final initialPosition = _currentUserLocation ??
+        LatLng(_anchors!.first.location.coordinates[1],
+            _anchors!.first.location.coordinates[0]);
 
     return GoogleMap(
       initialCameraPosition: CameraPosition(target: initialPosition, zoom: 15),
@@ -375,22 +354,22 @@ class _OtherUserProfileScreenState
     for (final marker in markers) {
       if (marker.position.latitude < minLat) minLat = marker.position.latitude;
       if (marker.position.latitude > maxLat) maxLat = marker.position.latitude;
-      if (marker.position.longitude < minLng) minLng = marker.position.longitude;
-      if (marker.position.longitude > maxLng) maxLng = marker.position.longitude;
+      if (marker.position.longitude < minLng)
+        minLng = marker.position.longitude;
+      if (marker.position.longitude > maxLng)
+        maxLng = marker.position.longitude;
     }
 
     final controller = await _mapController.future;
     controller.animateCamera(CameraUpdate.newLatLngBounds(
-      LatLngBounds(southwest: LatLng(minLat, minLng), northeast: LatLng(maxLat, maxLng)),
+      LatLngBounds(
+          southwest: LatLng(minLat, minLng), northeast: LatLng(maxLat, maxLng)),
       50,
     ));
   }
 
-
-
   Widget _buildProfileInfoRow(
       BuildContext context, UserProfileModel userProfile) {
-
     return Padding(
       padding: const EdgeInsets.all(16.0),
       child: Row(
@@ -472,7 +451,6 @@ class _OtherUserProfileScreenState
 
   Future<void> _toggleSubscription(String username) async {
     final subscriptionsNotifier = ref.read(subscriptionsProvider.notifier);
-    final messageNotifier = ref.read(messageProvider.notifier);
     bool success;
 
     setState(() {
@@ -507,8 +485,8 @@ class _OtherUserProfileScreenState
       _isSubscribeButtonLoading = false;
     });
 
-    if (success) {
-      messageNotifier.setInfo(
+    if (success && mounted) {
+      context.showInfo(
         _isSubscribed
             ? 'Subscribed to $username'
             : 'Unsubscribed from $username',
@@ -560,8 +538,8 @@ class _OtherUserProfileScreenState
     );
   }
 
- 
-  Widget _buildGalleryView(BuildContext context, WidgetRef ref, List<Piece> pieces) {
+  Widget _buildGalleryView(
+      BuildContext context, WidgetRef ref, List<Piece> pieces) {
     if (_isLoading) {
       return const Center(child: CircularProgressIndicator());
     }
@@ -574,7 +552,8 @@ class _OtherUserProfileScreenState
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.photo_library_outlined, size: 64, color: Colors.grey[400]),
+            Icon(Icons.photo_library_outlined,
+                size: 64, color: Colors.grey[400]),
             const SizedBox(height: 16),
             Text(
               'No pieces to display',
@@ -598,7 +577,8 @@ class _OtherUserProfileScreenState
       ),
       itemCount: visiblePieces.length,
       itemBuilder: (context, index) {
-        return _buildPieceItem(context, ref, visiblePieces[index]); // Fixed: pass all three parameters
+        return _buildPieceItem(context, ref,
+            visiblePieces[index]); // Fixed: pass all three parameters
       },
     );
   }
@@ -688,7 +668,7 @@ class _OtherUserProfileScreenState
             // Refresh the profile data when a piece is updated
             _loadProfileData();
           },
-          isReadOnly: true,  
+          isReadOnly: true,
         );
       },
     );

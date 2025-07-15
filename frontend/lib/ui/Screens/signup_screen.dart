@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:frames_app/Providers/signup_form_notifier.dart';
-import 'package:frames_app/providers/error_provider.dart';
+import 'package:frames_app/core/mixins/message_mixin.dart';
 import 'package:frames_app/providers/user_provider.dart';
 import 'package:frames_app/ui/Screens/authentication_screen.dart';
 import 'package:frames_app/ui/Widgets/country_picker_tile.dart';
@@ -14,7 +14,7 @@ class SignUpScreen extends ConsumerStatefulWidget {
   _SignUpScreenState createState() => _SignUpScreenState();
 }
 
-class _SignUpScreenState extends ConsumerState<SignUpScreen> {
+class _SignUpScreenState extends ConsumerState<SignUpScreen> with MessageMixin {
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
   final TextEditingController _usernameController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
@@ -37,15 +37,13 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
     if (_formKey.currentState?.validate() ?? false) {
       // Check country selection
       if (_selectedCountry == null || _selectedCountry!.isEmpty) {
-        ref.read(errorProvider.notifier).setError('Please select a country');
+        showError('Please select a country');
         return;
       }
 
       // Check DOB selection
       if (_dobController.text.isEmpty) {
-        ref
-            .read(errorProvider.notifier)
-            .setError('Please select your date of birth');
+        showError('Please select your date of birth');
         return;
       }
 

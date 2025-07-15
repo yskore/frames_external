@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:frames_app/providers/error_provider.dart';
+import 'package:frames_app/core/cubits/message_cubit.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class MapService {
@@ -27,9 +28,7 @@ class MapService {
 
       // Report failure
       if (ref != null) {
-        ref
-            .read(errorProvider.notifier)
-            .setError('Could not launch navigation');
+        context?.read<MessageCubit>().setError('Could not launch navigation');
       } else if (context != null) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Could not launch navigation')),
@@ -39,8 +38,8 @@ class MapService {
     } catch (e) {
       // Handle any exceptions
       if (ref != null) {
-        ref
-            .read(errorProvider.notifier)
+        context
+            ?.read<MessageCubit>()
             .setError('Error launching navigation: $e');
       } else if (context != null) {
         ScaffoldMessenger.of(context).showSnackBar(
