@@ -50,7 +50,20 @@ exports.flagPiece = async (req, res) => {
 
         await newFlag.save({ session });
 
-        // Send notification to piece owner about the flag
+       
+        // Count total flags of this type for the piece
+        const flagCount = await Flag.countDocuments({ 
+            Piece_id: pieceId, 
+            Flag_type: flagType 
+        }).session(session);
+        console.log(`[FLAG DEBUG] Piece ${pieceId} - Flag type ${flagType} count: ${flagCount}`);
+
+        // Check if threshold reached (3 flags)
+        if (flagCount >= 3) {
+            console.log(`[FLAG DEBUG] Threshold reached for piece ${pieceId}, flagType: ${flagType}, count: ${flagCount}`);
+            await this.handleFlagThresholdReached(piece, flagType, session);
+        } else {
+             // Send notification to piece owner about the flag
         sendFlagNotification({
             userId: piece.Piece_owner,
             notificationType: flagType === 'IN' ? 'piece_flagged_inappropriate' : 'piece_flagged_piracy',
@@ -65,18 +78,6 @@ exports.flagPiece = async (req, res) => {
             priority: 'normal'
         }).catch(err => console.error('Error sending flag notification:', err));
 
-        // Count total flags of this type for the piece
-        const flagCount = await Flag.countDocuments({ 
-            Piece_id: pieceId, 
-            Flag_type: flagType 
-        }).session(session);
-        console.log(`[FLAG DEBUG] Piece ${pieceId} - Flag type ${flagType} count: ${flagCount}`);
-
-        // Check if threshold reached (3 flags)
-        if (flagCount >= 3) {
-            console.log(`[FLAG DEBUG] Threshold reached for piece ${pieceId}, flagType: ${flagType}, count: ${flagCount}`);
-            await this.handleFlagThresholdReached(piece, flagType, session);
-        } else {
             console.log(`[FLAG DEBUG] Threshold not reached for piece ${pieceId}, flagType: ${flagType}, count: ${flagCount}/3`);
         }
 
